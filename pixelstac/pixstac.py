@@ -47,7 +47,7 @@ STDDEV = 'stddev'
 def query(
     endpoint, points, buffer, sp_ref, tdelta, raster_assets,
     nearest_n=None, item_properties=None, stats=[RAW], ignore_val=None,
-    preproc=None, preproc_args=[], preproc_kwargs={}):
+    stats_funcs=None):
     """
     Given a STAC endpoint, set of X-Y-Time points, spatial buffer,
     and a temporal buffer (tdelta) return the n nearest-in-time zonal
@@ -65,13 +65,40 @@ def query(
     about the point for the specifified raster assets for the list of Items.
     
     Finally, calculate a set of statistics for the pixels within each STRegion.
-    RAW means return the raw pixels.
+    stats_funcs defines the functions that are used to calculate the stats.
+    The functions must take an array as their only argument. Users can use
+    functools.partial to supply other required data.
+
+    For example::
+
+      my_func = functools.partial(func_that_takes_an_array,
+        func_otherarg1=value, func_otherarg2=value) 
+      results = pixstac.query(
+        "https://earth-search.aws.element84.com/v0",
+        points, 50, 3577, datetime.timedelta(days=8),
+        asset_ids, item_properties=item_props,
+        stats=["MY_STAT", pixstac.RAW], ignore_val=[0,0,0],
+        stats_funcs=[(my_func)])
+
+    The 'names' of the statistics are provided in the stats argument. There
+    must be one name for every stats_func. These names are used to retrieve the
+    values in the returned PixStats objects. Stats may have an additional
+    name of pixstac.RAW, in which case the raw arrays are also returned.
+    For example::
+
+      for stats_set in results:
+        for pix_stats in stats_set:
+          my_stat = pix_stats.stats["MY_STAT"]
+          raw_arr = pix_stats.stats[pixstac.RAW]
 
     sp_ref defines the osr.SpatialReference of every point.
-    Time is assumed to be local to the X, Y location.
+    Time is a datetime.datetime object. It may be timezone aware or unaware,
+    in which case they are handled as per the pystac_client.Client.search
+    interface. See:
+    https://pystac-client.readthedocs.io/en/stable/api.html
     
     endpoint is passed to pystac_client.Client.Open.
-    properties are passed through to the pystac-client's search method:
+    properties are passed through to pystac_client.Client.search
     https://pystac-client.readthedocs.io/en/stable/api.html
 
     ignore_val is the list of null values for each raster asset (or specify one
