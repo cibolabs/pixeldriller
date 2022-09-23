@@ -22,7 +22,7 @@ results = pixstac.query(
     "https://earth-search.aws.element84.com/v0",
     points, 50, 3577, datetime.timedelta(days=8),
     asset_ids, item_properties=item_props,
-    stats=["MY_STAT", pixstac.RAW], ignore_val=[0,0,0],
+    stats=["MY_STAT", pixstac.MEAN, pixstac.RAW], ignore_val=[0,0,0],
     stats_funcs=[(my_func)])
 
 # There is a set of statistics for each point. The size of the set
@@ -32,4 +32,5 @@ for stats_set in results:
         pix_stats.item # Name of STAC Item
         pix_stats.urls # URLs to each raster asset in asset_ids ( ["B02", "B03", "B04"] ) - do we need this?
         pix_stats.stats["MY_STAT"] # array (shape as defined by return value of my_func)
+        pix_stats.stats[pixstac.MEAN] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )
         pix_stats.stats[pixstac.RAW] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )

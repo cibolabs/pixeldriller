@@ -77,19 +77,25 @@ def query(
         "https://earth-search.aws.element84.com/v0",
         points, 50, 3577, datetime.timedelta(days=8),
         asset_ids, item_properties=item_props,
-        stats=["MY_STAT", pixstac.RAW], ignore_val=[0,0,0],
+        stats=["MY_STAT", pixstac.MEAN, pixstac.RAW], ignore_val=[0,0,0],
         stats_funcs=[(my_func)])
 
     The 'names' of the statistics are provided in the stats argument. There
-    must be one name for every stats_func. These names are used to retrieve the
-    values in the returned PixStats objects. Stats may have an additional
-    name of pixstac.RAW, in which case the raw arrays are also returned.
+    must be at least one for every stats_func. There can be additional for
+    standard statistics like pixstat.MEAN, pixstat.STDDEV, and pixstat.RAW 
+    (These are special reserved names).
+    The names are used to retrieve the values in the returned PixStats objects.
+    
     For example::
 
       for stats_set in results:
         for pix_stats in stats_set:
           my_stat = pix_stats.stats["MY_STAT"]
+          mean = pix_stats.stats[pixstac.MEAN]
           raw_arr = pix_stats.stats[pixstac.RAW]
+
+    The name pixstac.RAW, if used will provide the raw pixels in the region
+    of interest in the returned PixStats objects.
 
     sp_ref defines the osr.SpatialReference of every point.
     Time is a datetime.datetime object. It may be timezone aware or unaware,
