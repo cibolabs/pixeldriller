@@ -116,13 +116,6 @@ def query(
       - excluding pixels within the raw arrays from the stats calculations,
         those both within and outside the ROI
     
-    If a preproc function is given, then call this function for every array
-    before calculating the statistics. The given function must return an
-    array. The stats will be calculated on the returned array. The function
-    signature must be::
-
-        def preproc_func(arr, asset_id)
-    
     """
     pass
 
