@@ -3,7 +3,7 @@
 import datetime
 from osgeo import osr
 
-from pixelstac import pixstac
+from pixelstac import pixelstac
 
 points = []
 points.append((
@@ -18,7 +18,7 @@ item_props = [
 asset_ids = ["B02", "B03", "B04"]
 my_func = functools.partial(func_that_takes_an_array,
     func_otherarg1=value, func_otherarg2=value) 
-results = pixstac.query(
+results = pixelstac.query(
     "https://earth-search.aws.element84.com/v0",
     points, 50, 3577, datetime.timedelta(days=8),
     asset_ids, item_properties=item_props,
@@ -32,5 +32,5 @@ for stats_set in results:
         pix_stats.item # Name of STAC Item
         pix_stats.urls # URLs to each raster asset in asset_ids ( ["B02", "B03", "B04"] ) - do we need this?
         pix_stats.stats["MY_STAT"] # array (shape as defined by return value of my_func)
-        pix_stats.stats[pixstac.MEAN] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )
-        pix_stats.stats[pixstac.RAW] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )
+        pix_stats.stats[pixelstac.MEAN] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )
+        pix_stats.stats[pixelstac.RAW] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )
