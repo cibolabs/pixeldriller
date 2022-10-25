@@ -49,30 +49,20 @@ import datetime
 
 from pystac_client import Client
 from osgeo import gdal
+from osgeo import osr
 
-# TODO: expand the set of stats
-RAW = 'raw'
-MEAN = 'mean'
-STDDEV = 'stddev'
-
-class Coord:
-    """
-    A class that contains x, y information about a coordinate and
-    its spatial reference system.
-
-    """
-    def __init__(self, x, y, sp_ref):
-        self.
+from . import pointstats
 
 def query(
-    endpoint, points, buffer, sp_ref, raster_assets,
-    t_delta=datetime.timedelta(days=1),
-    nearest_n=1, item_properties=None, stats=[RAW], ignore_val=None,
-    stats_funcs=None):
+    stac_endpoint, points, buffer, raster_assets, ref_asset=None,
+    nearest_n=1, item_properties=None, std_stats=[pointstats.STATS_RAW],
+    user_stats=None, ignore_val=None):
     """
-    Given a STAC endpoint, set of X-Y-Time points, spatial buffer,
-    and a temporal buffer (tdelta) return the n nearest-in-time zonal
-    stats for all of the specified raster assets.
+    Given a STAC endpoint and a list of pixelstac.Point objects,
+    compute the zonal statistics for all raster assets for
+    the n nearest-in-time STAC items for every point.
+
+    Return a list of pointstats.PointStats objects.
 
     Proceed as follows...
 
@@ -83,12 +73,25 @@ def query(
     Restrict the number of Items for each point to up to the nearest_n in time.
     
     Then, for each point, extract the pixels within the region of interest
-    about the point for the specifified raster assets for the list of Items.
+    about the point (defined by the buffer) for the specifified raster assets
+    for the list of Items.
     
-    Finally, calculate a set of statistics for the pixels within each STRegion.
-    stats_funcs defines the functions that are used to calculate the stats.
-    The functions must take an array as their only argument. Users can use
-    functools.partial to supply other required data.
+    Finally, calculate a set of statistics for the pixels about each point.
+    There are two types of stats:
+    
+    1. std_stats is a list of standard stats supplied by the pointstats
+       module. Use the STATS_* attributes defined in pointstats. The result
+       is placed in the PointStats.stats dictionary, keyed by the STATS_*
+       attribute.
+        
+    2. user_stats is a list of (name, function) pairs. The function is used
+       to calculate a user-specified statistic. Its return value is placed in
+       the PointStats.stats dictionary, keyed by the given name.
+       A user-supplied function must take two arguments:
+       - a 3D numpy array, containing the pixels for the roi for an asset
+       - the asset ID
+       If a user stats function requires additional arguments, users should
+       use functools.partial to supply the required data.
 
     For example::
 
@@ -98,27 +101,30 @@ def query(
         "https://earth-search.aws.element84.com/v0",
         points, 50, 3577, datetime.timedelta(days=8),
         asset_ids, item_properties=item_props,
-        stats=["MY_STAT", pixstac.MEAN, pixstac.RAW], ignore_val=[0,0,0],
-        stats_funcs=[(my_func)])
+        stats=[pointstats.MEAN, pointstats.RAW], ignore_val=[0,0,0],
+        stats_funcs=[("my_func_name", my_func)])
 
-    The 'names' of the statistics are provided in the stats argument. There
-    must be at least one for every stats_func. There can be additional for
-    standard statistics like pixstat.MEAN, pixstat.STDDEV, and pixstat.RAW 
-    (These are special reserved names).
     The names are used to retrieve the values in the returned PixStats objects.
     
     For example::
 
       for stats_set in results:
         for pix_stats in stats_set:
-          my_stat = pix_stats.stats["MY_STAT"]
-          mean = pix_stats.stats[pixstac.MEAN]
-          raw_arr = pix_stats.stats[pixstac.RAW]
+          my_stat = pix_stats.stats["my_func_name"]
+          mean = pix_stats.stats[pointstats.MEAN]
+          raw_arr = pix_stats.stats[pointstats.RAW]
 
-    The name pixstac.RAW, if used will provide the raw pixels in the region
+    The name pointstats.RAW, if used will provide the raw pixels in the region
     of interest in the returned PixStats objects.
 
     sp_ref defines the osr.SpatialReference of every point.
+    
+    buffer is the distance around the point that defines the region of interest.
+    Its units (e.g. metre) are assumed to be the same as the units of the
+    coordinate reference system of the given reference asset (ref_asset).
+    It is the caller's responsibility to know what these are.
+    If ref_asset is not given, it defaults to the first item in raster_assets.
+    
     Time (in the X-Y-Time point) is a datetime.datetime object.
     It may be timezone aware or unaware,
     in which case they are handled as per the pystac_client.Client.search
@@ -139,94 +145,129 @@ def query(
         those both within and outside the ROI
     
     """
-    # TODO: Create a bounding box around EVERY point and convert its extents to
-    # WGS84 to pass to find_stac_items.
-    #wkt = "POINT ({} {})".format(x, y)
-    #pt = ogr.CreateGeometryFromWkt(wkt)
-    #poly = pt.Buffer(bufferDistance)
-    #xmin, xmax, ymin, ymax = poly.GetEnvelope()
-    # TODO: work out if xmin, xmax, ymin, ymax are ulx, uly, lrx, and lry
-    # TODO: transform the points to WGS84
-    # TODO: determine if I have to pass x,y or y,x order
-    # ct = osr.CoordinateTransformation(sp_ref, EPSG:4326)
-    # wgs_ulx, wgs_uly = ct.TransformPoint(ulx, uly)
-    # TODO: and the same for wgs_lrx and wgs_lry
-    items = find_stac_items(
-        endpoint, points[0],
-        points[0][2]-t_delta, points[0][2]+t_delta)
-    # TODO: determine the nearest_n items
-    # TODO: Extract the pixel values for each asset in each item
-    for item in items:
-        for asset_id in raster_assets:
-            url = item.assets[asset_id].href
-            vsi_url = f"/vsicurl/{url}"
-            print(vsi_url)
-            ds = gdal.Open(vsi_url, gdal.GA_ReadOnly)
-            band = ds.GetRasterBand(1)
-            # TODO: Reads the CRS from the asset and transform the bounds
-            # to the same CRS. Using osr.SpatialReference.ImportFromWKT?
-            # ct = osr.CoordinateTransformation(sp_ref, asset_ref)
-            # ass_ulx, ass_ulx = ct.TransformPoint(ulx, uly)
-            # TODO: and the same for ass_lrx and ass_lry
-            # TODO: Convert the bounds to image-coordinates and determine
-            # the window size.
-            # img_ulx, img_uly = wld2pix(ass_ulx, ass_uly) # these are xoff and yoff
-            # img_lrx, img_lry = wld2pix(ass_lrx, ass_lry)
-            # TODO: win-size must span the top left corner of the top left pixel
-            # to the bottom right corner of the bottom right pixel for all 
-            # pixels touched by the bounding box.
-            # win_xsize = abs(img_lrx - img_ulx) # TODO: Do I need abs? Does this work for all cases? i.e. what assumptions am I making about the properties of the asset's sp_ref.
-            # win_ysize = abs(img_lry - img_lrx) # TODO: Do I need abs? Does this work for all cases? i.e. what assumptions am I making about the properties of the asset's sp_ref.
-            pixels = band.ReadArray(xoff=img_ulx, yoff=img_uly, win_xsize=win_xsize, win_ysize=win_ysize)
-            # TODO: mask the pixels to the bounds of the AOI
-            # In the following example we work in the asset's sp_ref
-            #from tuiview import vectorrasterizer
-            #boundingBox = [xmin, ymax, xmax, ymin]
-            #mask = vectorrasterizer.rasterizeGeometry(poly, boundingBox, xsize, ysize, 0, True)  # filled but no outline
-            #mask = mask == 1 # convert to bool
-            # TODO: check if the input asset has an ignore value set, either in the returned stac properties or the image itself
-            # pixels[mask] = ignore_val
-            # TODO: stash the pixels in a PixStats object as RAW.
-            # TODO: calc additional stats and stash results in PixStats object.
-            # TODO: call the user-specified stats_funcs and stash results in PixStats object.
-            # Close the dataset
-            ds = None
-
-#    print(items[0].assets[])
+    # TODO: Implement masking of array with ignore_val.
+    if not ref_asset:
+        ref_asset = raster_assets[0]
+    results = []
+    for point in points:
+        items = stac_search(stac_endpoint, point)
+        # TODO: Choose the n nearest-in-time items.
+        # TODO: what do we do if the ref_asset has no spatial reference defined?
+        point.make_roi(buffer, items[0], ref_asset)
+        pstats = pointstats.PointStats(point, items, raster_assets)
+        results.append(pstats)
+    return results
 
 
-def find_stac_items(endpoint, point, start_date, end_date):
+class Point:
     """
-    Find the stac items for the X-Y-Time point.
+    A structure for an X-Y-Time point with a corresponding 
+    osr.SpatialReference system. A point is characterised by:
+    - a location in space and time
+    - a spatial buffer
+    - a temporal buffer
+    
+    These attributes are set at construction time:
+    - x: the point's x-coordinate
+    - y: the point's y-coordinate
+    - t: the point's datetime.datetime time
+    - x_y: the point's (x, y) location
+    - sp_ref: the osr.SpatialReference of (x, y)
+    - wgs84_x: the point's x location in WGS84 coordinates
+    - wgs84_y: the point's y location in WGS84 coordinates
+    - start_date: the datetime.datetime start date of the temporal buffer
+    - end_date: the datetime.datetime end date of the temporal buffer
 
-    Time is a datetime.datetime object.
-
-
-
-    Search https://earth-search.aws.element84.com/v0, in the
-    sentinel-s2-l2a-cogs collection, for items for the given
-    tile and dates.
-
-    The tile is specified as a sentinel-2 tile ID, e.g. 49JFM.
-    The earliest and latest dates are in ISO date format (YYYY-MM-DD).
-    Return a list of pystac.Item instances.
-
-    Read https://element84.com/earth-search/ for more on the search API.
+    These attributes are set on calling make_roi
+    - roi: the point's spatial buffer (region of interest)
 
     """
-    api = Client.open(endpoint) # TODO: pass the api through to this function.
+    def __init__(self, point, sp_ref, t_delta):
+        """
+        Point constructor.
+
+        Takes a (X, Y, Time) point and the osr.SpatialReference object
+        defining the coordinate reference system of the point.
+
+        Time is a datetime.datetime object.
+
+        Also takes the datetime.timedelta object, which defines the 
+        temporal buffer either side of the given Time.
+
+        """
+        self.x = point[0]
+        self.y = point[1]
+        self.t = point[2]
+        self.x_y = (self.x, self.y)
+        self.sp_ref = sp_ref
+        self.wgs84_x, self.wgs84_y = self.to_wgs84()
+        self.start_date = self.t - t_delta
+        self.end_date = self.t + t_delta
+
+
+    def to_wgs84(self):
+        """
+        Return the x, y coordinates of this Point in the WGS84 coordinate
+        reference system.
+        Convert the given points (list of x, y tuples) from the source
+        spatial reference system to WGS84 (EPSG:4326).
+
+        Return a list of x, y (longitude, latitude) tuples.
+
+        Use transform_points to do the transformation.
+
+        """
+        dst_srs = osr.SpatialReference()
+        dst_srs.ImportFromEPSG(4326)
+        return transform_point(self.x, self.y, self.sp_ref, dst_srs)
+
+    
+    def make_roi(self, buffer, item, ref_asset):
+        """
+        Construct the region of interest in the same coordinate
+        reference system as the reference asset of the given pystac.item.Item.
+    
+        buffer is the distance either side of the point that defines the roi,
+        which in this case is a square. The unit of measure of buffer
+        (e.g. metre) must be the same as the unit of measure of the coordinate
+        reference system of the reference asset; it is the caller's
+        responsibility to know the unit.
+    
+        """
+        # self.x_y is the centre of the point and has a coordinate
+        # reference system of self.sp_ref.
+        # Example, although I think this creates a circle not a square
+        # which do we want?
+        #pt = ogr.CreateGeometryFromWkt(wkt)
+        #poly = pt.Buffer(bufferDistance)
+        #xmin, xmax, ymin, ymax = poly.GetEnvelope()
+        pass
+
+
+def stac_search(stac_endpoint, point, collections=None):#start_date, end_date, collections=None):
+    """
+    Search the list of collections in the STAC endpoint for items that
+    intersect the x, y coordinate of the point and are within the point's
+    temporal search window.
+    
+    If no collections are specified then search all collections in the endpoint.
+
+    Return a list of pystac.item.Item objects.
+
+    TODO: permit user-defined properties for filtering the stac search.
+
+    """
+    api = Client.open(stac_endpoint)
     # Properties to filter by. These are part of the STAC API's query extension:
     # https://github.com/radiantearth/stac-api-spec/tree/master/fragments/query
     # We would add eo:cloud_cover here if we wanted to exclude very cloudy scenes.
     # Properties can be determined by examining the 'properties' attribute
     # of an item in the collection.
     # e.g. curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2B_53HPV_20220728_0_L2A | jq | less
-    import json
     point_json = {
         "type": "Point",
-        "coordinates": [point[0], point[1]] }
-    collections = ['sentinel-s2-l2a-cogs'] # Optional argument to pass in, otherwise search everything at the given /search endpoint.
-    # TODO: permit user-defined properties.
+        "coordinates": [point.wgs84_x, point.wgs84_y] }
+    # TODO: permit user-defined properties. For example:
 #    tile = '54JVR'
 #    zone = tile[:2]
 #    lat_band = tile[2]
@@ -242,55 +283,33 @@ def find_stac_items(endpoint, point, start_date, end_date):
     search = api.search(
         collections=collections,
         max_items=None, # no limit on number of items to return
-#        bbox=bbox,
         intersects=point_json,
         limit=500, # results per page
-        datetime=[start_date, end_date],
+        datetime=[point.start_date, point.end_date],
         query=properties)
-    print(type(search))
     results = list(search.items())
-#    print(type(results))
-    print(len(results))
-#    print(dir(results[0]))
     return results
 
 
-def wld2pix(transform, geox, geoy):
-    """converts a set of map coords to pixel coords"""
-    x = (transform[0] * transform[5] - 
-        transform[2] * transform[3] + transform[2] * geoy - 
-        transform[5] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
-    y = (transform[1] * transform[3] - transform[0] * transform[4] -
-        transform[1] * geoy + transform[4] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
-    return (x, y)
-
-
-#def pix2wld(transform, x, y):
-#    """converts a set of pixels coords to map coords"""
-#    geox = transform[0] + transform[1] * x + transform[2] * y
-#    geoy = transform[3] + transform[4] * x + transform[5] * y
-#
-#    return (geox, geoy)
-
-
-class PixStats:
+def transform_point(x, y, src_srs, dst_srs):
     """
-    If pixstac.py gets too cumbersome, we can move this PixStats class,
-    and the functions that do the stats calcs, into a separate module.
-    I suggest it be called pixstats.py.
+    Transform the (x, y) point from the source
+    osr.SpatialReference to the destination osr.SpatialReference.
 
-    Stores the zonal statistics for each Item (image) about a point.
+    Return the transformed (x, y) point.
 
-    Has the following attributes:
-    - item: the name or identifier of the STAC item
-    - urls: the URL to each raster asset in the item
-    - stats: a dictionary, that stores the raw pixels or zonal stats
-      For example, given a pix_stats object,
-      pix_stats.stats[pixstac.MEAN] is a 1D array with the mean value of
-      the pixels in the region of interest for each asset, and
-      pix_stats.stats[pixstac.RAW] is a 3D array with the raw pixel values
-      in the region of interest for each asset.
+    Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
+    to guarantee x, y point ordering of the input and output points.
 
     """
-    pass
-
+    src_map_strat = src_srs.GetAxisMappingStrategy()
+    dst_map_strat = dst_srs.GetAxisMappingStrategy()
+    src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    dst_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    # TODO: handle problems that may arise. See:
+    # https://gdal.org/tutorials/osr_api_tut.html#coordinate-transformation
+    ct = osr.CoordinateTransformation(src_srs, dst_srs)
+    tr = ct.TransformPoint(x, y)
+    src_srs.SetAxisMappingStrategy(src_map_strat)
+    dst_srs.SetAxisMappingStrategy(dst_map_strat)
+    return (tr[0], tr[1])

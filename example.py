@@ -4,33 +4,68 @@ import datetime
 from osgeo import osr
 
 from pixelstac import pixelstac
+from pixelstac import pointstats
 
-points = []
-points.append((
-    1547384, -3610378, datetime.datetime(2022, 9, 19, 11, 30, 0)))
-points.append(...)    
-...
+def my_func(list_of_asset_arrays):
+    """
+    A user-defined function for calculating zonal statistics. It takes a
+    list of 3D arrays. Each 3D array is the raster data for an asset of
+    a STAC Item, within the region of interest of a Point.
+    len(list_of_asset_arrays)==len(asset_ids). The order of the arrays
+    matches the order of the asset_ids.
 
+    The return value can be anything.
+
+    """
+    pass
+
+
+time_zone = datetime.timezone(datetime.timedelta(hours=10))
+date = datetime.datetime(2022, 7, 28, tzinfo=time_zone)
+t_delta = datetime.timedelta(days=3)
+sp_ref_1 = osr.SpatialReference()
+sp_ref_1.ImportFromEPSG(3577)
+x_1 = 0
+y_1 = -1123600
+sp_ref_2 = osr.SpatialReference()
+sp_ref_2.ImportFromEPSG(4326)
+x_2 = 140
+y_2 = -36.5
+p1 = pixelstac.Point((x_1, y_1, date), sp_ref_1, t_delta)
+p2 = pixelstac.Point((x_2, y_2, date), sp_ref_2, t_delta)
+points = [p1, p2]
+
+# Tile 54JVR
+zone = 54
+lat_band = 'J'
+grid_sq = 'VR'
 item_props = [
         f'sentinel:utm_zone={zone}',
         f'sentinel:latitude_band={lat_band}',
         f'sentinel:grid_square={grid_sq}']
+buffer = 50
 asset_ids = ["B02", "B03", "B04"]
-my_func = functools.partial(func_that_takes_an_array,
-    func_otherarg1=value, func_otherarg2=value) 
 results = pixelstac.query(
     "https://earth-search.aws.element84.com/v0",
-    points, 50, 3577, datetime.timedelta(days=8),
-    asset_ids, item_properties=item_props,
-    stats=["MY_STAT", pixstac.MEAN, pixstac.RAW], ignore_val=[0,0,0],
-    stats_funcs=[(my_func)])
+    points, buffer, asset_ids, item_properties=item_props,
+    std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN],
+    user_stats=[("MY_STAT", my_func)])
 
 # There is a set of statistics for each point. The size of the set
 # is the number of STAC items (images) returned from the query for the point.
-for stats_set in results:
-    for pix_stats in stats_set:
-        pix_stats.item # Name of STAC Item
-        pix_stats.urls # URLs to each raster asset in asset_ids ( ["B02", "B03", "B04"] ) - do we need this?
-        pix_stats.stats["MY_STAT"] # array (shape as defined by return value of my_func)
-        pix_stats.stats[pixelstac.MEAN] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )
-        pix_stats.stats[pixelstac.RAW] # 3D array, with raw pixels in the ROI for asset_ids ( ["B02", "B03", "B04"] )
+for point_stats in results:
+    point_stats.asset_ids # The list of assets passed to pixelstac.query
+    for item_stats in point_stats:
+        item_stats.item # The pystac.item.Item
+        item_stats.item.assets['B02'].href # The url to the item's B02 asset.
+        # A list of URLs to all of the item's assets of interest
+        urls = [item_stats.item.assets[a_id].href for \
+                a_id in point_stats.asset_ids]
+        # The data type of MY_STAT is defined by the return value of my_func
+        item_stats.stats["MY_STAT"] # array (shape as defined by return value of my_func)
+        # If all assets are single-layer rasters, then this is a 3D array
+        # with shape=(len(asset_ids, nrows, ncols)). If not, then... TBD.
+        item_stats.stats[pointstats.STATS_RAW]
+        # If all assets are single-layer rasters, then this is a 1D array with
+        # the mean pixel value for each asset. If not, then... TBD.
+        item_stats.stats[pointstats.STATS_MEAN]
