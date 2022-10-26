@@ -54,9 +54,9 @@ from osgeo import osr
 from . import pointstats
 
 def query(
-    stac_endpoint, points, buffer, raster_assets, ref_asset=None,
-    nearest_n=1, item_properties=None, std_stats=[pointstats.STATS_RAW],
-    user_stats=None, ignore_val=None):
+    stac_endpoint, points, buffer, shape, raster_assets, ref_asset=None,
+    collections=None, nearest_n=1, item_properties=None,
+    std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None):
     """
     Given a STAC endpoint and a list of pixelstac.Point objects,
     compute the zonal statistics for all raster assets for
@@ -73,7 +73,8 @@ def query(
     Restrict the number of Items for each point to up to the nearest_n in time.
     
     Then, for each point, extract the pixels within the region of interest
-    about the point (defined by the buffer) for the specifified raster assets
+    about the point (defined by the buffer and shape, where shape is one of
+    the point.ROI_SHP_ attributes) for the specifified raster assets
     for the list of Items.
     
     Finally, calculate a set of statistics for the pixels about each point.
@@ -99,7 +100,7 @@ def query(
         func_otherarg1=value, func_otherarg2=value) 
       results = pixstac.query(
         "https://earth-search.aws.element84.com/v0",
-        points, 50, 3577, datetime.timedelta(days=8),
+        points, 50, point.ROI_SHP_SQUARE, sp_ref, datetime.timedelta(days=8),
         asset_ids, item_properties=item_props,
         stats=[pointstats.MEAN, pointstats.RAW], ignore_val=[0,0,0],
         stats_funcs=[("my_func_name", my_func)])
@@ -149,102 +150,112 @@ def query(
     if not ref_asset:
         ref_asset = raster_assets[0]
     results = []
-    for point in points:
-        items = stac_search(stac_endpoint, point)
+    for pt in points:
+        items = stac_search(stac_endpoint, pt, collections)
         # TODO: Choose the n nearest-in-time items.
         # TODO: what do we do if the ref_asset has no spatial reference defined?
-        point.make_roi(buffer, items[0], ref_asset)
-        pstats = pointstats.PointStats(point, items, raster_assets)
+        pt.make_roi(buffer, shape, items[0], ref_asset)
+        pstats = pointstats.PointStats(pt, items, raster_assets)
         results.append(pstats)
     return results
 
 
-class Point:
-    """
-    A structure for an X-Y-Time point with a corresponding 
-    osr.SpatialReference system. A point is characterised by:
-    - a location in space and time
-    - a spatial buffer
-    - a temporal buffer
-    
-    These attributes are set at construction time:
-    - x: the point's x-coordinate
-    - y: the point's y-coordinate
-    - t: the point's datetime.datetime time
-    - x_y: the point's (x, y) location
-    - sp_ref: the osr.SpatialReference of (x, y)
-    - wgs84_x: the point's x location in WGS84 coordinates
-    - wgs84_y: the point's y location in WGS84 coordinates
-    - start_date: the datetime.datetime start date of the temporal buffer
-    - end_date: the datetime.datetime end date of the temporal buffer
+#class Point:
+#    """
+#    A structure for an X-Y-Time point with a corresponding 
+#    osr.SpatialReference system. A point is characterised by:
+#    - a location in space and time
+#    - a spatial buffer
+#    - a temporal buffer
+#    
+#    These attributes are set at construction time:
+#    - x: the point's x-coordinate
+#    - y: the point's y-coordinate
+#    - t: the point's datetime.datetime time
+#    - x_y: the point's (x, y) location
+#    - sp_ref: the osr.SpatialReference of (x, y)
+#    - wgs84_x: the point's x location in WGS84 coordinates
+#    - wgs84_y: the point's y location in WGS84 coordinates
+#    - start_date: the datetime.datetime start date of the temporal buffer
+#    - end_date: the datetime.datetime end date of the temporal buffer
+#
+#    These attributes are set on calling make_roi
+#    - roi: the point's spatial buffer (region of interest)
+#
+#    """
+#    def __init__(self, point, sp_ref, t_delta):
+#        """
+#        Point constructor.
+#
+#        Takes a (X, Y, Time) point and the osr.SpatialReference object
+#        defining the coordinate reference system of the point.
+#
+#        Time is a datetime.datetime object.
+#
+#        Also takes the datetime.timedelta object, which defines the 
+#        temporal buffer either side of the given Time.
+#
+#        """
+#        self.x = point[0]
+#        self.y = point[1]
+#        self.t = point[2]
+#        self.x_y = (self.x, self.y)
+#        self.sp_ref = sp_ref
+#        self.wgs84_x, self.wgs84_y = self.to_wgs84()
+#        self.start_date = self.t - t_delta
+#        self.end_date = self.t + t_delta
+#
+#
+#    def to_wgs84(self):
+#        """
+#        Return the x, y coordinates of this Point in the WGS84 coordinate
+#        reference system.
+#        Convert the given points (list of x, y tuples) from the source
+#        spatial reference system to WGS84 (EPSG:4326).
+#
+#        Return a list of x, y (longitude, latitude) tuples.
+#
+#        Use transform_points to do the transformation.
+#
+#        """
+#        dst_srs = osr.SpatialReference()
+#        dst_srs.ImportFromEPSG(4326)
+#        return transform_point(self.x, self.y, self.sp_ref, dst_srs)
+#
+#    
+#    def make_roi(self, buffer, item, ref_asset):
+#        """
+#        Construct the region of interest (ROI) in the same coordinate
+#        reference system as the reference asset of the given pystac.item.Item.
+#    
+#        buffer is the distance either side of the point that defines the roi,
+#        which in this case is a square. The unit of measure of buffer
+#        (e.g. metre) must be the same as the unit of measure of the coordinate
+#        reference system of the reference asset; it is the caller's
+#        responsibility to know the unit.
+#
+#        In general, a ROI is defined by its bounding box (coordinates of
+#        its upper left corner and its x and y dimensions) and its shape.
+#        The bounding box is used to extract the pixels from a region of
+#        a raster and the shape is used as a mask, ignoring pixels outside
+#        shape's boundary.
+#
+#        Two attributes are set on 
+#    
+#        """
+#        # self.x_y is the centre of the point and has a coordinate
+#        # reference system of self.sp_ref.
+#        # Example, although I think this creates a circle not a square
+#        # which do we want?
+#        #pt = ogr.CreateGeometryFromWkt(wkt)
+#        #poly = pt.Buffer(bufferDistance)
+#        #xmin, xmax, ymin, ymax = poly.GetEnvelope()
+#        self.roi_bbox = 
+#        self.roi_shape = ...
+#        pass
 
-    These attributes are set on calling make_roi
-    - roi: the point's spatial buffer (region of interest)
 
-    """
-    def __init__(self, point, sp_ref, t_delta):
-        """
-        Point constructor.
-
-        Takes a (X, Y, Time) point and the osr.SpatialReference object
-        defining the coordinate reference system of the point.
-
-        Time is a datetime.datetime object.
-
-        Also takes the datetime.timedelta object, which defines the 
-        temporal buffer either side of the given Time.
-
-        """
-        self.x = point[0]
-        self.y = point[1]
-        self.t = point[2]
-        self.x_y = (self.x, self.y)
-        self.sp_ref = sp_ref
-        self.wgs84_x, self.wgs84_y = self.to_wgs84()
-        self.start_date = self.t - t_delta
-        self.end_date = self.t + t_delta
-
-
-    def to_wgs84(self):
-        """
-        Return the x, y coordinates of this Point in the WGS84 coordinate
-        reference system.
-        Convert the given points (list of x, y tuples) from the source
-        spatial reference system to WGS84 (EPSG:4326).
-
-        Return a list of x, y (longitude, latitude) tuples.
-
-        Use transform_points to do the transformation.
-
-        """
-        dst_srs = osr.SpatialReference()
-        dst_srs.ImportFromEPSG(4326)
-        return transform_point(self.x, self.y, self.sp_ref, dst_srs)
-
-    
-    def make_roi(self, buffer, item, ref_asset):
-        """
-        Construct the region of interest in the same coordinate
-        reference system as the reference asset of the given pystac.item.Item.
-    
-        buffer is the distance either side of the point that defines the roi,
-        which in this case is a square. The unit of measure of buffer
-        (e.g. metre) must be the same as the unit of measure of the coordinate
-        reference system of the reference asset; it is the caller's
-        responsibility to know the unit.
-    
-        """
-        # self.x_y is the centre of the point and has a coordinate
-        # reference system of self.sp_ref.
-        # Example, although I think this creates a circle not a square
-        # which do we want?
-        #pt = ogr.CreateGeometryFromWkt(wkt)
-        #poly = pt.Buffer(bufferDistance)
-        #xmin, xmax, ymin, ymax = poly.GetEnvelope()
-        pass
-
-
-def stac_search(stac_endpoint, point, collections=None):#start_date, end_date, collections=None):
+def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collections=None):
     """
     Search the list of collections in the STAC endpoint for items that
     intersect the x, y coordinate of the point and are within the point's
@@ -264,9 +275,9 @@ def stac_search(stac_endpoint, point, collections=None):#start_date, end_date, c
     # Properties can be determined by examining the 'properties' attribute
     # of an item in the collection.
     # e.g. curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2B_53HPV_20220728_0_L2A | jq | less
-    point_json = {
+    pt_json = {
         "type": "Point",
-        "coordinates": [point.wgs84_x, point.wgs84_y] }
+        "coordinates": [pt.wgs84_x, pt.wgs84_y] }
     # TODO: permit user-defined properties. For example:
 #    tile = '54JVR'
 #    zone = tile[:2]
@@ -283,33 +294,33 @@ def stac_search(stac_endpoint, point, collections=None):#start_date, end_date, c
     search = api.search(
         collections=collections,
         max_items=None, # no limit on number of items to return
-        intersects=point_json,
+        intersects=pt_json,
         limit=500, # results per page
-        datetime=[point.start_date, point.end_date],
+        datetime=[pt.start_date, pt.end_date],
         query=properties)
     results = list(search.items())
     return results
 
 
-def transform_point(x, y, src_srs, dst_srs):
-    """
-    Transform the (x, y) point from the source
-    osr.SpatialReference to the destination osr.SpatialReference.
-
-    Return the transformed (x, y) point.
-
-    Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
-    to guarantee x, y point ordering of the input and output points.
-
-    """
-    src_map_strat = src_srs.GetAxisMappingStrategy()
-    dst_map_strat = dst_srs.GetAxisMappingStrategy()
-    src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-    dst_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-    # TODO: handle problems that may arise. See:
-    # https://gdal.org/tutorials/osr_api_tut.html#coordinate-transformation
-    ct = osr.CoordinateTransformation(src_srs, dst_srs)
-    tr = ct.TransformPoint(x, y)
-    src_srs.SetAxisMappingStrategy(src_map_strat)
-    dst_srs.SetAxisMappingStrategy(dst_map_strat)
-    return (tr[0], tr[1])
+#def transform_point(x, y, src_srs, dst_srs):
+#    """
+#    Transform the (x, y) point from the source
+#    osr.SpatialReference to the destination osr.SpatialReference.
+#
+#    Return the transformed (x, y) point.
+#
+#    Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
+#    to guarantee x, y point ordering of the input and output points.
+#
+#    """
+#    src_map_strat = src_srs.GetAxisMappingStrategy()
+#    dst_map_strat = dst_srs.GetAxisMappingStrategy()
+#    src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+#    dst_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+#    # TODO: handle problems that may arise. See:
+#    # https://gdal.org/tutorials/osr_api_tut.html#coordinate-transformation
+#    ct = osr.CoordinateTransformation(src_srs, dst_srs)
+#    tr = ct.TransformPoint(x, y)
+#    src_srs.SetAxisMappingStrategy(src_map_strat)
+#    dst_srs.SetAxisMappingStrategy(dst_map_strat)
+#    return (tr[0], tr[1])

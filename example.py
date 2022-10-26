@@ -5,6 +5,7 @@ from osgeo import osr
 
 from pixelstac import pixelstac
 from pixelstac import pointstats
+from pixelstac import point
 
 def my_func(list_of_asset_arrays):
     """
@@ -31,8 +32,8 @@ sp_ref_2 = osr.SpatialReference()
 sp_ref_2.ImportFromEPSG(4326)
 x_2 = 140
 y_2 = -36.5
-p1 = pixelstac.Point((x_1, y_1, date), sp_ref_1, t_delta)
-p2 = pixelstac.Point((x_2, y_2, date), sp_ref_2, t_delta)
+p1 = point.Point((x_1, y_1, date), sp_ref_1, t_delta)
+p2 = point.Point((x_2, y_2, date), sp_ref_2, t_delta)
 points = [p1, p2]
 
 # Tile 54JVR
