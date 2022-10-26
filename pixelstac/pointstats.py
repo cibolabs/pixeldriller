@@ -85,6 +85,10 @@ class ItemStats:
         self.item = item
         self.stats = {}
         self.calc_stats(point_stats)
+        # Determine the pixel coordinates and mask from the Point's ROI.
+        # The bounding box is used to extract the pixels from a region of
+        # a raster and the shape is used as a mask, ignoring pixels outside
+        # shape's boundary.
 
     
     def calc_stats(self, point_stats):
@@ -114,10 +118,11 @@ def std_stat_raw(asset_arrays):
     """
     The function used to calculate the zonal stats for STATS_RAW.
 
-    The return value depends on the shapes of the asset_arrays.
+    Can only be used if all assets are single-layer rasters.
 
-    If all assets are single-layer rasters, then return a 3D array
-    with shape=(len(asset_ids, nrows, ncols)). If not, then... TBD.
+    Return a 3D array with shape=(len(asset_ids, nrows, ncols)).
+
+    Raise a MultibandAssetError if at least one asset contains multiple bands.
 
     """
     pass
@@ -127,18 +132,16 @@ def std_stat_mean(asset_arrays):
     """
     The function used to calculate zonal stats for STATS_MEAN.
     It calculates the mean value for every layer in each array of asset_arrays.
+    
+    Can only be used if all assets are single-layer rasters.
 
-    The return value depends on the shapes of the asset_arrays.
-
-    If every array in asset_arrays contains only a single layer
-    (i.e. a.shape[0]==1), then return a 1D array containing the mean
-    value of the pixels for each asset.
-
-    However, if at least one of the asset_arrays contains more than
-    one layer, return something far more complex: TBD.
+    Return a 1D array containing the mean value of the pixels for each asset.
+    
+    Raise a MultibandAssetError if at least one asset contains multiple bands.
 
     """
     pass
+
 
 # The standard stats and their functions.
 STD_STATS_FUNCS = {
@@ -167,3 +170,7 @@ STD_STATS_FUNCS = {
 #    geoy = transform[3] + transform[4] * x + transform[5] * y
 #
 #    return (geox, geoy)
+
+class MultibandAssetError(Exception):
+    """Raised by the std stats functions when an asset has multiple bands."""
+    pass
