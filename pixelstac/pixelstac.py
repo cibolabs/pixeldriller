@@ -154,8 +154,10 @@ def query(
         items = stac_search(stac_endpoint, pt, collections)
         # TODO: Choose the n nearest-in-time items.
         # TODO: what do we do if the ref_asset has no spatial reference defined?
-        pt.make_roi(buffer, shape, items[0], ref_asset)
+        # TODO: what if stac_search returns no items?
+        #pt.make_roi(buffer, shape, items[0], ref_asset)
         pstats = pointstats.PointStats(pt, items, raster_assets)
+        pstats.calc_stats()
         results.append(pstats)
     return results
 

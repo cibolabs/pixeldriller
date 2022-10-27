@@ -3,7 +3,11 @@ For reading raster assets.
 
 """
 
+import math
+import numpy
+
 from osgeo import gdal
+from osgeo import osr
 
 # List of datatype names corresponding to GDAL datatype numbers. 
 # The index of this list corresponds to the gdal datatype number. Not sure if this 
@@ -52,7 +56,6 @@ class ImageInfo:
         geotrans = ds.GetGeoTransform()
         (ncols, nrows) = (ds.RasterXSize, ds.RasterYSize)
         self.raster_count = ds.RasterCount
-        
         self.x_min = geotrans[0]
         self.x_res = geotrans[1]
         self.y_max = geotrans[3]
@@ -61,11 +64,9 @@ class ImageInfo:
         self.y_min = self.y_max - nrows * self.y_res
         self.ncols = ncols
         self.nrows = nrows
-        
         # Projection, etc. 
         self.transform = geotrans
         self.projection = ds.GetProjection()
-        
         # Per-band stuff, including layer names and no data values, and stats
         self.lnames = []
         self.nodataval = []
@@ -74,17 +75,14 @@ class ImageInfo:
                 band_obj = ds.GetRasterBand(band + 1)
                 self.lnames.append(band_obj.GetDescription())
                 self.nodataval.append(band_obj.GetNoDataValue())
-        
         gdal_meta = ds.GetRasterBand(1).GetMetadata()
         if 'LAYER_TYPE' in gdal_meta:
             self.layer_type = gdal_meta['LAYER_TYPE']
         else:
             self.layer_type = None
-        
         # Pixel datatype, stored as a GDAL enum value. 
         self.data_type = ds.GetRasterBand(1).DataType
         self.data_type_name = GDAL_DATA_TYPE_NAMES[self.data_type]
-        
         del ds
 
 
@@ -103,14 +101,102 @@ class ImageInfo:
         return result
 
 
-def asset_info(item, ref_asset):
+def asset_filepath(item, asset):
+    """
+    Get the file path to the item's asset, in a form readable by GDAL.
+
+    """
+    return f"/vsicurl/{item.assets[asset].href}"
+
+
+def asset_info(item, asset):
     """
     Return an asset_info.ImageInfo object with information about the
     raster asset in the pystac.item.Item.
 
     """
-    filename = f"/vsicurl/{item.assets[ref_asset].href}"
+    filename = asset_filepath(item, asset)
     return ImageInfo(filename)
+
+
+def read_roi(item, asset, pt):
+    """
+    Return a 3D numpy array of pixels for the item's asset (an image).
+    Extract the smallest number of pixels required to cover the region of
+    interest. By doing so, the area covered by the returned pixels is slightly
+    larger than the region of interest defined by the point's location
+    and buffer.
+
+    Return None if the extent of the pixels to be extracted is beyond the 
+    extents of the image. Otherwise, return the 3D numpy array.
+    
+    """
+    # convert centre of point to same coord reference system as filename
+    a_info = asset_info(item, asset)
+    xoff, yoff, win_xsize, win_ysize = get_pix_window(pt, a_info)
+    # TODO: check the ROI is within bounds the image bounds
+    # And that the ROI is at least 1 pixel in size; i.e.:
+    # 0 <= ul_px < lr_px < ncols
+    # 0 <= ul_py < lr_py < nrows
+    ds = gdal.Open(asset_filepath(item, asset), gdal.GA_ReadOnly)
+    band_data = []
+    for band_num in range(1, a_info.raster_count + 1):
+        band = ds.GetRasterBand(band_num)
+        band_data.append(band.ReadAsArray(xoff, yoff, win_xsize, win_ysize))
+    del ds
+    return numpy.array(band_data)
+
+
+def get_pix_window(pt, a_info):
+    """
+    Return the region of interest for the point in the image's pixel
+    coordinate space as: (xoff, yoff, win_xsize, win_ysize).
+
+    a_info is an ImageInfo object for the raster asset.
+
+    c_x, c_y is the geo-coordinate of the centre of the ROI.
+    buffer is the distance of the edge of the ROI from its centre.
+
+    xoff, yoff is the grid location of the top-left pixel of the ROI.
+
+    An xoff, yoff of 0, 0 corresponds to the top-left pixel of the image.
+    An xoff, yoff of (ncols-1, nrows-1) corresponds to the bottom-right 
+    pixel of the image. The caller should check to see that the ROI is
+    within the image bounds.
+
+    win_xsize, win_ysize is the size of the window, in pixels, to extract.
+
+    The ROI in geo-coordinates (c_x, c_y, buffer) is unlikely to align with
+    the pixel grid. This function increases the size of the ROI so it returns
+    the smallest possible area that encloses the requested ROI.
+
+    """
+    a_sp_ref = osr.SpatialReference()
+    a_sp_ref.ImportFromWkt(a_info.projection)
+    c_x, c_y = pt.transform(a_sp_ref)
+    ul_geo_x = c_x - pt.buffer
+    ul_geo_y = c_y + pt.buffer
+    lr_geo_x = c_x + pt.buffer
+    lr_geo_y = c_y - pt.buffer
+    ul_px, ul_py = wld2pix(a_info.transform, ul_geo_x, ul_geo_y)
+    lr_px, lr_py = wld2pix(a_info.transform, lr_geo_x, lr_geo_y)
+    ul_px = math.floor(ul_px)
+    ul_py = math.floor(ul_py)
+    lr_px = math.ceil(lr_px)
+    lr_py = math.ceil(lr_py)
+    win_xsize = lr_px - ul_px
+    win_ysize = lr_py - ul_py
+    return (ul_px, ul_py, win_xsize, win_ysize)
+
+
+def wld2pix(transform, geox, geoy):
+    """converts a set of map coords to pixel coords"""
+    x = (transform[0] * transform[5] - 
+        transform[2] * transform[3] + transform[2] * geoy - 
+        transform[5] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
+    y = (transform[1] * transform[3] - transform[0] * transform[4] -
+        transform[1] * geoy + transform[4] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
+    return (x, y)
 
 
 class AssetReaderError(Exception):

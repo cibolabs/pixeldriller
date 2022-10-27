@@ -45,3 +45,17 @@ root@5d63691b9aa8:~/pixelstac#
   coordinate reference system so that the buffer value used to define the
   ROI is applied consistently across all assets
 - The coordinate reference system of the assets being read define north as up.
+
+## Tests
+
+Require:
+- pytest
+- CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif"
+- the earth-search stac with endpoint https://earth-search.aws.element84.com/v0
+  and sentinel-2-l2a-cogs collection
+
+To run all tests, from the project's root directory:
+
+```bash
+pytest tests/
+```

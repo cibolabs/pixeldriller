@@ -29,12 +29,11 @@ class Point:
     - wgs84_y: the point's y location in WGS84 coordinates
     - start_date: the datetime.datetime start date of the temporal buffer
     - end_date: the datetime.datetime end date of the temporal buffer
-
-    These attributes are set on calling make_roi
-    - roi: the point's spatial buffer (region of interest)
+    - buffer: the distance from the point that defines the region of interest
+    - shape: the shape of the region of interest
 
     """
-    def __init__(self, point, sp_ref, t_delta):
+    def __init__(self, point, sp_ref, t_delta, buffer, shape):
         """
         Point constructor.
 
@@ -56,9 +55,33 @@ class Point:
         self.start_date = self.t - t_delta
         self.end_date = self.t + t_delta
         # Set by make_roi():
-        self.roi_shape = None
-        self.roi_bbox = None
+        self.buffer = buffer
+        self.shape = shape
 
+
+    def transform(self, dst_srs):
+        """
+        Transform the point's x, y location to the destination
+        osr.SpatialReference coordinate reference system.
+
+        Return the transformed (x, y) point.
+
+        Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
+        to guarantee x, y point ordering of the input and output points.
+
+        """
+        src_map_strat = self.sp_ref.GetAxisMappingStrategy()
+        dst_map_strat = dst_srs.GetAxisMappingStrategy()
+        self.sp_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        dst_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        # TODO: handle problems that may arise. See:
+        # https://gdal.org/tutorials/osr_api_tut.html#coordinate-transformation
+        ct = osr.CoordinateTransformation(self.sp_ref, dst_srs)
+        tr = ct.TransformPoint(self.x, self.y)
+        self.sp_ref.SetAxisMappingStrategy(src_map_strat)
+        dst_srs.SetAxisMappingStrategy(dst_map_strat)
+        return (tr[0], tr[1])
+    
 
     def to_wgs84(self):
         """
@@ -74,71 +97,47 @@ class Point:
         """
         dst_srs = osr.SpatialReference()
         dst_srs.ImportFromEPSG(4326)
-        return Point.transform_point(self.x, self.y, self.sp_ref, dst_srs)
+        return self.transform(dst_srs)
 
     
-    def make_roi(self, buffer, shape, item, ref_asset):
-        """
-        Construct the region of interest (ROI) in the same coordinate
-        reference system as the reference asset of the given pystac.item.Item.
-        
-        The ROI is defined by its bounding box (coordinates of
-        its upper left and lower right corners) and its shape. It assumes
-        that the asset's coordinate reference system defines north as up.
-    
-        buffer is the distance either side of the point that defines the ROI.
-        It is used in combination with shape (one of the ROI_SHP_ values) to
-        fully specify the ROI.
-
-        Two attributes on this Point instance:
-        - roi_shape: using the given shape
-        - roi_bbox: as the coordinates of the upper left and lower right 
-          corners of the bounding box in the coordinate reference
-          system of the reference asset (ul_x, ul_y, lr_x, lr_y).
-    
-        """
-        self.roi_shape = shape
-        # self.x_y is the centre of the point and has a coordinate
-        # reference system of self.sp_ref.
-        # Example, although I think this creates a circle not a square
-        # which do we want?
-        #pt = ogr.CreateGeometryFromWkt(wkt)
-        #poly = pt.Buffer(bufferDistance)
-        #xmin, xmax, ymin, ymax = poly.GetEnvelope()
-        # Find the centre of the bounding box in the asset's coordinate
-        # reference system.
-        asset_info = asset_reader.asset_info(item, ref_asset)
-        a_sp_ref = osr.SpatialReference()
-        a_sp_ref.ImportFromWkt(asset_info.projection)
-        c_x, c_y = Point.transform_point(self.x, self.y, self.sp_ref, a_sp_ref)
-        # Bounds. Assume north is up.
-        ul_x = c_x - buffer
-        ul_y = c_y + buffer
-        lr_x = c_x + buffer
-        lr_y = c_y - buffer
-        self.roi_bbox = (ul_x, ul_y, lr_x, lr_y)
-
-
-    @staticmethod
-    def transform_point(x, y, src_srs, dst_srs):
-        """
-        Transform the (x, y) point from the source
-        osr.SpatialReference to the destination osr.SpatialReference.
-
-        Return the transformed (x, y) point.
-
-        Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
-        to guarantee x, y point ordering of the input and output points.
-
-        """
-        src_map_strat = src_srs.GetAxisMappingStrategy()
-        dst_map_strat = dst_srs.GetAxisMappingStrategy()
-        src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-        dst_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-        # TODO: handle problems that may arise. See:
-        # https://gdal.org/tutorials/osr_api_tut.html#coordinate-transformation
-        ct = osr.CoordinateTransformation(src_srs, dst_srs)
-        tr = ct.TransformPoint(x, y)
-        src_srs.SetAxisMappingStrategy(src_map_strat)
-        dst_srs.SetAxisMappingStrategy(dst_map_strat)
-        return (tr[0], tr[1])
+#    def make_roi(self, buffer, shape, item, ref_asset):
+#        """
+#        Construct the region of interest (ROI) in the same coordinate
+#        reference system as the reference asset of the given pystac.item.Item.
+#        
+#        The ROI is defined by its bounding box (coordinates of
+#        its upper left and lower right corners) and its shape. It assumes
+#        that the asset's coordinate reference system defines north as up.
+#    
+#        buffer is the distance either side of the point that defines the ROI.
+#        It is used in combination with shape (one of the ROI_SHP_ values) to
+#        fully specify the ROI.
+#
+#        Two attributes on this Point instance:
+#        - roi_shape: using the given shape
+#        - roi_bbox: as the coordinates of the upper left and lower right 
+#          corners of the bounding box in the coordinate reference
+#          system of the reference asset (ul_x, ul_y, lr_x, lr_y).
+#    
+#        """
+#        self.roi_shape = shape
+#        # self.x_y is the centre of the point and has a coordinate
+#        # reference system of self.sp_ref.
+#        # Example, although I think this creates a circle not a square
+#        # which do we want?
+#        #pt = ogr.CreateGeometryFromWkt(wkt)
+#        #poly = pt.Buffer(bufferDistance)
+#        #xmin, xmax, ymin, ymax = poly.GetEnvelope()
+#        # Find the centre of the bounding box in the asset's coordinate
+#        # reference system.
+#        asset_info = asset_reader.asset_info(item, ref_asset)
+#        a_sp_ref = osr.SpatialReference()
+#        a_sp_ref.ImportFromWkt(asset_info.projection)
+#        #c_x, c_y = Point.transform_point(self.x, self.y, self.sp_ref, a_sp_ref)
+#        c_x, c_y = self.transform(a_sp_ref)
+#        # Bounds. Assume north is up.
+#        ul_x = c_x - buffer
+#        ul_y = c_y + buffer
+#        lr_x = c_x + buffer
+#        lr_y = c_y - buffer
+#        self.roi_bbox = (ul_x, ul_y, lr_x, lr_y)

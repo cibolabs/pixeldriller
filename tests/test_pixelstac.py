@@ -3,14 +3,10 @@
 # TODO: add tests that handle geometry that cuts across the anti-meridian.
 # See section 3.1.9 in https://www.rfc-editor.org/rfc/rfc7946#section-3.1
 
-import datetime
-
-import pytest
-from osgeo import osr
-
 from pixelstac import pixelstac
 from pixelstac import point
-from pixelstac.point import Point
+
+from .fixtures import point_albers, point_wgs84
 
 
 #def test_query():
@@ -62,52 +58,6 @@ from pixelstac.point import Point
 ##        query=properties)
 
 
-@pytest.fixture
-def point_albers():
-    """Create a point in Australian albers."""
-    sp_ref = osr.SpatialReference()
-    sp_ref.ImportFromEPSG(3577)
-    x = 0
-    y = -1123600
-    # The pystac_client docs state that
-    # timezone unaware datetime objects are assumed to be utc. But initial
-    # testing showed that wasn't the case (need to revisit to confirm).
-    # It's best to specify the timezone.
-    # If a non-utc timezone is given pystac-client converts it to utc.
-    time_zone = datetime.timezone(datetime.timedelta(hours=10))
-    date = datetime.datetime(2022, 7, 28, tzinfo=time_zone)
-    t_delta = datetime.timedelta(days=3)
-    pt = Point((x, y, date), sp_ref, t_delta)
-    return pt
-
-
-@pytest.fixture
-def point_wgs84():
-    """Create a point in WGS 84."""
-    sp_ref = osr.SpatialReference()
-    sp_ref.ImportFromEPSG(4326)
-    x = 140
-    y = -36.5
-    time_zone = datetime.timezone(datetime.timedelta(hours=10))
-    date = datetime.datetime(2022, 7, 28, tzinfo=time_zone)
-    t_delta = datetime.timedelta(days=3)
-    pt = Point((x, y, date), sp_ref, t_delta)
-    return pt
-
-
-#def test_point(point_albers):
-#    """Test point.Point and its methods."""
-#    assert point_albers.x == 0
-#    assert point_albers.y == -1123600
-#    assert point_albers.t.strftime("%Y-%m-%d") == "2022-07-28"
-#    # Also tests Point.to_wgs84()
-#    assert round(point_albers.wgs84_x, 1) == 132.0
-#    assert round(point_albers.wgs84_y, 1) == -10.7
-#    assert point_albers.start_date.strftime("%Y-%m-%d") == "2022-07-25"
-#    assert point_albers.end_date.strftime("%Y-%m-%d") == "2022-07-31"
-#    # TODO: Test the ROI creation.
-
-
 def test_stac_search(point_wgs84):
     """Test pixelstac.stac_search."""
     # point_wgs84 intersects two items in the time range.
@@ -124,22 +74,13 @@ def test_stac_search(point_wgs84):
         "sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2B_54HVE_20220725_0_L2A/B02.tif"
 
 
-#def test_transform_point(point_albers):
-#    """Test Point.transform_point."""
-#    dst_srs = osr.SpatialReference()
-#    dst_srs.ImportFromEPSG(28353)
-#    easting, northing = Point.transform_point(
-#        point_albers.x, point_albers.y, point_albers.sp_ref, dst_srs)
-#    assert round(easting, 2) == 171800.62
-#    assert round(northing, 2) == 8815628.66
-
-
 def test_query(point_albers, point_wgs84):
     """Test pixelstac.query."""
     # TODO: complete implementation of this test.
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
-    pixelstac.query(
+    items = pixelstac.query(
         endpoint, [point_albers, point_wgs84],
         100, point.ROI_SHP_SQUARE, ['B02', 'B03'],
         collections=collections)
+    print(len(items))
