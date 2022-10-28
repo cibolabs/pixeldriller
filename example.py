@@ -7,66 +7,80 @@ from pixelstac import pixelstac
 from pixelstac import pointstats
 from pixelstac import point
 
-def my_func(list_of_asset_arrays):
+
+def pt_1():
+    """Create a point in Australian albers."""
+    sp_ref = create_sp_ref(3577)
+    x = 0
+    y = -1123600
+    date, t_delta = create_date(3)
+    pt = point.Point((x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE)
+    return pt
+
+
+def pt_2():
+    """Create a point in WGS 84."""
+    sp_ref = create_sp_ref(4326)
+    x = 140
+    y = -36.5
+    date, t_delta = create_date(3)
+    pt = point.Point((x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE)
+    return pt
+
+
+def create_sp_ref(epsg_code):
     """
-    A user-defined function for calculating zonal statistics. It takes a
-    list of 3D arrays. Each 3D array is the raster data for an asset of
-    a STAC Item, within the region of interest of a Point.
-    len(list_of_asset_arrays)==len(asset_ids). The order of the arrays
-    matches the order of the asset_ids.
-
-    The return value can be anything.
+    Return an osr.SpatialReference instance with a coordinate reference
+    system determined from the epsg code.
 
     """
-    pass
+    sp_ref = osr.SpatialReference()
+    sp_ref.ImportFromEPSG(epsg_code)
+    return sp_ref
 
 
-time_zone = datetime.timezone(datetime.timedelta(hours=10))
-date = datetime.datetime(2022, 7, 28, tzinfo=time_zone)
-t_delta = datetime.timedelta(days=3)
-sp_ref_1 = osr.SpatialReference()
-sp_ref_1.ImportFromEPSG(3577)
-x_1 = 0
-y_1 = -1123600
-sp_ref_2 = osr.SpatialReference()
-sp_ref_2.ImportFromEPSG(4326)
-x_2 = 140
-y_2 = -36.5
-p1 = point.Point((x_1, y_1, date), sp_ref_1, t_delta)
-p2 = point.Point((x_2, y_2, date), sp_ref_2, t_delta)
-points = [p1, p2]
+def create_date(d_days):
+    """
+    Create a datetime.datetime instance for 28 July 2022 in UTC=10 hours
+    and a datetime.timedelta object of d_days.
 
-# Tile 54JVR
-zone = 54
-lat_band = 'J'
-grid_sq = 'VR'
-item_props = [
-        f'sentinel:utm_zone={zone}',
-        f'sentinel:latitude_band={lat_band}',
-        f'sentinel:grid_square={grid_sq}']
-buffer = 50
-asset_ids = ["B02", "B03", "B04"]
-results = pixelstac.query(
-    "https://earth-search.aws.element84.com/v0",
-    points, buffer, asset_ids, item_properties=item_props,
-    std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN],
-    user_stats=[("MY_STAT", my_func)])
+    """
+    # The pystac_client docs state that
+    # timezone unaware datetime objects are assumed to be utc. But initial
+    # testing showed that wasn't the case (need to revisit to confirm).
+    # It's best to specify the timezone.
+    # If a non-utc timezone is given pystac-client converts it to utc.
+    time_zone = datetime.timezone(datetime.timedelta(hours=10))
+    date = datetime.datetime(2022, 7, 28, tzinfo=time_zone)
+    t_delta = datetime.timedelta(days=d_days)
+    return date, t_delta
 
-# There is a set of statistics for each point. The size of the set
-# is the number of STAC items (images) returned from the query for the point.
-for point_stats in results:
-    point_stats.asset_ids # The list of assets passed to pixelstac.query
-    for item_stats in point_stats:
-        item_stats.item # The pystac.item.Item
-        item_stats.item.assets['B02'].href # The url to the item's B02 asset.
-        # A list of URLs to all of the item's assets of interest
-        urls = [item_stats.item.assets[a_id].href for \
-                a_id in point_stats.asset_ids]
-        # The data type of MY_STAT is defined by the return value of my_func
-        item_stats.stats["MY_STAT"] # array (shape as defined by return value of my_func)
-        # If all assets are single-layer rasters, then this is a 3D array
-        # with shape=(len(asset_ids, nrows, ncols)). If not, then... TBD.
-        item_stats.stats[pointstats.STATS_RAW]
-        # If all assets are single-layer rasters, then this is a 1D array with
-        # the mean pixel value for each asset. If not, then... TBD.
-        item_stats.stats[pointstats.STATS_MEAN]
+
+if __name__ == '__main__':
+    endpoint = "https://earth-search.aws.element84.com/v0"
+    collections = ['sentinel-s2-l2a-cogs']
+    pt_stats_list = pixelstac.query(
+        endpoint, [pt_1(), pt_2()], ['B02', 'B03'], collections=collections,
+        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
+
+    for pt_stats in pt_stats_list:
+        print(f"Stats for point: x={pt_stats.pt.x}, y={pt_stats.pt.y}")
+        for item_stats in pt_stats.item_stats_list:
+            print(f"    Item ID={item_stats.item.id}") # The pystac.item.Item
+#            print(f"        Raw arrays: {item_stats.stats[pointstats.STATS_RAW]}")
+            print(f"        Mean values: {item_stats.stats[pointstats.STATS_MEAN]}")
+
+
+# For future implementation.
+#def my_func(list_of_asset_arrays):
+#    """
+#    A user-defined function for calculating zonal statistics. It takes a
+#    list of 3D arrays. Each 3D array is the raster data for an asset of
+#    a STAC Item, within the region of interest of a Point.
+#    len(list_of_asset_arrays)==len(asset_ids). The order of the arrays
+#    matches the order of the asset_ids.
+#
+#    The return value can be anything.
+#
+#    """
+#    pass

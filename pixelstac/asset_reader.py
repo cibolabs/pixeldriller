@@ -127,14 +127,18 @@ def read_roi(item, asset, pt):
     larger than the region of interest defined by the point's location
     and buffer.
 
-    Return None if the extent of the pixels to be extracted is beyond the 
-    extents of the image. Otherwise, return the 3D numpy array.
+    Assume that the roi is within the image extents.
+
+    Return the 3D numpy array.
+
+    A future version will return None if the extent of the pixels to be
+    extracted is beyond the image extents.
     
     """
     # convert centre of point to same coord reference system as filename
     a_info = asset_info(item, asset)
     xoff, yoff, win_xsize, win_ysize = get_pix_window(pt, a_info)
-    # TODO: check the ROI is within bounds the image bounds
+    # TODO: check the ROI is within the image's bounds
     # And that the ROI is at least 1 pixel in size; i.e.:
     # 0 <= ul_px < lr_px < ncols
     # 0 <= ul_py < lr_py < nrows
@@ -195,7 +199,8 @@ def wld2pix(transform, geox, geoy):
         transform[2] * transform[3] + transform[2] * geoy - 
         transform[5] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
     y = (transform[1] * transform[3] - transform[0] * transform[4] -
-        transform[1] * geoy + transform[4] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
+        transform[1] * geoy + 
+        transform[4] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
     return (x, y)
 
 

@@ -66,6 +66,18 @@ def test_read_roi(real_item, point_one_item):
     # point_one_item intersects this file
 #    href = "/vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif"
 #    href = asset_reader.asset_filepath(real_item, 'B02')
-    asset_reader.read_roi(real_item, 'B02', point_one_item) # 10 m pixels
-    asset_reader.read_roi(real_item, 'B11', point_one_item) # 20 m pixels
-
+#    print(href)
+    # Sentinel-2 10 m pixels, 100 m square ROI, check the 4 pixels in top left.
+    arr = asset_reader.read_roi(real_item, 'B02', point_one_item)
+    assert arr.shape == (1, 11, 11)
+    assert arr[0, 0, 0] == 406
+    assert arr[0, 0, 1] == 426
+    assert arr[0, 1, 0] == 372
+    assert arr[0, 1, 1] == 416
+    # Sentinel-2 20 m pixels, 100 m square ROI, check the 4 pixels in bottom right.
+    arr = asset_reader.read_roi(real_item, 'B11', point_one_item)
+    assert arr.shape == (1, 6, 6)
+    assert arr[0, 4, 4] == 144
+    assert arr[0, 4, 5] == 133
+    assert arr[0, 5, 4] == 159
+    assert arr[0, 5, 5] == 135

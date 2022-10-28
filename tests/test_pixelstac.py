@@ -9,55 +9,6 @@ from pixelstac import point
 from .fixtures import point_albers, point_wgs84
 
 
-#def test_query():
-#    """
-#    pixelstac.query is the interface to the pixelstac module. So this function
-#    tests the query algorithm.
-#
-#    TODO: Complete implementing this test, at the bottom of this test file.
-#
-#    """
-#    # curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2B_53HPV_20220728_0_L2A | jq | less
-#    endpoint = "https://earth-search.aws.element84.com/v0"
-#    # The first two of these return no results, the third one returns one result.
-#    # First one fails because the timezone is not specified, the second fails
-#    # because we only use a single time to find results and it must match
-#    # the file date-time, which is a big ask.
-#    # The pystac_client docs state that
-#    # timezone unaware datetime objects are assumed to be utc, but that doesn't 
-#    # see to be the case in practice. So it's best to specify the timezone.
-#    # If non-utc timezone is given pystac-client converts it to utc.
-#    # date = datetime.datetime(2022, 7, 28, 0, 57, 20) # TODO: allow time?
-#    # date = datetime.datetime(2022, 7, 28, tzinfo=datetime.timezone.utc) # TODO: allow time?
-#    date = datetime.datetime(2022, 7, 28, 0, 57, 20, tzinfo=datetime.timezone.utc) # TODO: allow time?
-#    #date = datetime.datetime(2022, 7, 28) # TODO: allow time?
-#    date = datetime.datetime(2022, 7, 28, tzinfo=datetime.timezone.utc) # TODO: allow time?
-#    date = datetime.datetime(2022, 7, 28, tzinfo=datetime.timezone(datetime.timedelta(hours=10))) # TODO: allow time?
-#    print(date.isoformat())
-#    point = (136.5, -36.5, date)
-#    t_delta = datetime.timedelta(days=1)
-#    # The following point/t_delta matches two files.
-##    point = (140, -36.5, date)
-##    t_delta = datetime.timedelta(days=3)
-#    assets = ["B02"]
-#    pixelstac.query(endpoint, [point], None, None, assets, t_delta=t_delta)
-##    tile = '54JVR'
-##    zone = tile[:2]
-##    lat_band = tile[2]
-##    grid_sq = tile[3:]
-##    properties = [
-##        f'sentinel:utm_zone={zone}',
-##        f'sentinel:latitude_band={lat_band}',
-##        f'sentinel:grid_square={grid_sq}']
-##    results = api.search(
-##        collections =[collection.name],
-##        max_items=100,
-##        bbox=AUS_BBOX,
-##        limit=500,
-##        datetime=[earliest_date.isoformat(), latest_date.isoformat()],
-##        query=properties)
-
-
 def test_stac_search(point_wgs84):
     """Test pixelstac.stac_search."""
     # point_wgs84 intersects two items in the time range.
@@ -77,10 +28,16 @@ def test_stac_search(point_wgs84):
 def test_query(point_albers, point_wgs84):
     """Test pixelstac.query."""
     # TODO: complete implementation of this test.
+    # The test is fairly simple, just see that the expected number of
+    # PointStats and ItemStats instances were created. The other tests cover
+    # the other functions that test_query calls.
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
-    items = pixelstac.query(
-        endpoint, [point_albers, point_wgs84],
-        100, point.ROI_SHP_SQUARE, ['B02', 'B03'],
+    pt_stats_list = pixelstac.query(
+        endpoint, [point_albers, point_wgs84], ['B02', 'B03'],
         collections=collections)
-    print(len(items))
+    assert len(pt_stats_list) == 2
+    pt_stats_albers = pt_stats_list[0]
+    assert len(pt_stats_albers.item_stats_list) == 3
+    pt_stats_wgs84 = pt_stats_list[1]
+    assert len(pt_stats_wgs84.item_stats_list) == 2

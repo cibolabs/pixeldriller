@@ -24,7 +24,19 @@ Installing collected packages: pixelstac
   Running setup.py develop for pixelstac
 Successfully installed pixelstac-dev
 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
-root@5d63691b9aa8:~/pixelstac#
+root@5d63691b9aa8:~/pixelstac# python3 -m example
+Stats for point: x=0, y=-1123600
+    Item ID=S2B_52LHP_20220730_0_L2A
+        Mean values: [443.80165289 219.33884298]
+    Item ID=S2A_52LHP_20220728_0_L2A
+        Mean values: [2543.60330579 2284.67768595]
+    Item ID=S2A_52LHP_20220725_0_L2A
+        Mean values: [492.32231405 403.69421488]
+Stats for point: x=140, y=-36.5
+    Item ID=S2A_54HVE_20220730_0_L2A
+        Mean values: [3257.65289256 3140.01652893]
+    Item ID=S2B_54HVE_20220725_0_L2A
+        Mean values: [3945.52066116 3690.01652893]
 ```
 
 ## Assumptions
@@ -46,7 +58,11 @@ root@5d63691b9aa8:~/pixelstac#
   ROI is applied consistently across all assets
 - The coordinate reference system of the assets being read define north as up.
 
-## Tests
+## Limitations
+
+- Has only been tested with single-band assets
+
+## Tests and coverage
 
 Require:
 - pytest
@@ -57,5 +73,12 @@ Require:
 To run all tests, from the project's root directory:
 
 ```bash
-pytest tests/
+python3 -m pytest -s tests
+```
+
+To examine the code covered by the tests, from the project's root directory, run:
+
+```
+python3 -m coverage run --source=. -m pytest -s tests
+python3 -m coverage report
 ```

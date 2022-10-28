@@ -4,12 +4,21 @@ a pixelstac query.
 
 """
 
+import collections
+
+import numpy
+
 from . import asset_reader
 
 # TODO: expand the set of stats
 STATS_RAW = 'raw'
 STATS_MEAN = 'mean'
 STATS_STDDEV = 'stddev'
+
+
+class MultibandAssetError(Exception):
+    """Raised by the std stats functions when an asset has multiple bands."""
+    pass
 
 
 class PointStats:
@@ -55,14 +64,10 @@ class PointStats:
         """
         # Initialise things
         self.pt = pt
-#        self.items = items
         self.asset_ids = asset_ids
         self.std_stats = std_stats
         self.user_stats = user_stats
         self.item_stats_list = [ItemStats(item, self) for item in items]
-        # Can I send my'self' to ItemStats before exiting this constructor?
-        # If not, add a second function, calc_stats, that creates the ItemStats objects.
-        #self.item_stats = [ItemStats(item, self) for item in items]
 
     
     def calc_stats(self):
@@ -91,15 +96,11 @@ class ItemStats:
       the return values of the corresponding stats function.
     
     """
-    def __init__(self, item, point_stats):
+    def __init__(self, item, pt_stats):
         """Constructor."""
         self.item = item
-        self.point_stats = point_stats
+        self.pt_stats = pt_stats
         self.stats = {}
-        # Determine the pixel coordinates and mask from the Point's ROI.
-        # The bounding box is used to extract the pixels from a region of
-        # a raster and the shape is used as a mask, ignoring pixels outside
-        # shape's boundary.
 
     
     def calc_stats(self):
@@ -111,86 +112,57 @@ class ItemStats:
         Then calculate this instance's list of standard stats and user stats.
 
         """
-        # # Create a gdal dataset for each asset in point_stats.asset_ids.
-        # datasets = []
-        # asset_arrays = []
-#        for asset_id in self.asset_ids:
-#            bbox = self.point_stats.pt.roi_bbox
-            # filename = ... filename for asset
-#            asset_reader.read_roi(filename, self.point_stats.pt)
-#            asset_reader.read_roi(filename, asset_id, point_stats.pt)
-
-        #     open ds for reading
-        #     create 3D array by reading pixel values from each layer of
-        #       the asset.
-        #     append the array to asset_arrays list.
-        # # Next, populate the self.stats dictionary, something like:
-        # for std_stat in point_stats.std_stats:
-        #     std_stat_func = STD_STAT_FUNCS[std_stat]
-        #     self.stats[std_stat] = std_stat_func(asset_arrays)
+        pt = self.pt_stats.pt
+        asset_arrays = []
+        for asset_id in self.pt_stats.asset_ids:
+            arr = asset_reader.read_roi(self.item, asset_id, pt)
+            # TODO: handle case where read_roi returns None.
+            asset_arrays.append(arr)
+        if STATS_RAW in self.pt_stats.std_stats:
+            self.stats[STATS_RAW] = asset_arrays
+        std_stats = [s_s for s_s in self.pt_stats.std_stats if s_s != STATS_RAW]
+        for std_stat_name in std_stats:
+            std_stat_func = STD_STATS_FUNCS[std_stat_name]
+            self.stats[std_stat_name] = std_stat_func(
+                asset_arrays, self.pt_stats.asset_ids)
+        # TODO: add support for user-defined stats functions.
         # for stat_name, stat_func in point_stats.user_stats:
-        #     self.stats[stat_name] = stat_func(asset_arrays)
-        pass
+        #     self.stats[stat_name] = stat_func(
+        #       asset_arrays, self.pt_stats.asset_ids, self.item)
 
 
-
-def std_stat_raw(asset_arrays):
-    """
-    The function used to calculate the zonal stats for STATS_RAW.
-
-    Can only be used if all assets are single-layer rasters.
-
-    Return a 3D array with shape=(len(asset_ids, nrows, ncols)).
-
-    Raise a MultibandAssetError if at least one asset contains multiple bands.
-
-    """
-    pass
-
-
-def std_stat_mean(asset_arrays):
+def std_stat_mean(asset_arrays, asset_ids):
     """
     The function used to calculate zonal stats for STATS_MEAN.
     It calculates the mean value for every layer in each array of asset_arrays.
     
     Can only be used if all assets are single-layer rasters.
 
-    Return a 1D array containing the mean value of the pixels for each asset.
+    Return a named tuple containing the mean value of the pixels for each asset.
     
     Raise a MultibandAssetError if at least one asset contains multiple bands.
 
     """
-    pass
-
+    rast_counts = [arr.shape[0] for arr in asset_arrays]
+    errmsg = ''
+    mean_vals = []
+    for arr, rast_count, asset_id in zip(asset_arrays, rast_counts, asset_ids):
+        # TODO: handle the case where read_roi returned None, will
+        # rast_count be 0??
+        if rast_count != 1:
+            errmsg += f"{asset_id} contains {rast_count} layers.\n"
+        else:
+            # TODO: handle case where arr contains null values.
+            mean_vals.append(arr.mean())
+    if errmsg:
+        errmsg = "ERROR: Cannot calculate the standard mean statistic " \
+                 "because the following assets contain more than " \
+                 "one band:\n" + errmsg
+        raise MultibandAssetError(errmsg)
+    return numpy.array(mean_vals)
 
 # The standard stats and their functions.
+# STATS_RAW is handled in ItemStats.calc_stats()
 STD_STATS_FUNCS = {
-    STATS_RAW, std_stat_raw,
-    STATS_MEAN, std_stat_mean
+    STATS_MEAN: std_stat_mean
 }
-
-
-# I expect we'll use wld2pix when reading data from gdal datasets.
-# I'm not sure if we'll need pix2wld.
-# Both functions taken from rios.
-
-#def wld2pix(transform, geox, geoy):
-#    """converts a set of map coords to pixel coords"""
-#    x = (transform[0] * transform[5] - 
-#        transform[2] * transform[3] + transform[2] * geoy - 
-#        transform[5] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
-#    y = (transform[1] * transform[3] - transform[0] * transform[4] -
-#        transform[1] * geoy + transform[4] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
-#    return (x, y)
-
-
-#def pix2wld(transform, x, y):
-#    """converts a set of pixels coords to map coords"""
-#    geox = transform[0] + transform[1] * x + transform[2] * y
-#    geoy = transform[3] + transform[4] * x + transform[5] * y
-#
-#    return (geox, geoy)
-
-class MultibandAssetError(Exception):
-    """Raised by the std stats functions when an asset has multiple bands."""
-    pass
