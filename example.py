@@ -14,7 +14,11 @@ def pt_1():
     x = 0
     y = -1123600
     date, t_delta = create_date(3)
-    pt = point.Point((x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE)
+    # Attach some other attributes
+    other_atts = {"PointID": "abc123", "OwnerID": "xyz789"}
+    pt = point.Point(
+        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE,
+        other_attributes=other_atts)
     return pt
 
 
@@ -24,7 +28,11 @@ def pt_2():
     x = 140
     y = -36.5
     date, t_delta = create_date(3)
-    pt = point.Point((x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE)
+    # Attach some other attributes
+    other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
+    pt = point.Point(
+        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE, 
+        other_attributes=other_atts)
     return pt
 
 
@@ -64,6 +72,8 @@ if __name__ == '__main__':
 
     for pt_stats in pt_stats_list:
         print(f"Stats for point: x={pt_stats.pt.x}, y={pt_stats.pt.y}")
+        pid = pt_stats.pt.other_attributes["PointID"]
+        print(f"with ID {pid}")
         for item_stats in pt_stats.item_stats_list:
             print(f"    Item ID={item_stats.item.id}") # The pystac.item.Item
 #            print(f"        Raw arrays: {item_stats.stats[pointstats.STATS_RAW]}")

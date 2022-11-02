@@ -43,7 +43,10 @@ def point_albers():
     x = 0
     y = -1123600
     date, t_delta = create_date(3)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
+    pt = Point(
+        (x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE,
+        other_attributes=other_atts)
     return pt
 
 

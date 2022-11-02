@@ -31,9 +31,11 @@ class Point:
     - end_date: the datetime.datetime end date of the temporal buffer
     - buffer: the distance from the point that defines the region of interest
     - shape: the shape of the region of interest
+    - other_attributes: other attributes, of any type, as required by the caller
 
     """
-    def __init__(self, point, sp_ref, t_delta, buffer, shape):
+    def __init__(
+        self, point, sp_ref, t_delta, buffer, shape, other_attributes=None):
         """
         Point constructor.
 
@@ -45,6 +47,17 @@ class Point:
         Also takes the datetime.timedelta object, which defines the 
         temporal buffer either side of the given Time.
 
+        The region of interest about the point is defined by the buffer
+        and the shape. buffer is assumed to be in the same coordinate
+        reference system as the raster assets being queried. shape is one of
+        the ROI_SHP_ symbols defined in this module.
+
+        other_attributes are any other attributes that the caller wants to
+        attach to this point for later convenience. They have no effect when
+        querying the pixelstac. However, the Point and its other_attributes
+        are accessible from each PointStats object returned from
+        pixelstac.query(). other_attributes can be any data type.
+
         """
         self.x = point[0]
         self.y = point[1]
@@ -54,9 +67,9 @@ class Point:
         self.wgs84_x, self.wgs84_y = self.to_wgs84()
         self.start_date = self.t - t_delta
         self.end_date = self.t + t_delta
-        # Set by make_roi():
         self.buffer = buffer
         self.shape = shape
+        self.other_attributes = other_attributes
 
 
     def transform(self, dst_srs):

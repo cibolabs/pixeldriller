@@ -19,6 +19,7 @@ def test_point(point_albers, fake_item):
     assert point_albers.end_date.strftime("%Y-%m-%d") == "2022-07-31"
     assert point_albers.buffer == 50
     assert point_albers.shape == point.ROI_SHP_SQUARE
+    assert point_albers.other_attributes == {"PointID": "def456", "OwnerID": "uvw000"}
 
 
 def test_point_transform(point_albers):
