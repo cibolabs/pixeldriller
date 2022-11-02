@@ -48,10 +48,9 @@ def create_date(d_days):
     # The pystac_client docs state that
     # timezone unaware datetime objects are assumed to be utc. But initial
     # testing showed that wasn't the case (need to revisit to confirm).
-    # It's best to specify the timezone.
+    # So it's best to explicitly specify the timezone.
     # If a non-utc timezone is given pystac-client converts it to utc.
-    time_zone = datetime.timezone(datetime.timedelta(hours=10))
-    date = datetime.datetime(2022, 7, 28, tzinfo=time_zone)
+    date = datetime.datetime(2022, 7, 28, tzinfo=datetime.timezone.utc)
     t_delta = datetime.timedelta(days=d_days)
     return date, t_delta
 

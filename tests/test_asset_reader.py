@@ -1,5 +1,7 @@
 """Tests for asset_reader.py"""
 
+import math
+
 from osgeo import gdal
 
 from pixelstac import asset_reader
@@ -39,8 +41,19 @@ def test_image_info():
     assert a_info.nodataval == [0.0]
     assert a_info.transform == (399960.0, 10.0, 0.0, 6000040.0, 0.0, -10.0)
     assert a_info.data_type == gdal.GDT_UInt16
-    assert a_info.data_type_name == 'UnsignedInt16'
+    assert a_info.data_type_name == 'UInt16'
     # Missing from test is checking value of a_info.projection.
+
+
+def test_wld2pix(real_item, point_one_item):
+    """Test asset_readet.wld2pix."""
+    a_info = asset_reader.asset_info(real_item, 'B02') # 10 m pixels
+    x, y = asset_reader.wld2pix(a_info.transform, a_info.x_min, a_info.y_max)
+    assert math.isclose(x, 0, abs_tol=1e-9)
+    assert math.isclose(y, 0, abs_tol=1e-9)
+    x, y = asset_reader.wld2pix(a_info.transform, a_info.x_max, a_info.y_min)
+    assert math.isclose(x, 10980, abs_tol=1e-9)
+    assert math.isclose(y, 10980, abs_tol=1e-9)
 
 
 def test_get_pix_window(real_item, point_one_item):

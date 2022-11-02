@@ -9,13 +9,6 @@ import numpy
 from osgeo import gdal
 from osgeo import osr
 
-# List of datatype names corresponding to GDAL datatype numbers. 
-# The index of this list corresponds to the gdal datatype number. Not sure if this 
-# is a bit obscure and cryptic.....
-GDAL_DATA_TYPE_NAMES = ['Unknown', 'UnsignedByte', 'UnsignedInt16', 'SignedInt16',
-    'UnsignedInt32', 'SignedInt32', 'Float32', 'Float64', 'ComplexInt16',
-    'ComplexInt32','ComplexFloat32', 'ComplexFloat64']
-
 class ImageInfo:
     """
     An object with metadata for the given image, in GDAL conventions. 
@@ -82,7 +75,7 @@ class ImageInfo:
             self.layer_type = None
         # Pixel datatype, stored as a GDAL enum value. 
         self.data_type = ds.GetRasterBand(1).DataType
-        self.data_type_name = GDAL_DATA_TYPE_NAMES[self.data_type]
+        self.data_type_name = gdal.GetDataTypeName(self.data_type) #GDAL_DATA_TYPE_NAMES[self.data_type]
         del ds
 
 
@@ -195,12 +188,8 @@ def get_pix_window(pt, a_info):
 
 def wld2pix(transform, geox, geoy):
     """converts a set of map coords to pixel coords"""
-    x = (transform[0] * transform[5] - 
-        transform[2] * transform[3] + transform[2] * geoy - 
-        transform[5] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
-    y = (transform[1] * transform[3] - transform[0] * transform[4] -
-        transform[1] * geoy + 
-        transform[4] * geox) / (transform[2] * transform[4] - transform[1] * transform[5])
+    inv_transform = gdal.InvGeoTransform(transform)
+    x, y = gdal.ApplyGeoTransform(inv_transform, geox, geoy)
     return (x, y)
 
 
