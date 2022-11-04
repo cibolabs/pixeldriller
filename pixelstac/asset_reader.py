@@ -142,7 +142,7 @@ def read_roi(item, asset, pt, ignore_val=None):
         band = ds.GetRasterBand(band_num)
         b_arr = band.ReadAsArray(xoff, yoff, win_xsize, win_ysize)
         band_data.append(b_arr)
-        nodata_val = a_info.nodataval[band_num-1]
+        nodata_val = ignore_val if ignore_val else a_info.nodataval[band_num-1]
         if nodata_val is None:
             mask = numpy.zeros(b_arr.shape, dtype=bool)
         else:

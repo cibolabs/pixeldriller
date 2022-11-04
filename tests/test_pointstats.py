@@ -17,11 +17,17 @@ def test_pointstats(point_one_item, real_item):
     the earth-search-stac using the point point_one_item.
 
     """
+    # The first attempt to create PointStats object should fail
+    # because the ignore list is a different length to the assets list.
+    with pytest.raises(AssertionError):
+        pt_stats = pointstats.PointStats(
+            point_one_item, [real_item], ['B02', 'B03'], ignore=[-9999])
     pt_stats = pointstats.PointStats(
-        point_one_item, [real_item], ['B02', 'B03'])
+        point_one_item, [real_item], ['B02', 'B03'], ignore=-9999)
     assert pt_stats.pt.x == 136.5
     assert pt_stats.pt.y == -36.5
     assert pt_stats.asset_ids == ['B02', 'B03']
+    assert pt_stats.ignore_vals == [-9999, -9999]
 
 
 def test_itemstats(point_one_item, real_item):
@@ -84,10 +90,8 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     2. where the point's ROI is outside of the imaged region (but still within
        the image) extents so that the returned array is full of invalid values.
 
-    Silence UserWarning: Warning: converting a masked element to nan.
-
     """
-    # Partials.
+    # Partials. Assumes the null value is set on the assets.
     pt_stats = pointstats.PointStats(
         point_partial_nulls, [real_item], ['B02', 'B11'],
         std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
@@ -97,7 +101,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     mean_b11 = item_stats.stats[pointstats.STATS_MEAN][1]
     assert round(mean_b02, 2) == 1473.43
     assert round(mean_b11, 2) == 1019.69
-    # All nulls
+    # All nulls. Assumes the null value is set on the assets.
     pt_stats = pointstats.PointStats(
         point_all_nulls, [real_item], ['B02', 'B11'],
         std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
@@ -107,3 +111,16 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     mean_b11 = item_stats.stats[pointstats.STATS_MEAN][1]
     assert numpy.isnan(mean_b02)
     assert numpy.isnan(mean_b11)
+    # Now overrides the asset's null values by specifying our own.
+    # Test assumes that the assets no-data value=0, thus giving a mean of 0.
+    pt_stats = pointstats.PointStats(
+        point_all_nulls, [real_item], ['B02', 'B11'],
+        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN],
+        ignore=-9999)
+    pt_stats.calc_stats()
+    item_stats = pt_stats.item_stats_list[0]
+    mean_b02 = item_stats.stats[pointstats.STATS_MEAN][0]
+    mean_b11 = item_stats.stats[pointstats.STATS_MEAN][1]
+    assert mean_b02 == 0
+    assert mean_b11 == 0
+    

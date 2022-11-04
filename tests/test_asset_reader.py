@@ -104,6 +104,9 @@ def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
     2. where the point's ROI is outside of the imaged region (but still within
        the image) extents so that the returned array is full of invalid values.
 
+    This test assumes that the no data value is set in the metadata of
+    the Item's assets.
+
     See also test_read_roi_outofrange.
 
     """
@@ -119,6 +122,22 @@ def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
     arr = asset_reader.read_roi(real_item, 'B02', point_all_nulls)
     assert arr.shape == (1, 11, 11)
     assert arr.mask.all()
+    # Now, explicitly set the null value, which overrides the ignore value
+    # set on the assets.
+    arr = asset_reader.read_roi(
+        real_item, 'B11', point_partial_nulls, ignore_val=-9999)
+    assert arr.shape == (1, 6, 6)
+    # assert the mask is as we expect it where the ROI begins to
+    # overlap the null region.
+    assert arr.mask[0, 0, 0] == False
+    assert arr.mask[0, 3, 1] == False
+    assert arr.mask[0, 4, 1] == False
+    assert arr.mask[0, 4, 2] == False
+    # assert that every pixel is masked where the ROI contains all nulls.
+    arr = asset_reader.read_roi(
+        real_item, 'B02', point_all_nulls, ignore_val=-9999)
+    assert arr.shape == (1, 11, 11)
+    assert arr.mask.any() == False
 
 
 #def test_read_roi_outofrange(real_item, point_straddles_range, point_outofrange):

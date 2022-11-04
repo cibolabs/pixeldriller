@@ -83,7 +83,8 @@ class PointStats:
         if ignore is None:
             self.ignore_vals = [None] * len(self.asset_ids)
         else:
-            self.ignore_vals = ignore if isinstance(list) else [ignore]
+            self.ignore_vals = ignore if isinstance(ignore, list) else \
+                               [ignore] * len(asset_ids)
         assert len(self.ignore_vals) == len(self.asset_ids)
         self.item_stats_list = [ItemStats(item, self) for item in items]
 
