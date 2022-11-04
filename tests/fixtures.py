@@ -77,6 +77,36 @@ def point_one_item():
 
 
 @pytest.fixture
+def point_partial_nulls():
+    """
+    A point whose ROI contains a mix of valid and invalid pixel values
+    when it intersects the real_item defined below.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 137.3452
+    y = -36.7259
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture
+def point_all_nulls():
+    """
+    A point whose ROI contains a all null values when it intersects the
+    real_item defined below.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 137.3417
+    y = -36.7294
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture
 def fake_item():
     """Return a dummy pystac Item with attributes needed for the tests."""
     # curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2B_53HPV_20220728_0_L2A | jq | less
