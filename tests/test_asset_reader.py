@@ -5,7 +5,8 @@ import math
 from osgeo import gdal
 
 from pixelstac import asset_reader
-from .fixtures import point_one_item, real_item
+from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
+from .fixtures import real_item
 
 
 def test_asset_filepath(real_item):
@@ -21,7 +22,6 @@ def test_asset_info(real_item):
     # The asset's properties are set in ImageInfo. See test_image_info
     # for a more complete test.
     assert a_info.x_min == 600000
-
 
 
 def test_image_info():
@@ -94,3 +94,38 @@ def test_read_roi(real_item, point_one_item):
     assert arr[0, 4, 5] == 133
     assert arr[0, 5, 4] == 159
     assert arr[0, 5, 5] == 135
+
+
+def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
+    """
+    Test asset_reader.read_roi() for two special cases:
+    1. where the point's ROI is on the edge of the imaged region so
+       that the returned array contains a mix of valid and invalid values
+    2. where the point's ROI is outside of the imaged region (but still within
+       the image) extents so that the returned array is full of invalid values.
+
+    See also test_read_roi_outofrange.
+
+    """
+    arr = asset_reader.read_roi(real_item, 'B11', point_partial_nulls)
+    assert arr.shape == (1, 6, 6)
+    # assert the mask is as we expect it where the ROI begins to
+    # overlap the null region.
+    assert arr.mask[0, 0, 0] == False
+    assert arr.mask[0, 3, 1] == False
+    assert arr.mask[0, 4, 1] == True
+    assert arr.mask[0, 4, 2] == False
+    # assert that every pixel is masked where the ROI contains all nulls.
+    arr = asset_reader.read_roi(real_item, 'B02', point_all_nulls)
+    assert arr.shape == (1, 11, 11)
+    assert arr.mask.all()
+
+
+#def test_read_roi_outofrange(real_item, point_straddles_range, point_outofrange):
+#    """
+#    Test asset_reader.read_roi() for two special cases:
+#    1. where the point's ROI straddles the image extents.
+#    2. where the point's ROI is entirely outside of the image extents.
+#
+#    """
+#    pass

@@ -4,7 +4,7 @@ a pixelstac query.
 
 """
 
-import collections
+import warnings
 
 import numpy
 
@@ -39,10 +39,14 @@ class PointStats:
       calculate for the point.   
     - item_stats_list: a list of ItemStats objects; the stats are calculated 
       by calling calc_stats().
+    - ignore_vals: If set, is a list of ignore values, one per asset, to ignore
+      when calcluating statistics; the default is to use the no-data
+      value of layers in the assets of each item at the time they are read.
 
     """
     def __init__(
-        self, pt, items, asset_ids, std_stats=[STATS_RAW], user_stats=None):
+        self, pt, items, asset_ids, std_stats=[STATS_RAW], user_stats=None,
+        ignore=None):
         """
         Constructor that takes a list of pystac.item.Item objects returned from
         pixelstac.search_stac and a list of raster asset IDs in the item.
@@ -59,6 +63,15 @@ class PointStats:
         The value returned from the function is appended to the appropriate
         list in the stats dictionary.
 
+        ignore is a scalar or list of pixel values that are ignored when calculating
+        the statistics. By default, the nodataval in each layer of each asset
+        of each item is used, if set. Specify one of:
+        - a scalar, which is used for all layers of all assets
+        - a list, the same length as asset_ids, defining the ignore_val to
+          use for all layers of the corresponding asset
+        Note that specifying a unique ignore value for every layer of every
+        asset is unsupported.
+
         See also ItemStats.
         
         """
@@ -67,6 +80,11 @@ class PointStats:
         self.asset_ids = asset_ids
         self.std_stats = std_stats
         self.user_stats = user_stats
+        if ignore is None:
+            self.ignore_vals = [None] * len(self.asset_ids)
+        else:
+            self.ignore_vals = ignore if isinstance(list) else [ignore]
+        assert len(self.ignore_vals) == len(self.asset_ids)
         self.item_stats_list = [ItemStats(item, self) for item in items]
 
     
@@ -111,11 +129,12 @@ class ItemStats:
 
         Then calculate this instance's list of standard stats and user stats.
 
+            item_t = item_stats.item.get_datetime().isoformat()
         """
         pt = self.pt_stats.pt
         asset_arrays = []
-        for asset_id in self.pt_stats.asset_ids:
-            arr = asset_reader.read_roi(self.item, asset_id, pt)
+        for asset_id, ignore_val in zip(self.pt_stats.asset_ids, self.pt_stats.ignore_vals):
+            arr = asset_reader.read_roi(self.item, asset_id, pt, ignore_val=ignore_val)
             # TODO: handle case where read_roi returns None.
             asset_arrays.append(arr)
         if STATS_RAW in self.pt_stats.std_stats:
@@ -134,25 +153,28 @@ class ItemStats:
 def std_stat_mean(asset_arrays, asset_ids):
     """
     The function used to calculate zonal stats for STATS_MEAN.
-    It calculates the mean value for every layer in each array of asset_arrays.
-    
-    Can only be used if all assets are single-layer rasters.
+    Only supports single-layer rasters. That is, the first dimension of
+    each passed array is 1.
 
-    Return a named tuple containing the mean value of the pixels for each asset.
-    
+    Return a 1D array containing the mean values. Its length equals the
+    of asset_arrays.
+
     Raise a MultibandAssetError if at least one asset contains multiple bands.
 
     """
+    # Occurs when calling arr.mean() when all elements of the masked arr are masked.
+    warnings.filterwarnings(
+        'ignore', message='Warning: converting a masked element to nan.',
+        category=UserWarning)
     rast_counts = [arr.shape[0] for arr in asset_arrays]
     errmsg = ''
     mean_vals = []
     for arr, rast_count, asset_id in zip(asset_arrays, rast_counts, asset_ids):
         # TODO: handle the case where read_roi returned None, will
-        # rast_count be 0??
+        # rast_count be 0?? Fill with numpy.nan.
         if rast_count != 1:
             errmsg += f"{asset_id} contains {rast_count} layers.\n"
         else:
-            # TODO: handle case where arr contains null values.
             mean_vals.append(arr.mean())
     if errmsg:
         errmsg = "ERROR: Cannot calculate the standard mean statistic " \
