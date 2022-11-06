@@ -6,6 +6,9 @@ from osgeo import gdal
 
 from pixelstac import asset_reader
 from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
+from .fixtures import point_straddle_bounds_1, point_straddle_bounds_2
+from .fixtures import point_outside_bounds_1, point_outside_bounds_2
+from .fixtures import point_outside_bounds_3
 from .fixtures import real_item
 
 
@@ -140,11 +143,37 @@ def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
     assert arr.mask.any() == False
 
 
-#def test_read_roi_outofrange(real_item, point_straddles_range, point_outofrange):
-#    """
-#    Test asset_reader.read_roi() for two special cases:
-#    1. where the point's ROI straddles the image extents.
-#    2. where the point's ROI is entirely outside of the image extents.
-#
-#    """
-#    pass
+def test_read_roi_outofrange(
+    real_item, point_straddle_bounds_1, point_straddle_bounds_2,
+    point_outside_bounds_1, point_outside_bounds_2,
+    point_outside_bounds_3):
+    """
+    Test asset_reader.read_roi() for two special cases:
+
+    1. where the point's ROI straddles the image extents.
+    2. where the point's ROI is entirely outside of the image extents.
+
+    """
+    # The first ROI straddles the UL pixel of the image. Its size is 
+    # smaller than the nominal ROI size of (1, 11, 11).
+    arr = asset_reader.read_roi(real_item, 'B02', point_straddle_bounds_1)
+    assert arr.shape == (1, 6, 6)
+    assert arr[0, 0, 0] == 3852
+    # The next ROI straddles the lower right corner. Note that the area
+    # within the image bounds contains null pixels.
+    arr = asset_reader.read_roi(real_item, 'B02', point_straddle_bounds_2)
+    assert arr.shape == (1, 5, 5)
+    assert arr.size == 25 # number of pixel read from file
+    assert arr.count() == 0 # number of valid (not-masked) pixels
+    # The next ROI is entirely outside the UL corner
+    arr = asset_reader.read_roi(real_item, 'B02', point_outside_bounds_1)
+    assert arr.count() == 0
+    assert arr.shape == (0,)
+    # The next ROI is outside the eastern extents of the image.
+    arr = asset_reader.read_roi(real_item, 'B02', point_outside_bounds_2)
+    assert arr.count() == 0
+    assert arr.shape == (0,)
+    # The next ROI is outside the LR corner
+    arr = asset_reader.read_roi(real_item, 'B02', point_outside_bounds_3)
+    assert arr.count() == 0
+    assert arr.shape == (0,)

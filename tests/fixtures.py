@@ -92,6 +92,85 @@ def point_partial_nulls():
 
 
 @pytest.fixture
+def point_straddle_bounds_1():
+    """
+    A point whose ROI straddles the bounds of the real_item defined below.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    # Point centred on UL corner pixel of image.
+    x = 136.1115
+    y = -36.1392
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture
+def point_straddle_bounds_2():
+    """
+    A point whose ROI straddles the bounds of the real_item defined below.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    # Point centred on LR corner pixel of image.
+    x = 137.3612
+    y = -37.1107
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture()
+def point_outside_bounds_1():
+    """
+    A point whose ROI is entirely outside the minimum x and y extents
+    of the real_item defined below.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    # Point centred on UL corner pixel of image.
+    x = 136.1107
+    y = -36.1387
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture()
+def point_outside_bounds_2():
+    """
+    A point whose ROI is entirely outside the maximum x extents
+    of the real_item defined below.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    # Point centred on UL corner pixel of image.
+    x = 137.3467
+    y = -36.5957
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture()
+def point_outside_bounds_3():
+    """
+    A point whose ROI is entirely outside the maximum LR extents
+    of the real_item defined below.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    # Point centred on UL corner pixel of image.
+    x = 137.3647
+    y = -37.1175
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+
+@pytest.fixture
 def point_all_nulls():
     """
     A point whose ROI contains a all null values when it intersects the
