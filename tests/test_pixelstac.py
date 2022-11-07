@@ -27,7 +27,6 @@ def test_stac_search(point_wgs84):
 
 def test_query(point_albers, point_wgs84):
     """Test pixelstac.query."""
-    # TODO: complete implementation of this test.
     # The test is fairly simple, just see that the expected number of
     # PointStats and ItemStats instances were created. The other tests cover
     # the other functions that test_query calls.

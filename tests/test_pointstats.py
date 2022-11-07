@@ -5,6 +5,7 @@ import numpy
 
 from pixelstac import pointstats
 from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
+from .fixtures import point_straddle_bounds_1, point_outside_bounds_1
 from .fixtures import real_item
 
 
@@ -112,7 +113,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     assert numpy.isnan(mean_b02)
     assert numpy.isnan(mean_b11)
     # Now overrides the asset's null values by specifying our own.
-    # Test assumes that the assets no-data value=0, thus giving a mean of 0.
+    # Test assumes that the asset's no-data value=0, thus giving a mean of 0.
     pt_stats = pointstats.PointStats(
         point_all_nulls, [real_item], ['B02', 'B11'],
         std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN],
@@ -124,3 +125,34 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     assert mean_b02 == 0
     assert mean_b11 == 0
     
+
+def test_handle_outofrange(
+    point_straddle_bounds_1, point_outside_bounds_1, real_item):
+    """
+    Test handling of the cases where some or all of the ROI extends beyond the
+    extents of the image. The tests are based on the std_stat_mean function.
+
+    """
+    # Case: the ROI straddles the image extents.
+    pt_stats = pointstats.PointStats(
+        point_straddle_bounds_1, [real_item], ['B02', 'B11'],
+        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
+    pt_stats.calc_stats()
+    item_stats = pt_stats.item_stats_list[0]
+    raw_b02 = item_stats.stats[pointstats.STATS_RAW][0]
+    assert raw_b02.shape == (1, 6, 6)
+    assert raw_b02[0, 0, 0] == 3852
+    mean_b02 = item_stats.stats[pointstats.STATS_MEAN][0]
+    assert round(mean_b02, 2) == 3520.44
+    # Case: the ROI is entirely outside the image extents.
+    # asset_reader.read_roi() returns an empty masked array when the ROI sits
+    # entirely beyond the image's extents.
+    pt_stats = pointstats.PointStats(
+        point_outside_bounds_1, [real_item], ['B02', 'B11'],
+        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
+    pt_stats.calc_stats()
+    item_stats = pt_stats.item_stats_list[0]
+    raw_b02 = item_stats.stats[pointstats.STATS_RAW][0]
+    assert raw_b02.shape == (0,)
+    mean_b02 = item_stats.stats[pointstats.STATS_MEAN][0]
+    assert numpy.isnan(mean_b02)
