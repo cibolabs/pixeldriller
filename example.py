@@ -36,6 +36,44 @@ def pt_2():
     return pt
 
 
+def pt_3():
+    """
+    Create a point in WGS 84. This point intersects one item and
+    contains a mix of null and non-null pixels.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 137.3452
+    y = -36.7259
+    date, t_delta = create_date(1)
+    # Attach some other attributes
+    other_atts = {"PointID": "p-nulls", "OwnerID": "uvw000"}
+    pt = point.Point(
+        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE,
+        other_attributes=other_atts)
+    return pt
+
+
+def pt_4():
+    """
+    Create a point in WGS 84. This point intersects two items.
+    Its region of interest is only partially within the extents of
+    one of the items, so the pixel counts are less than for the other
+    item, which contains the entire ROI.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 136.1115
+    y = -36.1392
+    date, t_delta = create_date(1)
+    # Attach some other attributes
+    other_atts = {"PointID": "straddle-extent", "OwnerID": "rst432"}
+    pt = point.Point(
+        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE,
+        other_attributes=other_atts)
+    return pt
+
+
 def create_sp_ref(epsg_code):
     """
     Return an osr.SpatialReference instance with a coordinate reference
@@ -66,9 +104,13 @@ def create_date(d_days):
 if __name__ == '__main__':
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
+    std_stats = [
+        pointstats.STATS_RAW, pointstats.STATS_MEAN,
+        pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
     pt_stats_list = pixelstac.query(
-        endpoint, [pt_1(), pt_2()], ['B02', 'B03'], collections=collections,
-        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
+        endpoint, [pt_1(), pt_2(), pt_3(), pt_4()],
+        ['B02', 'B11'], collections=collections,
+        std_stats=std_stats)
 
     for pt_stats in pt_stats_list:
         print(f"Stats for point: x={pt_stats.pt.x}, y={pt_stats.pt.y}")
@@ -78,6 +120,8 @@ if __name__ == '__main__':
             print(f"    Item ID={item_stats.item.id}") # The pystac.item.Item
 #            print(f"        Raw arrays: {item_stats.stats[pointstats.STATS_RAW]}")
             print(f"        Mean values: {item_stats.stats[pointstats.STATS_MEAN]}")
+            print(f"        Counts     : {item_stats.stats[pointstats.STATS_COUNT]}")
+            print(f"        Null Counts: {item_stats.stats[pointstats.STATS_COUNTNULL]}")
 
 
 # For future implementation.

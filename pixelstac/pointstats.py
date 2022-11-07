@@ -11,10 +11,16 @@ import numpy
 from . import asset_reader
 
 # TODO: expand the set of stats
+# The Set of standard statistics. See the STD_STATS_FUNCS dictionary at
+# the end of this module, which maps the statistic to a function.
 STATS_RAW = 'raw'
 STATS_MEAN = 'mean'
 STATS_STDDEV = 'stddev'
-
+# STATS_COUNT is the number of non-null pixels used in stats calcs.
+# STATS_COUNTNULL is the number of null pixels in an array.
+# They sum to the size of the array.
+STATS_COUNT = 'count' # number of non-null pixels used in stats calcs.
+STATS_COUNTNULL ='countnull' # number of null pixels in an array.
 
 class MultibandAssetError(Exception):
     """Raised by the std stats functions when an asset has multiple bands."""
@@ -137,57 +143,80 @@ class ItemStats:
         for asset_id, ignore_val in zip(self.pt_stats.asset_ids, self.pt_stats.ignore_vals):
             arr = asset_reader.read_roi(self.item, asset_id, pt, ignore_val=ignore_val)
             asset_arrays.append(arr)
-        if STATS_RAW in self.pt_stats.std_stats:
-            self.stats[STATS_RAW] = asset_arrays
-        std_stats = [s_s for s_s in self.pt_stats.std_stats if s_s != STATS_RAW]
-        for std_stat_name in std_stats:
-            std_stat_func = STD_STATS_FUNCS[std_stat_name]
-            self.stats[std_stat_name] = std_stat_func(
-                asset_arrays, self.pt_stats.asset_ids)
+        if self.pt_stats.std_stats:
+            # Check that all arrays are single-band.
+            check_std_arrays(asset_arrays, self.pt_stats.asset_ids)
+            if STATS_RAW in self.pt_stats.std_stats:
+                self.stats.update({STATS_RAW: asset_arrays})
+                self.stats[STATS_RAW] = asset_arrays
+            # Calculate all other std stats.
+            warnings.filterwarnings(
+                'ignore', message='Warning: converting a masked element to nan.',
+                category=UserWarning)
+            std_stats = [s_s for s_s in self.pt_stats.std_stats if s_s != STATS_RAW]
+            for std_stat_name in std_stats:
+                std_stat_func = STD_STATS_FUNCS[std_stat_name]
+                self.stats[std_stat_name] = std_stat_func(asset_arrays)
         # TODO: add support for user-defined stats functions.
         # for stat_name, stat_func in point_stats.user_stats:
         #     self.stats[stat_name] = stat_func(
         #       asset_arrays, self.pt_stats.asset_ids, self.item)
 
 
-def std_stat_mean(asset_arrays, asset_ids):
+def check_std_arrays(asset_arrays, asset_ids):
     """
-    The function used to calculate zonal stats for STATS_MEAN.
-    Only supports single-layer rasters. That is, the first dimension of
-    each passed array is 1.
-
-    Return a 1D array containing the mean values. Its length equals the
-    length of asset_arrays.
-
-    Raise a MultibandAssetError if at least one asset contains multiple bands.
+    Raise a MultibandAssetError if at least one of the arrays in
+    asset_arrays contains multiple bands.
 
     """
-    # Occurs when calling arr.mean() when all elements of the masked arr are masked.
-    warnings.filterwarnings(
-        'ignore', message='Warning: converting a masked element to nan.',
-        category=UserWarning)
+    errmsg = ""
     rast_counts = [arr.shape[0] for arr in asset_arrays]
-    errmsg = ''
-    mean_vals = []
-    for arr, rast_count, asset_id in zip(asset_arrays, rast_counts, asset_ids):
-        if rast_count > 1:
-            errmsg += f"{asset_id} contains {rast_count} layers.\n"
-        else:
-            # This also handles the case where rast_count is 0, i.e. the arr is empty,
-            # meaning that no-pixels were read from the image. For example,
-            # the roi is outside the image extents. In this case arr.mean()
-            # returns nan.
-            mean_vals.append(arr.mean())
+    for rcount, asset_id in zip(rast_counts, asset_ids):
+        if rcount > 1:
+            errmsg += f"{asset_id} contains {rcount} layers.\n"
     if errmsg:
         errmsg = "ERROR: Cannot calculate the standard mean statistic " \
                  "because the following assets contain more than " \
                  "one band:\n" + errmsg
         raise MultibandAssetError(errmsg)
+
+
+def std_stat_mean(asset_arrays):
+    """
+    Return a 1D array with the mean values for each masked array
+    in asset_arrays.
+
+    """
+    # Calculate the stat for each array because their their x and y sizes will
+    # differ if their pixel sizes are different.
+    mean_vals = [arr.mean() for arr in asset_arrays]
     return numpy.array(mean_vals)
+
+
+def std_stat_count(asset_arrays):
+    """
+    Return a 1D array with the number of non-null pixels in each masked array
+    in asset_arrays.
+
+    """
+    counts = [arr.count() for arr in asset_arrays]
+    return numpy.array(counts)
+
+
+def std_stat_countnull(asset_arrays):
+    """
+    Return a 1D array with the number of null pixels in each masked array
+    in asset_arrays.
+
+    """
+    counts = [arr.mask.sum() for arr in asset_arrays]
+    return numpy.array(counts)
 
 
 # The standard stats and their functions.
 # STATS_RAW is handled in ItemStats.calc_stats()
 STD_STATS_FUNCS = {
-    STATS_MEAN: std_stat_mean
+    STATS_MEAN: std_stat_mean,
+    STATS_COUNT: std_stat_count,
+    STATS_COUNTNULL: std_stat_countnull
 }

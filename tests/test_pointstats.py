@@ -43,42 +43,86 @@ def test_itemstats(point_one_item, real_item):
 
 def test_calc_stats(point_one_item, real_item):
     """Test the calc_stats methods of both PointStats and ItemStats."""
+    std_stats = [
+        pointstats.STATS_RAW, pointstats.STATS_MEAN,
+        pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
     pt_stats = pointstats.PointStats(
-        point_one_item, [real_item], ['B02', 'B11'],
-        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
+        point_one_item, [real_item], ['B02', 'B11'], std_stats=std_stats)
     pt_stats.calc_stats()
     assert len(pt_stats.item_stats_list) == 1
     item_stats = pt_stats.item_stats_list[0]
     assert pointstats.STATS_RAW in item_stats.stats
     assert pointstats.STATS_MEAN in item_stats.stats
+    assert pointstats.STATS_COUNT in item_stats.stats
+    assert pointstats.STATS_COUNTNULL in item_stats.stats
     assert len(item_stats.stats[pointstats.STATS_RAW]) == 2
     assert len(item_stats.stats[pointstats.STATS_MEAN]) == 2
     mean_b02 = item_stats.stats[pointstats.STATS_MEAN][0]
+    count_b02 = item_stats.stats[pointstats.STATS_COUNT][0]
+    countnull_b02 = item_stats.stats[pointstats.STATS_COUNTNULL][0]
     assert round(mean_b02, 2) == 441.41
+    assert count_b02 == 121
+    assert countnull_b02 == 0
     mean_b11 = item_stats.stats[pointstats.STATS_MEAN][1]
+    count_b11 = item_stats.stats[pointstats.STATS_COUNT][1]
     assert round(mean_b11, 2) == 135.19
+    assert count_b11 == 36
+    countnull_b11 = item_stats.stats[pointstats.STATS_COUNTNULL][1]
+    assert countnull_b11 == 0
 
 
+def test_check_std_arrays():
+    """Test that a Multiband array will raise an exception."""
+    a1 = numpy.ma.arange(10).reshape((1,2,5))
+    mba = numpy.ma.arange(20).reshape((2,2,5))
+    a3 = numpy.ma.arange(4,16).reshape((1,4,3))
+    with pytest.raises(pointstats.MultibandAssetError) as excinfo:
+        pointstats.check_std_arrays(
+            [a1, mba, a3], ['B02', 'MBA', 'B08'])
+    assert "MBA contains 2 layers" in str(excinfo.value)
+
+
+@pytest.mark.filterwarnings("ignore:.*converting a masked element to nan.:UserWarning")
 def test_std_stat_mean():
     """Test pointstats.std_stat_mean."""
     # All arrays are 3D.
     # All arrays must only contain one layer, so a.shape[0]=1.
     # Different lengths in the other dimensions are permitted.
-    a1 = numpy.arange(10).reshape((1,2,5))
-    a2 = numpy.arange(3,12).reshape((1,3,3))
-    a3 = numpy.arange(4,16).reshape((1,4,3))
-    mean_vals = pointstats.std_stat_mean([a1, a2, a3], ['B02', 'B08', 'B12'])
+    # Arrays must be masked arrays.
+    a1 = numpy.ma.arange(10).reshape((1,2,5))
+    a2 = numpy.ma.arange(3,12).reshape((1,3,3))
+    a3 = numpy.ma.arange(4,16).reshape((1,4,3))
+    mean_vals = pointstats.std_stat_mean([a1, a2, a3])
     assert list(mean_vals) == [4.5, 7.0, 9.5]
-    # Multiband array will raise an exception.
-    mba = numpy.arange(20).reshape((2,2,5))
-    with pytest.raises(pointstats.MultibandAssetError) as excinfo:
-        mean_vals = pointstats.std_stat_mean(
-            [a1, mba, a3], ['B02', 'MBA', 'B08'])
-    assert "MBA contains 2 layers" in str(excinfo.value)
-    # Test use of masked-arrays. Mask the nine out of a1.
+    # Test use of a mask. Mask the nine out of a1.
     m_a1 = numpy.ma.masked_array(a1, mask=a1==9, fill_value=-1)
-    mean_vals = pointstats.std_stat_mean([m_a1, a2, a3], ['B02', 'B08', 'B12'])
+    mean_vals = pointstats.std_stat_mean([m_a1, a2, a3])
     assert list(mean_vals) == [4.0, 7.0, 9.5]
+    # Test empty arrays.
+    e1 = numpy.ma.masked_array([], mask=True)
+    mean_vals = pointstats.std_stat_mean([e1, m_a1, a2])
+    assert numpy.isnan(mean_vals[0])
+    assert list(mean_vals)[1:] == [4.0, 7.0]
+
+
+def test_std_stat_count():
+    """Test pointstats.std_stat_count."""
+    a1 = numpy.arange(10).reshape((1,2,5))
+    m_a1 = numpy.ma.masked_array(a1, mask=a1==0)
+    m_a2 = numpy.ma.arange(4,20).reshape((1,4,4))
+    m_a3 = numpy.ma.masked_array([], mask=True)
+    counts = pointstats.std_stat_count([m_a1, m_a2, m_a3])
+    assert list(counts) == [9, 16, 0]
+
+
+def test_std_stat_countnull():
+    """Test pointstats.std_stat_countnull."""
+    a1 = numpy.arange(10).reshape((1,2,5))
+    m_a1 = numpy.ma.masked_array(a1, mask=a1<3)
+    m_a2 = numpy.ma.arange(4,20).reshape((1,4,4))
+    m_a3 = numpy.ma.masked_array([], mask=True)
+    counts = pointstats.std_stat_countnull([m_a1, m_a2, m_a3])
+    assert list(counts) == [3, 0, 0]
 
 
 def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
