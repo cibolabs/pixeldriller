@@ -126,17 +126,16 @@ class ItemStats:
         """
         Using the point's region of interest, read the array of pixels from
         all bands in each raster asset. Store the arrays in this instance's
-        stats dictionary, with STATS_RAW as the key.
+        stats dictionary, with STATS_RAW as the key, if STATS_RAW is in the list
+        of stats to return.
 
         Then calculate this instance's list of standard stats and user stats.
 
-            item_t = item_stats.item.get_datetime().isoformat()
         """
         pt = self.pt_stats.pt
         asset_arrays = []
         for asset_id, ignore_val in zip(self.pt_stats.asset_ids, self.pt_stats.ignore_vals):
             arr = asset_reader.read_roi(self.item, asset_id, pt, ignore_val=ignore_val)
-            # TODO: handle case where read_roi returns None.
             asset_arrays.append(arr)
         if STATS_RAW in self.pt_stats.std_stats:
             self.stats[STATS_RAW] = asset_arrays
@@ -158,7 +157,7 @@ def std_stat_mean(asset_arrays, asset_ids):
     each passed array is 1.
 
     Return a 1D array containing the mean values. Its length equals the
-    of asset_arrays.
+    length of asset_arrays.
 
     Raise a MultibandAssetError if at least one asset contains multiple bands.
 
@@ -171,11 +170,13 @@ def std_stat_mean(asset_arrays, asset_ids):
     errmsg = ''
     mean_vals = []
     for arr, rast_count, asset_id in zip(asset_arrays, rast_counts, asset_ids):
-        # TODO: handle the case where read_roi returned None, will
-        # rast_count be 0?? Fill with numpy.nan.
-        if rast_count != 1:
+        if rast_count > 1:
             errmsg += f"{asset_id} contains {rast_count} layers.\n"
         else:
+            # This also handles the case where rast_count is 0, i.e. the arr is empty,
+            # meaning that no-pixels were read from the image. For example,
+            # the roi is outside the image extents. In this case arr.mean()
+            # returns nan.
             mean_vals.append(arr.mean())
     if errmsg:
         errmsg = "ERROR: Cannot calculate the standard mean statistic " \
@@ -183,6 +184,7 @@ def std_stat_mean(asset_arrays, asset_ids):
                  "one band:\n" + errmsg
         raise MultibandAssetError(errmsg)
     return numpy.array(mean_vals)
+
 
 # The standard stats and their functions.
 # STATS_RAW is handled in ItemStats.calc_stats()

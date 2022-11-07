@@ -119,39 +119,53 @@ def read_roi(item, asset, pt, ignore_val=None):
     larger than the region of interest defined by the point's location
     and buffer.
 
-    Return a 3D numpy masked array (of type numpy.ma) by using the ignore_val
+    Return a 3D numpy masked array (numpy.ma.MaskedArray)by using the ignore_val
     to create a mask. If ignore_val=None, the no-data values set on each
     band of the asset are used.
 
-    Assume that the roi is within the image extents.
-    A future version will return None if the extent of the pixels to be
-    extracted is beyond the image extents.
-    
+    If the ROI straddles the image extents, the ROI is clipped to the extents
+    (i.e. only that portion of the image that is within the extents is returned).
+
+    Return an empty MaskedArray if the ROI lies outside the image extents.
+
     """
     # convert centre of point to same coord reference system as filename
     a_info = asset_info(item, asset)
     xoff, yoff, win_xsize, win_ysize = get_pix_window(pt, a_info)
-    # TODO: check the ROI is within the image's bounds
-    # And that the ROI is at least 1 pixel in size; i.e.:
-    # 0 <= ul_px < lr_px < ncols
-    # 0 <= ul_py < lr_py < nrows
-    ds = gdal.Open(asset_filepath(item, asset), gdal.GA_ReadOnly)
-    band_data = []
-    mask_data = []
-    for band_num in range(1, a_info.raster_count + 1):
-        band = ds.GetRasterBand(band_num)
-        b_arr = band.ReadAsArray(xoff, yoff, win_xsize, win_ysize)
-        band_data.append(b_arr)
-        nodata_val = ignore_val if ignore_val else a_info.nodataval[band_num-1]
-        if nodata_val is None:
-            mask = numpy.zeros(b_arr.shape, dtype=bool)
-        else:
-            mask = b_arr==nodata_val
-        mask_data.append(mask)
-    del ds
-    arr = numpy.array(band_data)
-    mask = numpy.array(mask_data)
-    m_arr = numpy.ma.masked_array(arr, mask=mask)
+    # Reduce the window size if it is straddles the image extents.
+    # If the resulting window less than or equal to 0, the ROI is outside of
+    # the image's extents.
+    if xoff < 0:
+        win_xsize = win_xsize + xoff
+        xoff = 0
+    elif xoff + win_xsize > a_info.ncols:
+        win_xsize = a_info.ncols - xoff
+    if yoff < 0:
+        win_ysize = win_ysize + yoff
+        yoff = 0
+    elif yoff + win_ysize >= a_info.nrows:
+        win_ysize = a_info.nrows - yoff
+    # Read the raster.
+    if win_xsize > 0 and win_ysize > 0:
+        ds = gdal.Open(asset_filepath(item, asset), gdal.GA_ReadOnly)
+        band_data = []
+        mask_data = []
+        for band_num in range(1, a_info.raster_count + 1):
+            band = ds.GetRasterBand(band_num)
+            b_arr = band.ReadAsArray(xoff, yoff, win_xsize, win_ysize)
+            band_data.append(b_arr)
+            nodata_val = ignore_val if ignore_val else a_info.nodataval[band_num-1]
+            if nodata_val is None:
+                mask = numpy.zeros(b_arr.shape, dtype=bool)
+            else:
+                mask = b_arr==nodata_val
+            mask_data.append(mask)
+        del ds
+        arr = numpy.array(band_data)
+        mask = numpy.array(mask_data)
+        m_arr = numpy.ma.masked_array(arr, mask=mask)
+    else:
+        m_arr = numpy.ma.masked_array([], mask=True)
     return m_arr
 
 
