@@ -58,7 +58,12 @@ def query(
     compute the zonal statistics for all raster assets for
     the n nearest-in-time STAC items for every point.
 
-    Return a list of pointstats.PointStats objects.
+    TODO: change this description as we no longer return a list.
+    the user may want to filter the points before doing stats calcs...?
+    Return a list of pointstats.PointStats objects, e.g.
+    pt.point_stats
+
+    The statistics for each point are populated in place.
 
     Proceed as follows...
 
@@ -147,18 +152,40 @@ def query(
         ref_asset = raster_assets[0]
     results = []
     client = Client.open(stac_endpoint)
+    # TODO: reorganise points by items. This will be a dictionary of item IDs.
+    # The value is a list of AssetReaders.
+    # ORIGINAL:
+#    for pt in points:
+#        items = stac_search(client, pt, collections)
+#        # TODO: Choose the n nearest-in-time items.
+#        # TODO: what do we do if the ref_asset has no spatial reference defined?
+#        # TODO: what if stac_search returns no items?
+#        #pt.make_roi(buffer, shape, items[0], ref_asset)
+#
+#        # TODO: initialise a PointStats object and attach it to the point/
+#        # pstats = pointstats.PointStats(pt)
+#        pstats = pointstats.PointStats(
+#            pt, items, raster_assets,
+#            std_stats=std_stats, user_stats=user_stats)
+#        pstats.calc_stats()
+#        results.append(pstats)
+
+    # NEW:
+    # Find all items that every point intersects and group the points by item.
+    # Some points intersect multiple items.
+    item_points = {}
     for pt in points:
         items = stac_search(client, pt, collections)
-        # TODO: Choose the n nearest-in-time items.
-        # TODO: what do we do if the ref_asset has no spatial reference defined?
-        # TODO: what if stac_search returns no items?
-        #pt.make_roi(buffer, shape, items[0], ref_asset)
-        pstats = pointstats.PointStats(
-            pt, items, raster_assets,
-            std_stats=std_stats, user_stats=user_stats)
-        pstats.calc_stats()
-        results.append(pstats)
-    return results
+        pt.add_items(items)
+        for item in items:
+            if item.id not in item_points:
+                item_points[item.id] = points.ItemPoints(item)
+            item_points[item.id].add_point(pt)
+    for ip in item_points.values():
+        ip.read_data(raster_assets)
+        ip.calc_stats(std_stats, user_stats)
+
+#    return results
 
 
 def stac_search(stac_client, pt, collections):#start_date, end_date, collections=None):

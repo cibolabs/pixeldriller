@@ -107,17 +107,22 @@ if __name__ == '__main__':
     std_stats = [
         pointstats.STATS_RAW, pointstats.STATS_MEAN,
         pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
-    pt_stats_list = pixelstac.query(
-        endpoint, [pt_1(), pt_2(), pt_3(), pt_4()],
+    #pt_stats_list = pixelstac.query(
+    points = [pt_1(), pt_2(), pt_3(), pt_4()]
+    pixelstac.query(
+        endpoint, points,
         ['B02', 'B11'], collections=collections,
         std_stats=std_stats)
 
-    for pt_stats in pt_stats_list:
-        print(f"Stats for point: x={pt_stats.pt.x}, y={pt_stats.pt.y}")
-        pid = pt_stats.pt.other_attributes["PointID"]
+    #for pt_stats in pt_stats_list:
+    for pt in points:
+        pt_stats = pt.point_stats
+        print(f"Stats for point: x={pt.x}, y={pt.y}")
+        pid = pt.other_attributes["PointID"]
         print(f"with ID {pid}")
-        for item_stats in pt_stats.item_stats_list:
-            print(f"    Item ID={item_stats.item.id}") # The pystac.item.Item
+        for item_id, item_stats in pt_stats.item_stats.items():
+#            item_stats = pt_stats.item_stats[item_id]
+            print(f"    Item ID={item_id}") # The pystac.item.Item
 #            print(f"        Raw arrays: {item_stats.stats[pointstats.STATS_RAW]}")
             print(f"        Mean values: {item_stats.stats[pointstats.STATS_MEAN]}")
             print(f"        Counts     : {item_stats.stats[pointstats.STATS_COUNT]}")

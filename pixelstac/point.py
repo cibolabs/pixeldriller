@@ -5,6 +5,7 @@ Defines the Point class and additional functions for operating on points.
 
 from osgeo import osr
 
+from . import pointstats
 from . import asset_reader
 
 # For defining the shape of a Point's region of interest.
@@ -70,6 +71,39 @@ class Point:
         self.buffer = buffer
         self.shape = shape
         self.other_attributes = other_attributes
+#        self.items = []
+        self.point_stats = pointstats.PointStats()
+
+
+    def add_items(self, items):
+        """
+        Append the list of pystac.Item items to the this Point's items list.
+
+        The point intersects these items.
+
+        """
+#        self.items.extend(items)
+        self.point_stats.add_items(items)
+
+    
+    def add_data(self, item, data):
+        """
+        Add the numpy masked array of data, which contains the pixels for one
+        of the assets of the item.
+
+        """
+        self.point_stats.add_data(item, data)
+
+    
+    def calc_stats(self, item):
+        """
+        Calculate the stats for the pixels about the point for all assets
+        in the given item.
+
+        Call add_data first, for every required asset.
+
+        """
+        self.point_stats.calc_stats(item)
 
 
     def transform(self, dst_srs):
@@ -111,3 +145,66 @@ class Point:
         dst_srs = osr.SpatialReference()
         dst_srs.ImportFromEPSG(4326)
         return self.transform(dst_srs)
+
+
+class PointCollection:
+    """An abstract class that represents a collection of points."""
+    pass
+
+
+class ItemPoints(PointCollection):
+    """
+    A collection of points that Intersect a STAC Item.
+
+    """
+    def __init__(self, item):
+        """
+        Construct an ItemPoints object, setting the following attributes:
+        - item: the pystac.Item object
+        - points: to an empty list
+
+        """
+        self.item = item
+        self.points = []
+
+    
+    def add_point(self, pt):
+        """
+        Append the Point to this object's points list.
+
+        """
+        self.points.append(pt)
+
+    
+    def read_data(self, asset_ids):
+        """
+        TODO: pass ignore_values through.
+
+        Read the pixels around every point.
+
+        """
+        # Read all data for one asset, then move onto the next asset.
+        # Append an array to the point's list of arrays each time.
+        for asset_id in asset_ids:
+            reader = asset_reader.AssetReader(self.item, asset_id)
+            reader.read_data(self.points)            
+
+    
+    def calc_stats(self):
+        """
+        Calculate the statistics for every point.
+
+        Call this after calling read_data.
+
+        """
+        for pt in self.points:
+            pt.calc_stats(self.item)
+
+
+class ImagePoints(PointCollection):
+    """
+    A collection of points that intersect a standard Image, represented
+    by a path or URL.
+
+    """
+    pass
