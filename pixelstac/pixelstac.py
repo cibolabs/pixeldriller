@@ -45,11 +45,7 @@ end user greater flexbility in defining the STRegions for each point.
 
 """
 
-import datetime
-
 from pystac_client import Client
-from osgeo import gdal
-from osgeo import osr
 
 from . import pointstats
 
@@ -150,8 +146,9 @@ def query(
     if not ref_asset:
         ref_asset = raster_assets[0]
     results = []
+    client = Client.open(stac_endpoint)
     for pt in points:
-        items = stac_search(stac_endpoint, pt, collections)
+        items = stac_search(client, pt, collections)
         # TODO: Choose the n nearest-in-time items.
         # TODO: what do we do if the ref_asset has no spatial reference defined?
         # TODO: what if stac_search returns no items?
@@ -164,11 +161,14 @@ def query(
     return results
 
 
-def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collections=None):
+def stac_search(stac_client, pt, collections):#start_date, end_date, collections=None):
     """
-    Search the list of collections in the STAC endpoint for items that
+    Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the point and are within the point's
     temporal search window.
+
+    stac_client is the pystac.Client object returned from calling
+    pystac.Client.open(endpoint_url).
     
     If no collections are specified then search all collections in the endpoint.
 
@@ -177,7 +177,6 @@ def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collectio
     TODO: permit user-defined properties for filtering the stac search.
 
     """
-    api = Client.open(stac_endpoint)
     # Properties to filter by. These are part of the STAC API's query extension:
     # https://github.com/radiantearth/stac-api-spec/tree/master/fragments/query
     # We would add eo:cloud_cover here if we wanted to exclude very cloudy scenes.
@@ -200,7 +199,7 @@ def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collectio
     # TODO: Do I need to split bounding boxes that cross the anti-meridian into two?
     # Or does the stac-client handle this case?
     # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
-    search = api.search(
+    search = stac_client.search(
         collections=collections,
         max_items=None, # no limit on number of items to return
         intersects=pt_json,
@@ -209,4 +208,3 @@ def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collectio
         query=properties)
     results = list(search.items())
     return results
-
