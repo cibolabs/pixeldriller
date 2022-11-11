@@ -4,7 +4,6 @@
 # See section 3.1.9 in https://www.rfc-editor.org/rfc/rfc7946#section-3.1
 
 from pixelstac import pixelstac
-from pixelstac import point
 
 from .fixtures import point_albers, point_wgs84
 from .fixtures import COLLECTIONS, STAC_ENDPOINT, get_stac_client
