@@ -37,7 +37,6 @@ import cProfile
 
 from osgeo import osr
 
-from pixelstac import point
 from pixelstac import pixelstac
 from pixelstac import pointstats
 
@@ -93,7 +92,7 @@ def create_points(json_file, read_from, read_to):
     sp_ref.ImportFromEPSG(4326)
     dt = datetime.timedelta(days=10) # 10 days either side
     buff = 50 # 50 m buffer around point.
-    shp = point.ROI_SHP_SQUARE
+    shp = pointstats.ROI_SHP_SQUARE
     points = []
     for feature in feat_coll['features'][read_from:read_to]:
         geo_x, geo_y = feature['geometry']['coordinates']
@@ -102,7 +101,7 @@ def create_points(json_file, read_from, read_to):
         # Also add all the field data (a dict) from the geojson.
         field_data = feature['properties']
         points.append(
-            point.Point(
+            pointstats.Point(
                 (geo_x, geo_y, coll_time), sp_ref, dt, buff, shp, 
                 other_attributes=field_data))
     return points
@@ -119,7 +118,7 @@ def run_query():
     pt_stats_list = pixelstac.query(
         endpoint, points, raster_assets, collections=collections,
         std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
-    print(f"Collected {len(pt_stats_list)} sets of stats.")
+    print(f"Collected {len(points)} sets of stats.")
 
 
 def run_benchmark():

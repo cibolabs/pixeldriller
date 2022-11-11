@@ -43,11 +43,7 @@ class ImageInfo:
     as for a normal single file.
 
     """
-    #def __init__(self, filename, omit_per_band=False):
     def __init__(self, ds, omit_per_band=False):
-#        ds = gdal.Open(str(filename), gdal.GA_ReadOnly)
-#        if ds is None:
-#            raise AssetReaderError(f"Unable to open file {filename}")
         geotrans = ds.GetGeoTransform()
         (ncols, nrows) = (ds.RasterXSize, ds.RasterYSize)
         self.raster_count = ds.RasterCount
@@ -77,8 +73,7 @@ class ImageInfo:
             self.layer_type = None
         # Pixel datatype, stored as a GDAL enum value. 
         self.data_type = ds.GetRasterBand(1).DataType
-        self.data_type_name = gdal.GetDataTypeName(self.data_type) #GDAL_DATA_TYPE_NAMES[self.data_type]
-        del ds
+        self.data_type_name = gdal.GetDataTypeName(self.data_type)
 
 
     def __str__(self):
@@ -111,37 +106,21 @@ class AssetReader:
         self.info = ImageInfo(self.dataset)
 
 
-
-#    def asset_filepath(item, asset):
-#        """
-#        Get the file path to the item's asset, in a form readable by GDAL.
-#
-#        """
-#        return f"/vsicurl/{item.assets[asset].href}"
-
-
-#def asset_info(item, asset):
-#    """
-#    Return an asset_info.ImageInfo object with information about the
-#    raster asset in the pystac.item.Item.
-#
-#    """
-#    filename = asset_filepath(item, asset)
-#    return ImageInfo(filename)
-
-    def read_data(self, points):
+    def read_data(self, points, ignore_val=None):
         """
         Read the data around each of the given points and add it to the point.
+
+        The data is read using read_roi(), passing it the ignore_val.
+        The data is attached to each point.
 
         """
         # Do a naive read, reading an array for every point.
         # This is inefficient, we'll improve the algorithm later.
         for pt in points:
-            arr = self.read_roi(pt)
+            arr = self.read_roi(pt, ignore_val=ignore_val)
             pt.add_data(self.item, arr)
 
 
-#    def read_roi(item, asset, pt, ignore_val=None):
     def read_roi(self, pt, ignore_val=None):
         """
         Extract the smallest number of pixels required to cover the region of
@@ -149,9 +128,9 @@ class AssetReader:
         larger than the region of interest defined by the point's location
         and buffer.
 
-        Return a 3D numpy masked array (numpy.ma.MaskedArray)by using the ignore_val
-        to create a mask. If ignore_val=None, the no-data values set on each
-        band of the asset are used.
+        Return a 3D numpy masked array (numpy.ma.MaskedArray) by using the ignore_val
+        to create a mask. If ignore_val=None, the no-data value set on the
+        asset is used.
 
         If the ROI straddles the image extents, the ROI is clipped to the extents
         (i.e. only that portion of the image that is within the extents is returned).
@@ -160,7 +139,6 @@ class AssetReader:
 
         """
         # convert centre of point to same coord reference system as filename
-#        a_info = asset_info(item, asset)
         xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
         # Reduce the window size if it is straddles the image extents.
         # If the resulting window less than or equal to 0, the ROI is outside of

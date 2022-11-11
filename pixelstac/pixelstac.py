@@ -50,20 +50,15 @@ from pystac_client import Client
 from . import pointstats
 
 def query(
-    stac_endpoint, points, raster_assets, ref_asset=None,
+    stac_endpoint, points, raster_assets,
     collections=None, nearest_n=1, item_properties=None,
     std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None):
     """
-    Given a STAC endpoint and a list of pixelstac.Point objects,
+    Given a STAC endpoint and a list of pointstats.Point objects,
     compute the zonal statistics for all raster assets for
     the n nearest-in-time STAC items for every point.
 
-    TODO: change this description as we no longer return a list.
-    the user may want to filter the points before doing stats calcs...?
-    Return a list of pointstats.PointStats objects, e.g.
-    pt.point_stats
-
-    The statistics for each point are populated in place.
+    Each Point object is updated with its statistics.
 
     Proceed as follows...
 
@@ -123,9 +118,8 @@ def query(
     
     buffer is the distance around the point that defines the region of interest.
     Its units (e.g. metre) are assumed to be the same as the units of the
-    coordinate reference system of the given reference asset (ref_asset).
+    coordinate reference system of the STAC Item's assets.
     It is the caller's responsibility to know what these are.
-    If ref_asset is not given, it defaults to the first item in raster_assets.
     
     Time (in the X-Y-Time point) is a datetime.datetime object.
     It may be timezone aware or unaware,
@@ -148,44 +142,28 @@ def query(
     
     """
     # TODO: Implement masking of array with ignore_val.
-    if not ref_asset:
-        ref_asset = raster_assets[0]
-    results = []
+    # TODO: Choose the n nearest-in-time items.
     client = Client.open(stac_endpoint)
-    # TODO: reorganise points by items. This will be a dictionary of item IDs.
-    # The value is a list of AssetReaders.
-    # ORIGINAL:
-#    for pt in points:
-#        items = stac_search(client, pt, collections)
-#        # TODO: Choose the n nearest-in-time items.
-#        # TODO: what do we do if the ref_asset has no spatial reference defined?
-#        # TODO: what if stac_search returns no items?
-#        #pt.make_roi(buffer, shape, items[0], ref_asset)
-#
-#        # TODO: initialise a PointStats object and attach it to the point/
-#        # pstats = pointstats.PointStats(pt)
-#        pstats = pointstats.PointStats(
-#            pt, items, raster_assets,
-#            std_stats=std_stats, user_stats=user_stats)
-#        pstats.calc_stats()
-#        results.append(pstats)
-
-    # NEW:
-    # Find all items that every point intersects and group the points by item.
-    # Some points intersect multiple items.
     item_points = {}
     for pt in points:
         items = stac_search(client, pt, collections)
+        # Tell the point which items it intersects.
         pt.add_items(items)
+        # Group all points for each item together in an ItemPoints collection.
         for item in items:
             if item.id not in item_points:
-                item_points[item.id] = points.ItemPoints(item)
+                item_points[item.id] = pointstats.ItemPoints(item)
             item_points[item.id].add_point(pt)
+    # Read the pixel data from the rasters and calculate the stats.
+    # Each point will contain ItemStats objects, with its stats for those
+    # item's assets.
+    # Similar to ItemPoints.read_data(), we could read data for each Item
+    # in a threadpool. Probably makes sense to do it at this level than at
+    # the Asset level because we expect there to be more items than there 
+    # are assets. And also the asset reads can be done sequentially.
     for ip in item_points.values():
         ip.read_data(raster_assets)
         ip.calc_stats(std_stats, user_stats)
-
-#    return results
 
 
 def stac_search(stac_client, pt, collections):#start_date, end_date, collections=None):

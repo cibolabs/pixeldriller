@@ -4,9 +4,31 @@ import datetime
 
 import pytest
 from osgeo import osr
+from pystac_client import Client
 
-from pixelstac.point import Point, ROI_SHP_SQUARE
 from pixelstac import pixelstac
+from pixelstac.pointstats import Point, ROI_SHP_SQUARE
+
+# We use Element84's STAC endpoint and search the sentinel-s2-l2a-cogs
+# collection in many tests.
+
+STAC_ENDPOINT = "https://earth-search.aws.element84.com/v0"
+COLLECTIONS = ['sentinel-s2-l2a-cogs']
+_STAC_CLIENT = None
+def get_stac_client():
+    """
+    Get a STAC endpoint for working with.
+
+    To minimse calls to the endpoint, use this function when you need a 
+    STAC Client object to query the stac endpoint. The object is created
+    once and reused across all tests.
+
+    """
+    global _STAC_CLIENT
+    if not _STAC_CLIENT:
+        _STAC_CLIENT = Client.open(STAC_ENDPOINT)
+    return _STAC_CLIENT
+
 
 def create_sp_ref(epsg_code):
     """
@@ -196,6 +218,7 @@ def fake_item():
     item.assets["B02"].href = \
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com/" \
         "sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif"
+    item.id = "Fake123"
     return item
 
 
@@ -209,10 +232,9 @@ def real_item(point_one_item):
     as expected - see test_pixelstac.test_stac_search.
 
     """
-    endpoint = "https://earth-search.aws.element84.com/v0"
-    collections = ['sentinel-s2-l2a-cogs']
+    client = get_stac_client()
     # Retrieves the Item with id=S2B_53HPV_20220728_0_L2A
     # The URL to the B02 asset is:
     # https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif
-    items = pixelstac.stac_search(endpoint, point_one_item, collections)
+    items = pixelstac.stac_search(client, point_one_item, COLLECTIONS)
     return items[0]
