@@ -45,6 +45,9 @@ end user greater flexbility in defining the STRegions for each point.
 
 """
 
+import logging
+from concurrent import futures
+
 from pystac_client import Client
 
 from . import pointstats
@@ -52,7 +55,8 @@ from . import pointstats
 def query(
     stac_endpoint, points, raster_assets,
     collections=None, nearest_n=1, item_properties=None,
-    std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None):
+    std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None,
+    concurrent=None):
     """
     Given a STAC endpoint and a list of pointstats.Point objects,
     compute the zonal statistics for all raster assets for
@@ -141,11 +145,13 @@ def query(
         those both within and outside the ROI
     
     """
-    # TODO: Implement masking of array with ignore_val.
     # TODO: Choose the n nearest-in-time items.
     client = Client.open(stac_endpoint)
     item_points = {}
+    logging.info(f"Searching {stac_endpoint} for {len(points)} points")
     for pt in points:
+        # TODO: it might be worth optimising the search by clumping points
+        # instead of a naive one-point-at-a-time approach.
         items = stac_search(client, pt, collections)
         # Tell the point which items it intersects.
         pt.add_items(items)
@@ -161,9 +167,31 @@ def query(
     # in a threadpool. Probably makes sense to do it at this level than at
     # the Asset level because we expect there to be more items than there 
     # are assets. And also the asset reads can be done sequentially.
-    for ip in item_points.values():
-        ip.read_data(raster_assets)
-        ip.calc_stats(std_stats, user_stats)
+    logging.info(f"The {len(points)} points intersect {len(item_points)} items")
+    if concurrent:
+        logging.info("Running extract concurrently.")
+        with futures.ThreadPoolExecutor() as executor:
+            tasks = [executor.submit(
+                calc_stats(ip, raster_assets, std_stats, user_stats)) \
+                    for ip in item_points.values()]
+    else:
+        logging.info("Running extract sequentially.")
+        for ip in item_points.values():
+            calc_stats(ip, raster_assets, std_stats, user_stats)
+
+
+def calc_stats(item_points, raster_assets, std_stats, user_stats):
+    """
+    Calculate the statistics for all points in the given ItemPoints object.
+
+    This reads the rasters and calculates the stats.
+
+    """
+    logging.info(
+          f"calculating stats for {len(item_points.points)} points " \
+          f"in item {item_points.item.id}")
+    item_points.read_data(raster_assets)
+    item_points.calc_stats(std_stats, user_stats)
 
 
 def stac_search(stac_client, pt, collections):#start_date, end_date, collections=None):

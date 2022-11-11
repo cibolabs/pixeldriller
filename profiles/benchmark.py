@@ -34,6 +34,8 @@ import argparse
 import pathlib
 import timeit
 import cProfile
+import logging
+import sys
 
 from osgeo import osr
 
@@ -74,7 +76,19 @@ def get_cmdargs():
     parser.add_argument(
         "--read_to", default=None, type=int,
         help="The index of the last point in the --points_file file to read up to.")
+    parser.add_argument(
+        "--concurrent", action="store_true",
+        help="Extract the stats in concurrent threads")
+    parser.add_argument(
+        "--verbose", "-v", action='count', default=0)
     args = parser.parse_args()
+    # Configure log level based on verbosity.
+    # -v=warnings, -vv=informational, -vvv=debug
+    levels = {0:logging.ERROR, 1:logging.WARNING, 2:logging.INFO,
+              3:logging.DEBUG}
+    logging.basicConfig(
+        level=levels[args.verbose],
+        stream=sys.stdout)
     return args
 
 
@@ -117,7 +131,8 @@ def run_query():
     raster_assets = ['B02', 'B03']
     pt_stats_list = pixelstac.query(
         endpoint, points, raster_assets, collections=collections,
-        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN])
+        std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN],
+        concurrent=bm_cmdargs.concurrent)
     print(f"Collected {len(points)} sets of stats.")
 
 

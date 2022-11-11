@@ -6,7 +6,9 @@ that has been performed, which may not be reflected in the current code.
 
 ## 9 November 2022
 
-## Benchark
+### Benchark
+
+Test run on 4 CPU (1 socket, 4 cores per socket, 1 thread per core) ARM machine.
 
 Average time for three runs:
 
@@ -60,7 +62,7 @@ Collected 25 sets of stats.
 Executed pixelstac.query 1 times with results: [94.45151347108185] seconds.
 ```
 
-## Profile
+### Profile
 
 It seems that most time is spent in pointstats.calc_stats, which is split
 between opening the gdal dataset and reading the arrays in.
@@ -111,4 +113,64 @@ Wed Nov  9 11:33:56 2022    pstac.profile
        26    0.001    0.000    2.155    0.083 adapters.py:394(send)
        26    0.001    0.000    2.143    0.082 connectionpool.py:518(urlopen)
        26    0.001    0.000    2.135    0.082 connectionpool.py:357(_make_request)
+```
+
+## 11 Novemeber 2022
+
+### Benchmark
+
+The 200 points intersect 285 items.
+
+Test run on 4 CPU (1 socket, 4 cores per socket, 1 thread per core) ARM machine.
+
+Fixed properties (same as before):
+
+- data: points.geojson
+- STAC endpoint: https://earth-search.aws.element84.com/v0
+- collection: 'sentinel-s2-l2a-cogs'
+- bands: ['B02', 'B03']
+- buffer: = 50 m either side of point
+- temporal range: 10 days either side of the point's date
+
+Key differences from previous benchmark:
+- Group items by asset
+- Open each asset only once and read all points from it
+  rather than open/close it each time a point is read
+- Tested sequential runs, using a thread-pool and a process-pool
+  - each thread/process extracted stats for the points in an ItemPoints collection
+- Ran tests for 200 points (points 2200-2400 in points.geojson)
+
+Note: the default max_workers on this instance is 8.
+
+| Sequential or concurrent | run time (secs) |
+| ------------------ | ----------------------- |
+| Sequential | 283 |
+| ThreadPool(max_workers=default) | 277 |
+| ThreadPool(numworkers=20) | 258 |
+| ProcessPool(max_workers=default) | 275 |
+| ProcessPool(numworkers=20) | 272 |
+
+The thread pool may or may not be helpful. The results were variable.
+Multi-processing was fastest, but the points are shared across items, thus
+processes, and so their state might not be set correctly. I need to run
+some tests to confirm if this is a problem if we decide to use Process Pools.
+
+I think the bottom line is that this is a wicked problem. The root of the evil
+being that the points are sparsely disributed across the landscape resulting
+in many items to read.
+
+It may be more efficient to run several jobs concurrently on batch
+computing infrastructure. The sets of points in the jobs are mutually exclusive.
+
+I also attempted reading the entire image into memory before extracting points,
+to reduce the number of gdal.Band.ReadAsArray() calls. However, this approach
+was slower. It appears that reading the entire image is slower than reading
+small chunks of the image several times. I suspect that there is a tipping
+point where it become more efficient to read the entire image as the
+number of points increases.
+
+```
+python3 -m profiles.benchmark --mode benchmark --repeat 1 --read_from 2200 --read_to 2400 -vv
+python3 -m profiles.benchmark --mode benchmark --repeat 1 --read_from 2200 --read_to 2400 -vv --concurrent
+
 ```
