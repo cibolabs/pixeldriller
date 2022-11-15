@@ -120,7 +120,7 @@ if __name__ == '__main__':
         print(f"with ID {pid}")
         for item_id, item_stats in pt.get_stats().items():
             print(f"    Item ID={item_id}") # The pystac.item.Item
-#            print(f"        Raw arrays: {item_stats.stats[pointstats.STATS_RAW]}")
+#            print(f"        Raw arrays: {item_stats.get_stats(pointstats.STATS_RAW)}")
             print(f"        Mean values: {item_stats.get_stats(pointstats.STATS_MEAN)}")
             print(f"        Counts     : {item_stats.get_stats(pointstats.STATS_COUNT)}")
             print(f"        Null Counts: {item_stats.get_stats(pointstats.STATS_COUNTNULL)}")
