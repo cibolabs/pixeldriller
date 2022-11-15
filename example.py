@@ -5,7 +5,6 @@ from osgeo import osr
 
 from pixelstac import pixelstac
 from pixelstac import pointstats
-from pixelstac import point
 
 
 def pt_1():
@@ -16,8 +15,8 @@ def pt_1():
     date, t_delta = create_date(3)
     # Attach some other attributes
     other_atts = {"PointID": "abc123", "OwnerID": "xyz789"}
-    pt = point.Point(
-        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE,
+    pt = pointstats.Point(
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE,
         other_attributes=other_atts)
     return pt
 
@@ -30,8 +29,8 @@ def pt_2():
     date, t_delta = create_date(3)
     # Attach some other attributes
     other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
-    pt = point.Point(
-        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE, 
+    pt = pointstats.Point(
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE, 
         other_attributes=other_atts)
     return pt
 
@@ -48,8 +47,8 @@ def pt_3():
     date, t_delta = create_date(1)
     # Attach some other attributes
     other_atts = {"PointID": "p-nulls", "OwnerID": "uvw000"}
-    pt = point.Point(
-        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE,
+    pt = pointstats.Point(
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE,
         other_attributes=other_atts)
     return pt
 
@@ -68,8 +67,8 @@ def pt_4():
     date, t_delta = create_date(1)
     # Attach some other attributes
     other_atts = {"PointID": "straddle-extent", "OwnerID": "rst432"}
-    pt = point.Point(
-        (x, y, date), sp_ref, t_delta, 50, point.ROI_SHP_SQUARE,
+    pt = pointstats.Point(
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE,
         other_attributes=other_atts)
     return pt
 
@@ -107,21 +106,24 @@ if __name__ == '__main__':
     std_stats = [
         pointstats.STATS_RAW, pointstats.STATS_MEAN,
         pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
-    pt_stats_list = pixelstac.query(
-        endpoint, [pt_1(), pt_2(), pt_3(), pt_4()],
+    #pt_stats_list = pixelstac.query(
+    points = [pt_1(), pt_2(), pt_3(), pt_4()]
+    pixelstac.query(
+        endpoint, points,
         ['B02', 'B11'], collections=collections,
         std_stats=std_stats)
 
-    for pt_stats in pt_stats_list:
-        print(f"Stats for point: x={pt_stats.pt.x}, y={pt_stats.pt.y}")
-        pid = pt_stats.pt.other_attributes["PointID"]
+    #for pt_stats in pt_stats_list:
+    for pt in points:
+        print(f"Stats for point: x={pt.x}, y={pt.y}")
+        pid = pt.other_attributes["PointID"]
         print(f"with ID {pid}")
-        for item_stats in pt_stats.item_stats_list:
-            print(f"    Item ID={item_stats.item.id}") # The pystac.item.Item
-#            print(f"        Raw arrays: {item_stats.stats[pointstats.STATS_RAW]}")
-            print(f"        Mean values: {item_stats.stats[pointstats.STATS_MEAN]}")
-            print(f"        Counts     : {item_stats.stats[pointstats.STATS_COUNT]}")
-            print(f"        Null Counts: {item_stats.stats[pointstats.STATS_COUNTNULL]}")
+        for item_id, item_stats in pt.get_stats().items():
+            print(f"    Item ID={item_id}") # The pystac.item.Item
+#            print(f"        Raw arrays: {item_stats.get_stats(pointstats.STATS_RAW)}")
+            print(f"        Mean values: {item_stats.get_stats(pointstats.STATS_MEAN)}")
+            print(f"        Counts     : {item_stats.get_stats(pointstats.STATS_COUNT)}")
+            print(f"        Null Counts: {item_stats.get_stats(pointstats.STATS_COUNTNULL)}")
 
 
 # For future implementation.

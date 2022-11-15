@@ -12,119 +12,96 @@ Assumptions:
 - Uses GDAL's /vsicurl/ file system handler for online resources that do
   not require authentication
 - The file server supports range requests
-- Each asset is a single-band raster
+- If you want to calculate standard statistics then each STAC Item's asset
+  must be a single-band raster
 
-We'll rely on:
+It depends on:
 - pystac-client for searching a STAC endpoint
 - osgeo.gdal for reading rasters
 - osgeo.osr for coordinate transformations
 - numpy for stats calcs
-- tuiview.vectorrasterizer for masking by 'poly' geometry
-
-
-Possible future enhancments
-=========================
-
-An option to use GDAL's notion of all-touched (-at) to include all pixels
-touched buy the region of interest.
-
-We could generalise the spatio-temporeal region.
-It reduces to a polygon and time range.
-We could allow users to define it several ways.
-Spatial definitions include:
-- point and radius
-- point and rectangle width and height
-- bounding box
-- a vector dataset
-Temporal definitions include:
-- a reference time and tdelta either side of of reference time
-- a start and end time
-- a reference time and either -tdelta day before or +tdelta days after
-A future versions may accept a list of STRegion objects, giving the
-end user greater flexbility in defining the STRegions for each point.
 
 """
 
-import datetime
+import logging
+from concurrent import futures
 
 from pystac_client import Client
-from osgeo import gdal
-from osgeo import osr
 
 from . import pointstats
 
 def query(
-    stac_endpoint, points, raster_assets, ref_asset=None,
+    stac_endpoint, points, raster_assets,
     collections=None, nearest_n=1, item_properties=None,
-    std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None):
+    std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None,
+    concurrent=False):
     """
-    Given a STAC endpoint and a list of pixelstac.Point objects,
+    Given a STAC endpoint and a list of pointstats.Point objects,
     compute the zonal statistics for all raster assets for
     the n nearest-in-time STAC items for every point.
 
-    Return a list of pointstats.PointStats objects.
+    The statistics are added to each Point object, retrievable using the
+    Point Class's get_stats() or get_point_stats() functions.
 
     Proceed as follows...
 
-    Query the STAC endpoint for Items within the spatio-temporal region of
-    interest (STRegion) of each X-Y-Time point, optionally filtered
+    Query the STAC endpoint for Items that intersect each point within the
+    Point's temporal window of interest. TODO: The items can be optionally filtered
     by the list of item properties.
     
-    Restrict the number of Items for each point to up to the nearest_n in time.
+    TODO: Restrict the number of Items for each point to up to the nearest_n in time.
     
-    Then, for each point, extract the pixels within the region of interest
-    about the point (defined by the buffer and shape, where shape is one of
-    the point.ROI_SHP_ attributes) for the specifified raster assets
-    for the list of Items.
+    Then for each Item returned, extract the pixels for the given raster
+    assets for the region of interest of each Point that intersects the Item.
+    The region of interest is defined by the Point's buffer and shape,
+    where shape is one of the pointstats.ROI_SHP_ attributes).
     
-    Finally, calculate a set of statistics for the pixels about each point.
-    There are two types of stats:
+    With the pixels extracted for each Item/Asset/Point combination,
+    calculate a set of statistics. There are two categories of stats:
     
     1. std_stats is a list of standard stats supplied by the pointstats
-       module. Use the STATS_* attributes defined in pointstats. The result
-       is placed in the PointStats.stats dictionary, keyed by the STATS_*
-       attribute.
+       module. Use the STATS_* attributes defined in pointstats. Standard
+       stats assume that each raster asset contains only one band.
         
-    2. user_stats is a list of (name, function) pairs. The function is used
-       to calculate a user-specified statistic. Its return value is placed in
-       the PointStats.stats dictionary, keyed by the given name.
+    2. TODO: user_stats is a list of (name, function) pairs. The function is used
+       to calculate a user-specified statistic.
        A user-supplied function must take two arguments:
-       - a 3D numpy array, containing the pixels for the roi for an asset
-       - the asset ID
+       - a 3D numpy array, containing the pixels for the region of interest
+         for an asset
+       - the asset ID (TODO: confirm if the asset ID is need or sufficient.)
        If a user stats function requires additional arguments, users should
        use functools.partial to supply the required data.
+       The assets may contain multiple bands and the user function should
+       handle this accordingly.
 
     For example::
-
+      std_stats_list = [
+        pointstats.STATS_MEAN, pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
       my_func = functools.partial(func_that_takes_an_array,
-        func_otherarg1=value, func_otherarg2=value) 
-      results = pixstac.query(
+        func_otherarg1=value, func_otherarg2=value)
+      pixelstac.query(
         "https://earth-search.aws.element84.com/v0",
-        points, 50, point.ROI_SHP_SQUARE, sp_ref, datetime.timedelta(days=8),
-        asset_ids, item_properties=item_props,
-        stats=[pointstats.MEAN, pointstats.RAW], ignore_val=[0,0,0],
-        stats_funcs=[("my_func_name", my_func)])
+        my_points_list, asset_ids, collections=['sentinel-s2-l2a-cogs'],
+        item_properties=item_props,
+        std_stats=std_stats_list, user_stats=[("my_stat_name", my_func)])
+      for pt in my_points_list:
+        print(f"Stats for point: x={pt.x}, y={pt.y}")
+        for item_id, item_stats in pt.get_stats().items():
+            print(f"    Item ID={item_id}") # The pystac.item.Item
+            print(f"        Raw arrays : {item_stats.get_stats(pointstats.STATS_RAW)}")
+            print(f"        Mean values: {item_stats.get_stats(pointstats.STATS_MEAN)}")
+            print(f"        Counts     : {item_stats.get_stats(pointstats.STATS_COUNT)}")
+            print(f"        Null Counts: {item_stats.get_stats(pointstats.STATS_COUNTNULL)}")
+            print(f"        My Stat    : {item_stats.get_stats("my_stat_name")})
 
-    The names are used to retrieve the values in the returned PixStats objects.
-    
-    For example::
+    Note that the raw arrays are always populated, even if pointstats.STATS_RAW
+    is not one of the standard stats specified.
 
-      for stats_set in results:
-        for pix_stats in stats_set:
-          my_stat = pix_stats.stats["my_func_name"]
-          mean = pix_stats.stats[pointstats.MEAN]
-          raw_arr = pix_stats.stats[pointstats.RAW]
-
-    The name pointstats.RAW, if used will provide the raw pixels in the region
-    of interest in the returned PixStats objects.
-
-    sp_ref defines the osr.SpatialReference of every point.
     
     buffer is the distance around the point that defines the region of interest.
     Its units (e.g. metre) are assumed to be the same as the units of the
-    coordinate reference system of the given reference asset (ref_asset).
+    coordinate reference system of the STAC Item's assets.
     It is the caller's responsibility to know what these are.
-    If ref_asset is not given, it defaults to the first item in raster_assets.
     
     Time (in the X-Y-Time point) is a datetime.datetime object.
     It may be timezone aware or unaware,
@@ -146,29 +123,63 @@ def query(
         those both within and outside the ROI
     
     """
-    # TODO: Implement masking of array with ignore_val.
-    if not ref_asset:
-        ref_asset = raster_assets[0]
-    results = []
+    # TODO: Choose the n nearest-in-time items.
+    client = Client.open(stac_endpoint)
+    item_points = {}
+    logging.info(f"Searching {stac_endpoint} for {len(points)} points")
     for pt in points:
-        items = stac_search(stac_endpoint, pt, collections)
-        # TODO: Choose the n nearest-in-time items.
-        # TODO: what do we do if the ref_asset has no spatial reference defined?
-        # TODO: what if stac_search returns no items?
-        #pt.make_roi(buffer, shape, items[0], ref_asset)
-        pstats = pointstats.PointStats(
-            pt, items, raster_assets,
-            std_stats=std_stats, user_stats=user_stats)
-        pstats.calc_stats()
-        results.append(pstats)
-    return results
+        # TODO: it might be worth optimising the search by clumping points
+        # instead of a naive one-point-at-a-time approach.
+        items = stac_search(client, pt, collections)
+        # Tell the point which items it intersects.
+        pt.add_items(items)
+        # Group all points for each item together in an ItemPoints collection.
+        for item in items:
+            if item.id not in item_points:
+                item_points[item.id] = pointstats.ItemPoints(item)
+            item_points[item.id].add_point(pt)
+    # Read the pixel data from the rasters and calculate the stats.
+    # Each point will contain ItemStats objects, with its stats for those
+    # item's assets.
+    # Similar to ItemPoints.read_data(), we could read data for each Item
+    # in a threadpool. Probably makes sense to do it at this level than at
+    # the Asset level because we expect there to be more items than there 
+    # are assets. And also the asset reads can be done sequentially.
+    logging.info(f"The {len(points)} points intersect {len(item_points)} items")
+    if concurrent:
+        logging.info("Running extract concurrently.")
+        with futures.ThreadPoolExecutor() as executor:
+            tasks = [executor.submit(
+                calc_stats(ip, raster_assets, std_stats, user_stats)) \
+                    for ip in item_points.values()]
+    else:
+        logging.info("Running extract sequentially.")
+        for ip in item_points.values():
+            calc_stats(ip, raster_assets, std_stats, user_stats)
 
 
-def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collections=None):
+def calc_stats(item_points, raster_assets, std_stats, user_stats):
     """
-    Search the list of collections in the STAC endpoint for items that
+    Calculate the statistics for all points in the given ItemPoints object.
+
+    This reads the rasters and calculates the stats.
+
+    """
+    logging.info(
+          f"calculating stats for {len(item_points.points)} points " \
+          f"in item {item_points.item.id}")
+    item_points.read_data(raster_assets)
+    item_points.calc_stats(std_stats, user_stats)
+
+
+def stac_search(stac_client, pt, collections):#start_date, end_date, collections=None):
+    """
+    Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the point and are within the point's
     temporal search window.
+
+    stac_client is the pystac.Client object returned from calling
+    pystac.Client.open(endpoint_url).
     
     If no collections are specified then search all collections in the endpoint.
 
@@ -177,7 +188,6 @@ def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collectio
     TODO: permit user-defined properties for filtering the stac search.
 
     """
-    api = Client.open(stac_endpoint)
     # Properties to filter by. These are part of the STAC API's query extension:
     # https://github.com/radiantearth/stac-api-spec/tree/master/fragments/query
     # We would add eo:cloud_cover here if we wanted to exclude very cloudy scenes.
@@ -200,7 +210,7 @@ def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collectio
     # TODO: Do I need to split bounding boxes that cross the anti-meridian into two?
     # Or does the stac-client handle this case?
     # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
-    search = api.search(
+    search = stac_client.search(
         collections=collections,
         max_items=None, # no limit on number of items to return
         intersects=pt_json,
@@ -209,4 +219,3 @@ def stac_search(stac_endpoint, pt, collections):#start_date, end_date, collectio
         query=properties)
     results = list(search.items())
     return results
-

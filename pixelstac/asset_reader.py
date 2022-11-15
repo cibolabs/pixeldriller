@@ -1,5 +1,5 @@
 """
-For reading raster assets.
+For reading pixel data and metadata from raster assets.
 
 """
 
@@ -11,7 +11,8 @@ from osgeo import osr
 
 class ImageInfo:
     """
-    An object with metadata for the given image, in GDAL conventions. 
+    An object with metadata for the given image, in GDAL conventions.
+    Pass an already-opened gdal.Dataset object to the constructor.
 
     Sourced from rios:
     https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py
@@ -42,10 +43,7 @@ class ImageInfo:
     as for a normal single file.
 
     """
-    def __init__(self, filename, omit_per_band=False):
-        ds = gdal.Open(str(filename), gdal.GA_ReadOnly)
-        if ds is None:
-            raise AssetReaderError(f"Unable to open file {filename}")
+    def __init__(self, ds, omit_per_band=False):
         geotrans = ds.GetGeoTransform()
         (ncols, nrows) = (ds.RasterXSize, ds.RasterYSize)
         self.raster_count = ds.RasterCount
@@ -75,8 +73,7 @@ class ImageInfo:
             self.layer_type = None
         # Pixel datatype, stored as a GDAL enum value. 
         self.data_type = ds.GetRasterBand(1).DataType
-        self.data_type_name = gdal.GetDataTypeName(self.data_type) #GDAL_DATA_TYPE_NAMES[self.data_type]
-        del ds
+        self.data_type_name = gdal.GetDataTypeName(self.data_type)
 
 
     def __str__(self):
@@ -94,128 +91,201 @@ class ImageInfo:
         return result
 
 
-def asset_filepath(item, asset):
+class AssetReader:
     """
-    Get the file path to the item's asset, in a form readable by GDAL.
-
-    """
-    return f"/vsicurl/{item.assets[asset].href}"
-
-
-def asset_info(item, asset):
-    """
-    Return an asset_info.ImageInfo object with information about the
-    raster asset in the pystac.item.Item.
+    Encapsulates the GDAL Dataset object, metadata about a
+    STAC asset (an ImageInfo object) and algorithms
+    used to read arrays of pixels around a list of points.
 
     """
-    filename = asset_filepath(item, asset)
-    return ImageInfo(filename)
+    def __init__(self, item, asset_id):
+        self.item = item
+        self.asset_id = asset_id
+        self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
+        self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
+        self.info = ImageInfo(self.dataset)
 
 
-def read_roi(item, asset, pt, ignore_val=None):
-    """
-    Extract the smallest number of pixels required to cover the region of
-    interest. By doing so, the area covered by the returned pixels is slightly
-    larger than the region of interest defined by the point's location
-    and buffer.
+    def read_data(self, points, ignore_val=None):
+        """
+        Read the data around each of the given points and add it to the point.
 
-    Return a 3D numpy masked array (numpy.ma.MaskedArray)by using the ignore_val
-    to create a mask. If ignore_val=None, the no-data values set on each
-    band of the asset are used.
+        The data is read using read_roi(), passing it the ignore_val.
+        The data is attached to each point.
 
-    If the ROI straddles the image extents, the ROI is clipped to the extents
-    (i.e. only that portion of the image that is within the extents is returned).
+        """
+        # Do a naive read, reading a small chunk of the image for every point.
+        # The testing done to date shows that this is more efficient than
+        # reading the entire image and slicing the numpy arrays for each point.
+        # But, in those tests there are a small number of points that intersect
+        # the images.
+        # I suspect that there is a tipping point where it is more
+        # efficient to read the entire image (or several large chunks) as the
+        # number of points per image increases.
+        extract_per_point = True
+        if extract_per_point:
+            for pt in points:
+                arr = self.read_roi(pt, ignore_val=ignore_val)
+                pt.add_data(self.item, arr)
 
-    Return an empty MaskedArray if the ROI lies outside the image extents.
-
-    """
-    # convert centre of point to same coord reference system as filename
-    a_info = asset_info(item, asset)
-    xoff, yoff, win_xsize, win_ysize = get_pix_window(pt, a_info)
-    # Reduce the window size if it is straddles the image extents.
-    # If the resulting window less than or equal to 0, the ROI is outside of
-    # the image's extents.
-    if xoff < 0:
-        win_xsize = win_xsize + xoff
-        xoff = 0
-    elif xoff + win_xsize > a_info.ncols:
-        win_xsize = a_info.ncols - xoff
-    if yoff < 0:
-        win_ysize = win_ysize + yoff
-        yoff = 0
-    elif yoff + win_ysize >= a_info.nrows:
-        win_ysize = a_info.nrows - yoff
-    # Read the raster.
-    if win_xsize > 0 and win_ysize > 0:
-        ds = gdal.Open(asset_filepath(item, asset), gdal.GA_ReadOnly)
-        band_data = []
-        mask_data = []
-        for band_num in range(1, a_info.raster_count + 1):
-            band = ds.GetRasterBand(band_num)
-            b_arr = band.ReadAsArray(xoff, yoff, win_xsize, win_ysize)
-            band_data.append(b_arr)
-            nodata_val = ignore_val if ignore_val else a_info.nodataval[band_num-1]
-            if nodata_val is None:
-                mask = numpy.zeros(b_arr.shape, dtype=bool)
-            else:
-                mask = b_arr==nodata_val
-            mask_data.append(mask)
-        del ds
-        arr = numpy.array(band_data)
-        mask = numpy.array(mask_data)
-        m_arr = numpy.ma.masked_array(arr, mask=mask)
-    else:
-        m_arr = numpy.ma.masked_array([], mask=True)
-    return m_arr
+        # Read the regions of interest for all points. But first read the
+        # entire asset into an array.
+        # The result is that this slows everything down a lot! I suspect
+        # the problem is a small number of points on a large number of items.
+        # Reading the image's entire array is slower than reading a few
+        # image chunks about a small number of points.
+        else:
+            asset_layers = []
+            for band_num in range(1, self.info.raster_count + 1):
+                band = self.dataset.GetRasterBand(band_num)
+                asset_layers.append(band.ReadAsArray())
+            # TODO: sort the points so there are fewer cache misses when
+            # reading from the numpy arrays? May become a factor as the
+            # number of points increases.
+            for pt in points:
+                arr = self.read_roi_from_array(pt, asset_layers, ignore_val=ignore_val)
+                pt.add_data(self.item, arr)
 
 
-def get_pix_window(pt, a_info):
-    """
-    Return the region of interest for the point in the image's pixel
-    coordinate space as: (xoff, yoff, win_xsize, win_ysize).
+    def read_roi(self, pt, ignore_val=None):
+        """
+        Extract the smallest number of pixels required to cover the region of
+        interest. By doing so, the area covered by the returned pixels is slightly
+        larger than the region of interest defined by the point's location
+        and buffer.
 
-    a_info is an ImageInfo object for the raster asset.
+        Return a 3D numpy masked array (numpy.ma.MaskedArray) by using the ignore_val
+        to create a mask. If ignore_val=None, the no-data value set on the
+        asset is used.
 
-    c_x, c_y is the geo-coordinate of the centre of the ROI.
-    buffer is the distance of the edge of the ROI from its centre.
+        If the ROI straddles the image extents, the ROI is clipped to the extents
+        (i.e. only that portion of the image that is within the extents is returned).
 
-    xoff, yoff is the grid location of the top-left pixel of the ROI.
+        Return an empty MaskedArray if the ROI lies outside the image extents.
 
-    An xoff, yoff of 0, 0 corresponds to the top-left pixel of the image.
-    An xoff, yoff of (ncols-1, nrows-1) corresponds to the bottom-right 
-    pixel of the image. The caller should check to see that the ROI is
-    within the image bounds.
+        """
+        xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
+        # Reduce the window size if it is straddles the image extents.
+        # If the resulting window is less than or equal to 0, the ROI is outside of
+        # the image's extents.
+        if xoff < 0:
+            win_xsize = win_xsize + xoff
+            xoff = 0
+        elif xoff + win_xsize > self.info.ncols:
+            win_xsize = self.info.ncols - xoff
+        if yoff < 0:
+            win_ysize = win_ysize + yoff
+            yoff = 0
+        elif yoff + win_ysize >= self.info.nrows:
+            win_ysize = self.info.nrows - yoff
+        # Read the raster.
+        if win_xsize > 0 and win_ysize > 0:
+            band_data = []
+            mask_data = []
+            for band_num in range(1, self.info.raster_count + 1):
+                band = self.dataset.GetRasterBand(band_num)
+                b_arr = band.ReadAsArray(xoff, yoff, win_xsize, win_ysize)
+                band_data.append(b_arr)
+                nodata_val = ignore_val if ignore_val else self.info.nodataval[band_num-1]
+                if nodata_val is None:
+                    mask = numpy.zeros(b_arr.shape, dtype=bool)
+                else:
+                    mask = b_arr==nodata_val
+                mask_data.append(mask)
+            arr = numpy.array(band_data)
+            mask = numpy.array(mask_data)
+            m_arr = numpy.ma.masked_array(arr, mask=mask)
+        else:
+            m_arr = numpy.ma.masked_array([], mask=True)
+        return m_arr
 
-    win_xsize, win_ysize is the size of the window, in pixels, to extract.
 
-    The ROI in geo-coordinates (c_x, c_y, buffer) is unlikely to align with
-    the pixel grid. This function increases the size of the ROI so it returns
-    the smallest possible area that encloses the requested ROI.
+    def read_roi_from_array(self, pt, asset_layers, ignore_val=None):
+        """
+        Read rois from the img_arrays, which are the numpy arrays for the
+        entire image.
 
-    """
-    a_sp_ref = osr.SpatialReference()
-    a_sp_ref.ImportFromWkt(a_info.projection)
-    c_x, c_y = pt.transform(a_sp_ref)
-    ul_geo_x = c_x - pt.buffer
-    ul_geo_y = c_y + pt.buffer
-    lr_geo_x = c_x + pt.buffer
-    lr_geo_y = c_y - pt.buffer
-    ul_px, ul_py = wld2pix(a_info.transform, ul_geo_x, ul_geo_y)
-    lr_px, lr_py = wld2pix(a_info.transform, lr_geo_x, lr_geo_y)
-    ul_px = math.floor(ul_px)
-    ul_py = math.floor(ul_py)
-    lr_px = math.ceil(lr_px)
-    lr_py = math.ceil(lr_py)
-    win_xsize = lr_px - ul_px
-    win_ysize = lr_py - ul_py
-    return (ul_px, ul_py, win_xsize, win_ysize)
+        This algorithm is not currently used. See the comments in read_data().
+
+        """
+        xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
+        # Reduce the window size if it is straddles the image extents.
+        # If the resulting window less than or equal to 0, the ROI is outside of
+        # the image's extents.
+        if xoff < 0:
+            win_xsize = win_xsize + xoff
+            xoff = 0
+        elif xoff + win_xsize > self.info.ncols:
+            win_xsize = self.info.ncols - xoff
+        if yoff < 0:
+            win_ysize = win_ysize + yoff
+            yoff = 0
+        elif yoff + win_ysize >= self.info.nrows:
+            win_ysize = self.info.nrows - yoff
+        # Read the raster.
+        if win_xsize > 0 and win_ysize > 0:
+            band_data = []
+            mask_data = []
+            for idx, layer in enumerate(asset_layers):
+                b_arr = layer[yoff:yoff+win_ysize, xoff:xoff+win_xsize]
+                band_data.append(b_arr)
+                nodata_val = ignore_val if ignore_val else self.info.nodataval[idx]
+                if nodata_val is None:
+                    mask = numpy.zeros(b_arr.shape, dtype=bool)
+                else:
+                    mask = b_arr==nodata_val
+                mask_data.append(mask)
+            arr = numpy.array(band_data)
+            mask = numpy.array(mask_data)
+            m_arr = numpy.ma.masked_array(arr, mask=mask)
+        else:
+            m_arr = numpy.ma.masked_array([], mask=True)
+        return m_arr
 
 
-def wld2pix(transform, geox, geoy):
-    """converts a set of map coords to pixel coords"""
-    inv_transform = gdal.InvGeoTransform(transform)
-    x, y = gdal.ApplyGeoTransform(inv_transform, geox, geoy)
-    return (x, y)
+    def get_pix_window(self, pt):
+        """
+        Return the region of interest for the point in the image's pixel
+        coordinate space as: (xoff, yoff, win_xsize, win_ysize).
+    
+        xoff, yoff is the grid location of the top-left pixel of the ROI.
+        win_xsize and win_ysize are the number of columns and rows to read
+        from the image.
+    
+        An xoff, yoff of 0, 0 corresponds to the top-left pixel of the image.
+        An xoff, yoff of (ncols-1, nrows-1) corresponds to the bottom-right 
+        pixel of the image. The caller should check to see that the ROI is
+        within the image bounds.
+    
+        The region of interest about the point in geo-coordinates
+        is unlikely to align with the pixel grid. This function increases the
+        size of the window to the smallest possible area that encloses the
+        region of interest.
+    
+        """
+        a_sp_ref = osr.SpatialReference()
+        a_sp_ref.ImportFromWkt(self.info.projection)
+        c_x, c_y = pt.transform(a_sp_ref)
+        ul_geo_x = c_x - pt.buffer
+        ul_geo_y = c_y + pt.buffer
+        lr_geo_x = c_x + pt.buffer
+        lr_geo_y = c_y - pt.buffer
+        ul_px, ul_py = self.wld2pix(ul_geo_x, ul_geo_y)
+        lr_px, lr_py = self.wld2pix(lr_geo_x, lr_geo_y)
+        ul_px = math.floor(ul_px)
+        ul_py = math.floor(ul_py)
+        lr_px = math.ceil(lr_px)
+        lr_py = math.ceil(lr_py)
+        win_xsize = lr_px - ul_px
+        win_ysize = lr_py - ul_py
+        return (ul_px, ul_py, win_xsize, win_ysize)
+
+
+    def wld2pix(self, geox, geoy):
+        """converts a set of map coords to pixel coords"""
+        inv_transform = gdal.InvGeoTransform(self.info.transform)
+        x, y = gdal.ApplyGeoTransform(inv_transform, geox, geoy)
+        return (x, y)
 
 
 class AssetReaderError(Exception):
