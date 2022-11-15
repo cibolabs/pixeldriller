@@ -151,9 +151,10 @@ Note: the default max_workers on this instance is 8.
 | ProcessPool(numworkers=20) | 272 |
 
 The thread pool may or may not be helpful. The results were variable.
-Multi-processing was fastest, but the points are shared across items, thus
-processes, and so their state might not be set correctly. I need to run
-some tests to confirm if this is a problem if we decide to use Process Pools.
+Multiple threads were fastest. I'm not confident about using multiple
+processes because the points are shared across Items (thus processes),
+and so their state might not be set correctly once all items are processed.
+I need to run some tests if we decide to use Process Pools.
 
 I think the bottom line is that this is a wicked problem. The root of the evil
 being that the points are sparsely disributed across the landscape resulting
