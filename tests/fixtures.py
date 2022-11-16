@@ -236,5 +236,5 @@ def real_item(point_one_item):
     # Retrieves the Item with id=S2B_53HPV_20220728_0_L2A
     # The URL to the B02 asset is:
     # https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif
-    items = pixelstac.stac_search(client, point_one_item, COLLECTIONS)
-    return items[0]
+    items = pixelstac.stac_search(client, [point_one_item], COLLECTIONS)
+    return items[0].get_item()

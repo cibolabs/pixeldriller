@@ -301,6 +301,11 @@ class ItemPoints(PointCollection):
             pt.calc_stats(self.item, std_stats, user_stats)
 
 
+    def get_item(self):
+        """Return the pystac.Item"""
+        return self.item
+
+
 class ImagePoints(PointCollection):
     """
     A collection of points that intersect a standard Image, represented
