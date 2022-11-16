@@ -12,23 +12,28 @@ from .fixtures import COLLECTIONS, STAC_ENDPOINT, get_stac_client
 def test_stac_search(point_wgs84):
     """Test pixelstac.stac_search."""
     # point_wgs84 intersects two items in the time range.
-    items = pixelstac.stac_search(get_stac_client(), point_wgs84, COLLECTIONS)
+#    items = pixelstac.stac_search(get_stac_client(), point_wgs84, COLLECTIONS)
+    item_points_list = pixelstac.stac_search(
+        get_stac_client(), [point_wgs84], COLLECTIONS)
     # curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2A_54HVE_20220730_0_L2A | jq | less
-    assert len(items) == 2
-    assert items[0].assets['B02'].href == \
+#    assert len(items) == 2
+    assert len(item_points_list) == 2
+#    assert items[0].assets['B02'].href == \
+    assert item_points_list[0].get_item().assets['B02'].href == \
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com/" \
         "sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif"
-    assert items[1].assets['B02'].href == \
+#    assert items[1].assets['B02'].href == \
+    assert item_points_list[1].get_item().assets['B02'].href == \
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com/" \
         "sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2B_54HVE_20220725_0_L2A/B02.tif"
 
 
-def test_query(point_albers, point_wgs84):
+def test_drill(point_albers, point_wgs84):
     """Test pixelstac.query."""
     # The test is fairly simple, just see that the expected number of
     # PointStats and ItemStats instances were created. The other tests cover
     # the other functions that test_query calls.
-    pixelstac.query(
+    pixelstac.drill(
         STAC_ENDPOINT, [point_albers, point_wgs84], ['B02', 'B03'],
         collections=COLLECTIONS)
     assert len(point_albers.get_stats()) == 3

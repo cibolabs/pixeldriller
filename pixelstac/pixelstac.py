@@ -30,7 +30,7 @@ from pystac_client import Client
 
 from . import pointstats
 
-def query(
+def drill(
     stac_endpoint, points, raster_assets,
     collections=None, nearest_n=1, item_properties=None,
     std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None,
@@ -127,17 +127,7 @@ def query(
     client = Client.open(stac_endpoint)
     item_points = {}
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
-    for pt in points:
-        # TODO: it might be worth optimising the search by clumping points
-        # instead of a naive one-point-at-a-time approach.
-        items = stac_search(client, pt, collections)
-        # Tell the point which items it intersects.
-        pt.add_items(items)
-        # Group all points for each item together in an ItemPoints collection.
-        for item in items:
-            if item.id not in item_points:
-                item_points[item.id] = pointstats.ItemPoints(item)
-            item_points[item.id].add_point(pt)
+    item_points = stac_search(client, points, collections)
     # Read the pixel data from the rasters and calculate the stats.
     # Each point will contain ItemStats objects, with its stats for those
     # item's assets.
@@ -151,10 +141,10 @@ def query(
         with futures.ThreadPoolExecutor() as executor:
             tasks = [executor.submit(
                 calc_stats(ip, raster_assets, std_stats, user_stats)) \
-                    for ip in item_points.values()]
+                    for ip in item_points]
     else:
         logging.info("Running extract sequentially.")
-        for ip in item_points.values():
+        for ip in item_points:
             calc_stats(ip, raster_assets, std_stats, user_stats)
 
 
@@ -172,50 +162,61 @@ def calc_stats(item_points, raster_assets, std_stats, user_stats):
     item_points.calc_stats(std_stats, user_stats)
 
 
-def stac_search(stac_client, pt, collections):#start_date, end_date, collections=None):
+def stac_search(stac_client, points, collections):
     """
     Search the list of collections in a STAC endpoint for items that
-    intersect the x, y coordinate of the point and are within the point's
-    temporal search window.
+    intersect the x, y coordinate of the list of points and are within the
+    points' temporal search windows.
 
     stac_client is the pystac.Client object returned from calling
     pystac.Client.open(endpoint_url).
     
     If no collections are specified then search all collections in the endpoint.
 
-    Return a list of pystac.item.Item objects.
+    Link each Point with its pystac.Items, and create a pointstats.ItemPoints
+    collection for every item.
+
+    Return the list of pointstats.ItemPoints collections.
 
     TODO: permit user-defined properties for filtering the stac search.
 
     """
-    # Properties to filter by. These are part of the STAC API's query extension:
-    # https://github.com/radiantearth/stac-api-spec/tree/master/fragments/query
-    # We would add eo:cloud_cover here if we wanted to exclude very cloudy scenes.
+    item_points = {}
+    # TODO: it might be worth optimising the search by clumping points
+    # instead of a naive one-point-at-a-time approach.
+    for pt in points:
+        pt_json = {
+            "type": "Point",
+            "coordinates": [pt.wgs84_x, pt.wgs84_y] }
+        # TODO: permit user-defined properties. For example:
     # Properties can be determined by examining the 'properties' attribute
     # of an item in the collection.
     # e.g. curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2B_53HPV_20220728_0_L2A | jq | less
-    pt_json = {
-        "type": "Point",
-        "coordinates": [pt.wgs84_x, pt.wgs84_y] }
-    # TODO: permit user-defined properties. For example:
-#    tile = '54JVR'
-#    zone = tile[:2]
-#    lat_band = tile[2]
-#    grid_sq = tile[3:]
-#    properties = [
-#        f'sentinel:utm_zone={zone}',
-#        f'sentinel:latitude_band={lat_band}',
-#        f'sentinel:grid_square={grid_sq}']
-    properties = []
-    # TODO: Do I need to split bounding boxes that cross the anti-meridian into two?
-    # Or does the stac-client handle this case?
-    # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
-    search = stac_client.search(
-        collections=collections,
-        max_items=None, # no limit on number of items to return
-        intersects=pt_json,
-        limit=500, # results per page
-        datetime=[pt.start_date, pt.end_date],
-        query=properties)
-    results = list(search.items())
-    return results
+    #    tile = '54JVR'
+    #    zone = tile[:2]
+    #    lat_band = tile[2]
+    #    grid_sq = tile[3:]
+    #    properties = [
+    #        f'sentinel:utm_zone={zone}',
+    #        f'sentinel:latitude_band={lat_band}',
+    #        f'sentinel:grid_square={grid_sq}']
+        properties = []
+        # TODO: Do I need to split bounding boxes that cross the anti-meridian into two?
+        # Or does the stac-client handle this case?
+        # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
+        search = stac_client.search(
+            collections=collections,
+            max_items=None, # no limit on number of items to return
+            intersects=pt_json,
+            limit=500, # results per page
+            datetime=[pt.start_date, pt.end_date],
+            query=properties)
+        items = list(search.items())
+        # Tell the point which items it intersects.
+        pt.add_items(items)
+        # Group all points for each item together in an ItemPoints collection.
+        for item in items:
+            if item.id not in item_points:
+                item_points[item.id] = pointstats.ItemPoints(item)
+            item_points[item.id].add_point(pt)
+    return list(item_points.values())

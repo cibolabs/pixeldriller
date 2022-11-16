@@ -108,7 +108,7 @@ if __name__ == '__main__':
         pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
     #pt_stats_list = pixelstac.query(
     points = [pt_1(), pt_2(), pt_3(), pt_4()]
-    pixelstac.query(
+    pixelstac.drill(
         endpoint, points,
         ['B02', 'B11'], collections=collections,
         std_stats=std_stats)
