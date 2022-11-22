@@ -4,6 +4,10 @@ pixelstac is for the following use case:
 
 Given a STAC endpoint, set of X-Y-Time points, and a buffer, return the n nearest-in-time zonal stats for all bands of the specified raster assets.
 
+Good starting points are:
+- example.py
+- the docstring from pixelstac.drill()
+
 ## Development
 
 The enclosed Dockerfile creates the environment that is used for development.

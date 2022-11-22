@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+"""
+Work through this example in conjunction with the documentation
+for pixelstac.drill().
+
+"""
+
 import datetime
 from osgeo import osr
 
@@ -16,8 +22,8 @@ def pt_1():
     # Attach some other attributes
     other_atts = {"PointID": "abc123", "OwnerID": "xyz789"}
     pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE,
-        other_attributes=other_atts)
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    setattr(pt, "other_atts", other_atts)
     return pt
 
 
@@ -30,8 +36,8 @@ def pt_2():
     # Attach some other attributes
     other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
     pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE, 
-        other_attributes=other_atts)
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    setattr(pt, "other_atts", other_atts)
     return pt
 
 
@@ -48,8 +54,8 @@ def pt_3():
     # Attach some other attributes
     other_atts = {"PointID": "p-nulls", "OwnerID": "uvw000"}
     pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE,
-        other_attributes=other_atts)
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    setattr(pt, "other_atts", other_atts)
     return pt
 
 
@@ -68,8 +74,8 @@ def pt_4():
     # Attach some other attributes
     other_atts = {"PointID": "straddle-extent", "OwnerID": "rst432"}
     pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE,
-        other_attributes=other_atts)
+        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    setattr(pt, "other_atts", other_atts)
     return pt
 
 
@@ -100,42 +106,56 @@ def create_date(d_days):
     return date, t_delta
 
 
-if __name__ == '__main__':
+def user_range(array_info, item, pt):
+    """
+    Example of a function for a customised statistics.
+
+    array_info is a list of asset_reader.ArrayInfo objects,
+    item is the pystac.Item object, and pt is the pointstats.Point object
+    that intesects the item.
+
+    The numpy.ma.masked_array objects are stored in ArrayInfo.data.
+
+    The function returns a list where each element in the range (max-min)
+    of the values in each array.
+
+    item and pt are included in the function signature for use cases where
+    the Item or Point's properties are needed.
+
+    """
+    return [a_info.data.max() - a_info.data.min() for a_info in array_info]
+
+
+def run_example():
+    """
+    Run the example.
+
+    """
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
     std_stats = [
-        pointstats.STATS_RAW, pointstats.STATS_MEAN,
+        pointstats.STATS_MEAN,
         pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
-    #pt_stats_list = pixelstac.query(
+    user_stats = [("USER_RANGE", user_range)]
     points = [pt_1(), pt_2(), pt_3(), pt_4()]
     pixelstac.drill(
         endpoint, points,
         ['B02', 'B11'], collections=collections,
-        std_stats=std_stats)
-
-    #for pt_stats in pt_stats_list:
+        std_stats=std_stats, user_stats=user_stats)
     for pt in points:
         print(f"Stats for point: x={pt.x}, y={pt.y}")
-        pid = pt.other_attributes["PointID"]
+        pid = getattr(pt, "other_atts")["PointID"]
         print(f"with ID {pid}")
         for item_id, item_stats in pt.get_stats().items():
-            print(f"    Item ID={item_id}") # The pystac.item.Item
+            print(f"    Item ID={item_id}") # The pystac.Item ID
+            array_info = item_stats.get_stats(pointstats.STATS_ARRAYINFO)
+            asset_ids = [a_info.asset_id for a_info in array_info]
+            print(f"        Asset IDs  : {asset_ids}")
 #            print(f"        Raw arrays: {item_stats.get_stats(pointstats.STATS_RAW)}")
             print(f"        Mean values: {item_stats.get_stats(pointstats.STATS_MEAN)}")
             print(f"        Counts     : {item_stats.get_stats(pointstats.STATS_COUNT)}")
             print(f"        Null Counts: {item_stats.get_stats(pointstats.STATS_COUNTNULL)}")
+            print(f"        Ranges     : {item_stats.get_stats('USER_RANGE')}")
 
-
-# For future implementation.
-#def my_func(list_of_asset_arrays):
-#    """
-#    A user-defined function for calculating zonal statistics. It takes a
-#    list of 3D arrays. Each 3D array is the raster data for an asset of
-#    a STAC Item, within the region of interest of a Point.
-#    len(list_of_asset_arrays)==len(asset_ids). The order of the arrays
-#    matches the order of the asset_ids.
-#
-#    The return value can be anything.
-#
-#    """
-#    pass
+if __name__ == '__main__':
+    run_example()

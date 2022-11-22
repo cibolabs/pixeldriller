@@ -48,6 +48,20 @@ def test_wld2pix(real_item):
     assert math.isclose(y, 10980, abs_tol=1e-9)
 
 
+def test_pix2wld(real_item):
+    """
+    Test AssetReader.pix2wld.
+    """
+    reader = asset_reader.AssetReader(real_item, 'B02') # 10 m pixels.
+    a_info = reader.info
+    px, py = reader.pix2wld(0, 0)
+    assert math.isclose(px, a_info.x_min, abs_tol=1e-9)
+    assert math.isclose(py, a_info.y_max, abs_tol=1e-9)
+    px, py = reader.pix2wld(a_info.ncols, a_info.nrows)
+    assert math.isclose(px, a_info.x_max, abs_tol=1e-9)
+    assert math.isclose(py, a_info.y_min, abs_tol=1e-9)
+
+
 def test_get_pix_window(real_item, point_one_item):
     """Test AssetReader.get_pix_window"""
     reader = asset_reader.AssetReader(real_item, 'B02') # 10 m pixels
@@ -72,21 +86,45 @@ def test_read_roi(real_item, point_one_item):
 #    print(href)
     # Sentinel-2 10 m pixels, 100 m square ROI, check the 4 pixels in top left.
     reader = asset_reader.AssetReader(real_item, 'B02') # 10 m pixels
-    arr = reader.read_roi(point_one_item)
-    #arr = asset_reader.read_roi(real_item, 'B02', point_one_item)
+    arr_info = reader.read_roi(point_one_item)
+    arr = arr_info.data
     assert arr.shape == (1, 11, 11)
     assert arr[0, 0, 0] == 406
     assert arr[0, 0, 1] == 426
     assert arr[0, 1, 0] == 372
     assert arr[0, 1, 1] == 416
+    assert arr_info.asset_id == 'B02'
+    assert arr_info.xoff ==3428
+    assert arr_info.yoff ==4044
+    assert arr_info.win_xsize == 11
+    assert arr_info.win_ysize == 11
+    assert arr_info.ulx == 634280.0
+    assert arr_info.uly == 5959600.0
+    assert arr_info.lrx == 634390.0
+    assert arr_info.lry == 5959490.0
+    assert arr_info.x_res == 10.0
+    assert arr_info.y_res == 10.0
+
     # Sentinel-2 20 m pixels, 100 m square ROI, check the 4 pixels in bottom right.
     reader = asset_reader.AssetReader(real_item, 'B11') # 20 m pixels
-    arr = reader.read_roi(point_one_item)
+    arr_info = reader.read_roi(point_one_item)
+    arr = arr_info.data
     assert arr.shape == (1, 6, 6)
     assert arr[0, 4, 4] == 144
     assert arr[0, 4, 5] == 133
     assert arr[0, 5, 4] == 159
     assert arr[0, 5, 5] == 135
+    assert arr_info.asset_id == 'B11'
+    assert arr_info.xoff == 1714
+    assert arr_info.yoff == 2022
+    assert arr_info.win_xsize == 6
+    assert arr_info.win_ysize == 6
+    assert arr_info.ulx == 634280.0
+    assert arr_info.uly == 5959600.0
+    assert arr_info.lrx == 634400.0
+    assert arr_info.lry == 5959480.0
+    assert arr_info.x_res == 20.0
+    assert arr_info.y_res == 20.0
 
 
 def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
@@ -104,7 +142,8 @@ def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
 
     """
     reader = asset_reader.AssetReader(real_item, 'B11') # 20 m pixels
-    arr = reader.read_roi(point_partial_nulls)
+    arr_info = reader.read_roi(point_partial_nulls)
+    arr = arr_info.data
     assert arr.shape == (1, 6, 6)
     # assert the mask is as we expect it where the ROI begins to
     # overlap the null region.
@@ -113,12 +152,14 @@ def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
     assert arr.mask[0, 4, 1] == True
     assert arr.mask[0, 4, 2] == False
     # assert that every pixel is masked where the ROI contains all nulls.
-    arr = reader.read_roi(point_all_nulls)
+    arr_info = reader.read_roi(point_all_nulls)
+    arr = arr_info.data
     assert arr.shape == (1, 6, 6)
     assert arr.mask.all()
     # Now, explicitly set the null value, which overrides the ignore value
     # set on the assets.
-    arr = reader.read_roi(point_partial_nulls, ignore_val=-9999)
+    arr_info = reader.read_roi(point_partial_nulls, ignore_val=-9999)
+    arr = arr_info.data
     assert arr.shape == (1, 6, 6)
     # assert the mask is as we expect it where the ROI begins to
     # overlap the null region.
@@ -128,7 +169,8 @@ def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
     assert arr.mask[0, 4, 2] == False
     # Assert that no pixels in the returned array are masked, because
     # all pixel values are 0, and we've specified a different no data value.
-    arr = reader.read_roi(point_all_nulls, ignore_val=-9999)
+    arr_info = reader.read_roi(point_all_nulls, ignore_val=-9999)
+    arr = arr_info.data
     assert arr.shape == (1, 6, 6)
     assert arr.mask.any() == False
 
@@ -147,24 +189,29 @@ def test_read_roi_outofrange(
     # The first ROI straddles the UL pixel of the image. Its size is 
     # smaller than the nominal ROI size of (1, 11, 11).
     reader = asset_reader.AssetReader(real_item, 'B02')
-    arr = reader.read_roi(point_straddle_bounds_1)
+    arr_info = reader.read_roi(point_straddle_bounds_1)
+    arr = arr_info.data
     assert arr.shape == (1, 6, 6)
     assert arr[0, 0, 0] == 3852
     # The next ROI straddles the lower right corner. Note that the area
     # within the image bounds contains null pixels.
-    arr = reader.read_roi(point_straddle_bounds_2)
+    arr_info = reader.read_roi(point_straddle_bounds_2)
+    arr = arr_info.data
     assert arr.shape == (1, 5, 5)
     assert arr.size == 25 # number of pixel read from file
     assert arr.count() == 0 # number of valid (not-masked) pixels
     # The next ROI is entirely outside the UL corner
-    arr = reader.read_roi(point_outside_bounds_1)
+    arr_info = reader.read_roi(point_outside_bounds_1)
+    arr = arr_info.data
     assert arr.count() == 0
     assert arr.shape == (0,)
     # The next ROI is outside the eastern extents of the image.
-    arr = reader.read_roi(point_outside_bounds_2)
+    arr_info = reader.read_roi(point_outside_bounds_2)
+    arr = arr_info.data
     assert arr.count() == 0
     assert arr.shape == (0,)
     # The next ROI is outside the LR corner
-    arr = reader.read_roi(point_outside_bounds_3)
+    arr_info = reader.read_roi(point_outside_bounds_3)
+    arr = arr_info.data
     assert arr.count() == 0
     assert arr.shape == (0,)

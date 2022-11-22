@@ -21,7 +21,7 @@ def test_point(point_albers):
     assert point_albers.end_date.strftime("%Y-%m-%d") == "2022-07-31"
     assert point_albers.buffer == 50
     assert point_albers.shape == pointstats.ROI_SHP_SQUARE
-    assert point_albers.other_attributes == {"PointID": "def456", "OwnerID": "uvw000"}
+    assert getattr(point_albers, "other_atts") == {"PointID": "def456", "OwnerID": "uvw000"}
     assert point_albers.item_stats == {}
     # Also tests Point.to_wgs84()
     assert round(point_albers.wgs84_x, 1) == 132.0
@@ -37,10 +37,10 @@ def test_point_transform(point_albers):
     assert round(northing, 2) == 8815628.66
 
 
-def test_item_stats(real_item):
+def test_item_stats(point_one_item, real_item):
     """Test construction of the ItemStats object."""
     # PointStats creates a list of ItemStats objects.
-    item_stats = pointstats.ItemStats(real_item)
+    item_stats = pointstats.ItemStats(point_one_item, real_item)
     assert item_stats.item.id == "S2B_53HPV_20220728_0_L2A"
     assert item_stats.stats == {}
 
@@ -65,16 +65,27 @@ def test_read_data(point_one_item, real_item):
 
 def test_calc_stats(point_one_item, real_item):
     """Test the calc_stats methods of both PointStats and ItemStats."""
+    # Standard functions.
     std_stats = [
         pointstats.STATS_RAW, pointstats.STATS_MEAN,
         pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
+    # Couple of user functions. stat_1 is the sum of the mean of the two arrays.
+    # stat_2 is a list with the min value of each array.
+    def test_stat_1(array_info, item, pt):
+        stat_1 = array_info[0].data.mean() + array_info[1].data.mean()
+        return stat_1
+    def test_stat_2(array_info, item, pt):
+        stat_2 = [a_info.data.min() for a_info in array_info]
+        return stat_2
+    user_stats = [
+        ("TEST_STAT_1", test_stat_1), ("TEST_STAT_2", test_stat_2)]
     point_one_item.add_items([real_item])
     ip = pointstats.ItemPoints(real_item)
     ip.add_point(point_one_item)
     ip.read_data(['B02', 'B11'])
-    # TODO: add a test for user_stats.
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats, user_stats)
     item_stats = point_one_item.get_item_stats(real_item.id)
+    # Standard stats
     assert pointstats.STATS_RAW in item_stats.stats
     assert pointstats.STATS_MEAN in item_stats.stats
     assert pointstats.STATS_COUNT in item_stats.stats
@@ -85,6 +96,11 @@ def test_calc_stats(point_one_item, real_item):
     assert list(mean_vals.round(2)) == [441.41, 135.19]
     assert list(counts) == [121, 36]
     assert list(null_counts) == [0, 0]
+    # User stats
+    test_stat_1 = item_stats.get_stats("TEST_STAT_1")
+    test_stat_2 = item_stats.get_stats("TEST_STAT_2")
+    assert round(test_stat_1, 2) == 576.61
+    assert test_stat_2 == [364, 75]
 
 
 def test_check_std_arrays(fake_item):

@@ -114,10 +114,10 @@ def create_points(json_file, read_from, read_to):
         coll_time = datetime.datetime(*gmtime[:6], tzinfo=datetime.timezone.utc)
         # Also add all the field data (a dict) from the geojson.
         field_data = feature['properties']
-        points.append(
-            pointstats.Point(
-                (geo_x, geo_y, coll_time), sp_ref, dt, buff, shp, 
-                other_attributes=field_data))
+        pt = pointstats.Point(
+                (geo_x, geo_y, coll_time), sp_ref, dt, buff, shp)
+        setattr(pt, "field_data", field_data)
+        points.append(pt)
     return points
 
 
@@ -129,7 +129,7 @@ def run_query():
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
     raster_assets = ['B02', 'B03']
-    pt_stats_list = pixelstac.query(
+    pt_stats_list = pixelstac.drill(
         endpoint, points, raster_assets, collections=collections,
         std_stats=[pointstats.STATS_RAW, pointstats.STATS_MEAN],
         concurrent=bm_cmdargs.concurrent)

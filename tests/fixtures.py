@@ -67,8 +67,8 @@ def point_albers():
     date, t_delta = create_date(3)
     other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
     pt = Point(
-        (x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE,
-        other_attributes=other_atts)
+        (x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    setattr(pt, "other_atts", other_atts)
     return pt
 
 

@@ -20,6 +20,7 @@ from . import asset_reader
 # The Set of standard statistics. See the STD_STATS_FUNCS dictionary at
 # the end of this module, which maps the statistic to a function.
 STATS_RAW = 'raw'
+STATS_ARRAYINFO = 'arrayinfo'
 STATS_MEAN = 'mean'
 STATS_STDDEV = 'stddev'
 # STATS_COUNT is the number of non-null pixels used in stats calcs.
@@ -33,6 +34,7 @@ STATS_COUNTNULL ='countnull' # number of null pixels in an array.
 ##############################################
 # For defining the shape of a Point's region of interest.
 ROI_SHP_SQUARE = 'square'
+# TODO: implement circle as an ROI.
 #ROI_SHP_CIRCLE = 'circle'
 
 class Point:
@@ -41,7 +43,7 @@ class Point:
     osr.SpatialReference system. A point is characterised by:
     - a location in space and time
     - a spatial buffer
-    - a temporal buffer
+    - a temporal window
     
     These attributes are set at construction time:
     - x: the point's x-coordinate
@@ -55,16 +57,19 @@ class Point:
     - end_date: the datetime.datetime end date of the temporal buffer
     - buffer: the distance from the point that defines the region of interest
     - shape: the shape of the region of interest
-    - other_attributes: other attributes, of any type, as required by the caller
 
     """
     def __init__(
-        self, point, sp_ref, t_delta, buffer, shape, other_attributes=None):
+        self, point, sp_ref, t_delta, buffer, shape):
         """
         Point constructor.
 
         point is a (X, Y, Time) tuple. X and Y are the spatial coordinates and
         Time is a datetime.datetime object.
+
+        Time may be may be timezone aware or unaware.
+        They are handled as per the pystac_client.Client.search interface.
+        See: https://pystac-client.readthedocs.io/en/stable/api.html
         
         sp_ref is the osr.SpatialReference object
         defining the coordinate reference system of the point.
@@ -80,11 +85,6 @@ class Point:
         ROI_SHP_SQUARE, then buffer is half the length of the square's side.
         If shape is ROI_SHP_CIRCLE, then buffer is the circle's radius.
 
-        other_attributes are any other attributes that the caller wants to
-        attach to this point for later convenience. They have no effect when
-        querying the pixelstac or calculating statistics.
-        other_attributes can be any data type.
-
         """
         self.x = point[0]
         self.y = point[1]
@@ -96,7 +96,6 @@ class Point:
         self.end_date = self.t + t_delta
         self.buffer = buffer
         self.shape = shape
-        self.other_attributes = other_attributes
         self.item_stats = {}
 
 
@@ -105,25 +104,23 @@ class Point:
         A point might intersect multiple STAC items. Use this function
         to link the point with the items it intersects.
 
-        It appends the list of pystac.Item items to the this Point's
-        item_stats dictionary, keyed by the item ID.
+        It initialises an ItemStats object for each item and adds it
+        to this Point's item_stats dictionary, which is keyed by the item ID.
 
         """
         for item in items:
             if item.id not in self.item_stats:
-                self.item_stats[item.id] = ItemStats(item)
+                self.item_stats[item.id] = ItemStats(self, item)
 
     
-    def add_data(self, item, data):
+    def add_data(self, item, arr_info):
         """
         Each point is associated with a region of interest.
-        data are the pixels in that region of interest from one of
-        the item's assets.
+        arr_info is the asset_reader.ArrayInfo object created when reading pixel
+        data from one of the item's assets.
+        See asset_reader.AssetReader.read_roi().
 
-        data is a numpy masked array. Later stats calculations
-        exclude the masked pixels.
-
-        The array is passed to the item's ItemStats.add_data() function.
+        Calls add_data() on the item's ItemStats.add_data() function.
 
         If data were read from multiple assets, then call this function multiple
         times, once for each asset.
@@ -131,13 +128,13 @@ class Point:
         This function must be called before calc_stats().
 
         """
-        self.item_stats[item.id].add_data(data)
+        self.item_stats[item.id].add_data(arr_info)
 
     
     def calc_stats(self, item, std_stats, user_stats):
         """
         Calculate the stats for the pixels about the point for all data that
-        has been stored for the given item.
+        has been stored for the given pystac.Item.
 
         Call add_data() first, for every required asset.
 
@@ -181,7 +178,7 @@ class Point:
         """
         return self.item_stats[item_id]
 
-
+    
     def transform(self, dst_srs):
         """
         Transform the point's x, y location to the destination
@@ -204,18 +201,12 @@ class Point:
         self.sp_ref.SetAxisMappingStrategy(src_map_strat)
         dst_srs.SetAxisMappingStrategy(dst_map_strat)
         return (tr[0], tr[1])
-    
+ 
 
     def to_wgs84(self):
         """
         Return the x, y coordinates of this Point in the WGS84 coordinate
-        reference system.
-        Convert the given points (list of x, y tuples) from the source
-        spatial reference system to WGS84 (EPSG:4326).
-
-        Return a list of x, y (longitude, latitude) tuples.
-
-        Use transform_points to do the transformation.
+        reference system, EPSG:4326.
 
         """
         dst_srs = osr.SpatialReference()
@@ -268,6 +259,8 @@ class ItemPoints(PointCollection):
         bands in an asset use the same null value.
         None means to use the no data value set on each asset.
 
+        The reading is done by asset_reader.AssetReader.read_data().
+
         """
         if isinstance(ignore_val, list):
             errmsg = "The ignore_val list must be the same length as asset_ids."
@@ -279,11 +272,19 @@ class ItemPoints(PointCollection):
             reader.read_data(self.points, ignore_val=i_v)
 
     
+    def get_points(self):
+        """
+        Get the list of pointstats.Point objects in this collection.
+
+        """
+        return self.points
+
+    
     def calc_stats(self, std_stats, user_stats):
         """
-        Calculate the statistics for every point.
+        Calculate the statistics for every Point.
 
-        Call this after calling read_data.
+        Call this after calling read_data().
 
         std_stats is a list of standard stats to calculate for each point's
         region of interest.
@@ -311,6 +312,9 @@ class ImagePoints(PointCollection):
     A collection of points that intersect a standard Image, represented
     by a path or URL.
 
+    TODO: Implement this class, which will mean this package is capable
+    of drilling non-stac datasets.
+
     """
     pass
 
@@ -325,38 +329,50 @@ class ItemStats:
     extracted from each asset for a single item about a Point.
 
     Has the following attributes:
+    - pt: the point associated with this ItemStats object
     - item: the pystac.item.Item
     - stats: a dictionary containing the raster statistics within the region
       of interest of the associated point.
       The dictionary's keys are defined by names of the std_stats and
       user_stats passed to PointStats.calc_stats(). The dictionary's values are
-      the return values of the corresponding stats functions.
+      a list of the return values of the corresponding stats functions. There
+      is one element a the list for each raster asset.
     
     """
-    def __init__(self, item):
+    def __init__(self, pt, item):
         """Constructor."""
+        self.pt = pt
         self.item = item
         self.stats = {}
 
     
-    def add_data(self, data):
+    def add_data(self, arr_info):
         """
-        Add the numpy masked array of data, which contains the pixels for one of
-        the assets of the item.
+        Add the pointstats.ArrayInfo object.
 
-        The data is appended to the list in self.stats[STATS_RAW].
+        Elements are added to two of the stats dictionary's entries::
+
+            stats["STATS_RAW"].append(arr_info.data)
+            stats["STATS_ARRAYINFO"].append(arr_info)
+
+        arr_info.data is the numpy masked array of data, which contains the
+        pixels for one of the assets of the item.
 
         """
         if STATS_RAW not in self.stats:
             self.stats[STATS_RAW] = []
-        self.stats[STATS_RAW].append(data)
+        self.stats[STATS_RAW].append(arr_info.data)
+        if STATS_ARRAYINFO not in self.stats:
+            self.stats[STATS_ARRAYINFO] = []
+        self.stats[STATS_ARRAYINFO].append(arr_info)
 
     
     def calc_stats(self, std_stats, user_stats):
         """
-        Using the point's region of interest, read the array of pixels from
-        all bands in each raster asset. Store the arrays in this instance's
-        stats dictionary.
+        Calculate the given list of standard and user-defined statistics
+        on each asset's array of data.
+
+        add_data() must be called first, for each raster asset.
 
         std_stats is a list of standard stats to calculate for each point's
         region of interest.
@@ -365,12 +381,15 @@ class ItemStats:
         user_stats is a list of tuples. Each tuple defines:
         - the name (a string) for the statistic
         - and the function that is called to calculate it
-        
-        The array of pixels about the point is always stored in the stats
-        dictionary with the key STATS_RAW. The other keys in stats are determined
-        by std_stats and user_stats.
 
-        TODO: add support for user_stats.
+        The user function's signature must be::
+
+            def myfunc(array_info, item, pt)
+
+        Where:
+        - array_info is a list of ArrayInfo objects, one for each asset
+        - item is the pystac.Item object
+        - pt is the pointstats.Point object
         
         """
         if std_stats:
@@ -380,19 +399,23 @@ class ItemStats:
                 'ignore', message='Warning: converting a masked element to nan.',
                 category=UserWarning)
             # STATS_RAW is already populated.
-            stats_list = [s_s for s_s in std_stats if s_s != STATS_RAW]
+            stats_list = [
+                s_s for s_s in std_stats if \
+                s_s not in [STATS_RAW, STATS_ARRAYINFO]]
             for stat_name in stats_list:
                 std_stat_func = STD_STATS_FUNCS[stat_name]
                 self.stats[stat_name] = std_stat_func(self.stats[STATS_RAW])
-        # TODO: add support for user-defined stats functions.
-        # for stat_name, stat_func in point_stats.user_stats:
-        #     self.stats[stat_name] = stat_func(
-        #       asset_arrays, self.pt_stats.asset_ids, self.item)
+        if user_stats:
+            for stat_name, stat_func in user_stats:
+                self.stats[stat_name] = stat_func(
+                    self.stats[STATS_ARRAYINFO], self.item, self.pt)
 
 
     def get_stats(self, stat_name):
         """
         Return the values for the requested statistic.
+
+        calc_stats() must have been called first.
 
         """
         return self.stats[stat_name]
@@ -429,7 +452,7 @@ def std_stat_mean(asset_arrays):
     """
     Return a 1D array with the mean values for each masked array
     in the list of asset_arrays. Assumes that each passed array contains
-    data for only 1 raster band.
+    data for only one raster band.
 
     """
     # Calculate the stat for each array because their their x and y sizes will
@@ -442,7 +465,7 @@ def std_stat_count(asset_arrays):
     """
     Return a 1D array with the number of non-null pixels in each masked array
     in the list of asset_arrays. Assumes that each passed array contains
-    data for only 1 raster band.
+    data for only one raster band.
 
     """
     counts = [arr.count() for arr in asset_arrays]
@@ -453,7 +476,7 @@ def std_stat_countnull(asset_arrays):
     """
     Return a 1D array with the number of null pixels in each masked array
     in the list of asset_arrays. Assumes that each passed array contains
-    data for only 1 raster band.
+    data for only one raster band.
 
     """
     counts = [arr.mask.sum() for arr in asset_arrays]
