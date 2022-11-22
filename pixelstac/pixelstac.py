@@ -113,7 +113,7 @@ def drill(
     properties are passed through to pystac_client.Client.search
     https://pystac-client.readthedocs.io/en/stable/api.html
 
-    ignore_val is the list of null values for each raster asset (or specify one
+    TODO: ignore_val is the list of null values for each raster asset (or specify one
     value to be used for all raster assets). It should only be used if the
     null value of the raster is not set. It's used for:
       - as the mask value when 'removing' pixels from the raw arrays that
@@ -140,15 +140,17 @@ def drill(
         logging.info("Running extract concurrently.")
         with futures.ThreadPoolExecutor() as executor:
             tasks = [executor.submit(
-                calc_stats(ip, raster_assets, std_stats, user_stats)) \
+                calc_stats(
+                    ip, raster_assets, std_stats=std_stats, user_stats=user_stats)) \
                     for ip in item_points]
     else:
         logging.info("Running extract sequentially.")
         for ip in item_points:
-            calc_stats(ip, raster_assets, std_stats, user_stats)
+            calc_stats(
+                ip, raster_assets, std_stats=std_stats, user_stats=user_stats)
 
 
-def calc_stats(item_points, raster_assets, std_stats, user_stats):
+def calc_stats(item_points, raster_assets, std_stats=None, user_stats=None):
     """
     Calculate the statistics for all points in the given ItemPoints object.
 
