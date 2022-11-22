@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+"""
+Work through this example in conjunction with the documentation
+for pixelstac.drill().
+
+"""
+
 import datetime
 from osgeo import osr
 
@@ -141,7 +147,7 @@ def run_example():
         pid = getattr(pt, "other_atts")["PointID"]
         print(f"with ID {pid}")
         for item_id, item_stats in pt.get_stats().items():
-            print(f"    Item ID={item_id}") # The pystac.item.Item
+            print(f"    Item ID={item_id}") # The pystac.Item ID
             array_info = item_stats.get_stats(pointstats.STATS_ARRAYINFO)
             asset_ids = [a_info.asset_id for a_info in array_info]
             print(f"        Asset IDs  : {asset_ids}")

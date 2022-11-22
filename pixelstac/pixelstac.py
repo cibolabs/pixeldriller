@@ -1,12 +1,6 @@
 """
-Initial implementation
-=========================
-
-pixstac.query is the main interface. Most interaction with this package should
+pixstac.drill is the main interface. Most interaction with this package should
 be through this interface.
-
-It currently only provides a bare-bones implementation, supporting only
-a fixed spatial buffer within plus/minus tdelta time of every point.
 
 Assumptions:
 - Uses GDAL's /vsicurl/ file system handler for online resources that do
@@ -19,7 +13,7 @@ It depends on:
 - pystac-client for searching a STAC endpoint
 - osgeo.gdal for reading rasters
 - osgeo.osr for coordinate transformations
-- numpy for stats calcs
+- numpy for standard stats calcs
 
 """
 
@@ -39,84 +33,99 @@ def drill(
     Given a STAC endpoint and a list of pointstats.Point objects,
     compute the zonal statistics for all raster assets for
     the n nearest-in-time STAC items for every point.
+    
+    Thus, for every Point find zero or more STAC Items, and calculate a set of
+    zonal statistics for each raster asset.
 
-    The statistics are added to each Point object, retrievable using the
-    Point Class's get_stats() or get_point_stats() functions.
+    The statistics are stored with the Point object, retrievable using the
+    Point class's get_stats() or get_item_stats() functions.
 
-    Proceed as follows...
+    See example.py for typical example usage.
+
+    Familiarise yourself with the concepts of a Point's region of interest and
+    temporal window by reading the pointstats.Point documentation.
+
+    The algorithm proceed as follows...
 
     Query the STAC endpoint for Items that intersect each point within the
-    Point's temporal window of interest. TODO: The items can be optionally filtered
-    by the list of item properties.
-    
-    TODO: Restrict the number of Items for each point to up to the nearest_n in time.
-    
-    Then for each Item returned, extract the pixels for the given raster
-    assets for the region of interest of each Point that intersects the Item.
-    The region of interest is defined by the Point's buffer and shape,
-    where shape is one of the pointstats.ROI_SHP_ attributes).
-    
-    With the pixels extracted for each Item/Asset/Point combination,
-    calculate a set of statistics. There are two categories of stats:
-    
-    1. std_stats is a list of standard stats supplied by the pointstats
-       module. Use the STATS_* attributes defined in pointstats. Standard
-       stats assume that each raster asset contains only one band.
-        
-    2. TODO: user_stats is a list of (name, function) pairs. The function is used
-       to calculate a user-specified statistic.
-       A user-supplied function must take two arguments:
-       - a 3D numpy array, containing the pixels for the region of interest
-         for an asset
-       - the asset ID (TODO: confirm if the asset ID is need or sufficient.)
-       If a user stats function requires additional arguments, users should
-       use functools.partial to supply the required data.
-       The assets may contain multiple bands and the user function should
-       handle this accordingly.
+    Point's temporal window.
 
-    For example::
-      std_stats_list = [
-        pointstats.STATS_MEAN, pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
-      my_func = functools.partial(func_that_takes_an_array,
-        func_otherarg1=value, func_otherarg2=value)
-      pixelstac.query(
-        "https://earth-search.aws.element84.com/v0",
-        my_points_list, asset_ids, collections=['sentinel-s2-l2a-cogs'],
-        item_properties=item_props,
-        std_stats=std_stats_list, user_stats=[("my_stat_name", my_func)])
-      for pt in my_points_list:
-        print(f"Stats for point: x={pt.x}, y={pt.y}")
-        for item_id, item_stats in pt.get_stats().items():
+    TODO: The items can be optionally filtered by the list of item properties.
+    
+    TODO: Restrict the number of Items for each point to the nearest_n in time.
+    
+    Then for each Item returned, extract the pixels for every raster
+    asset for each intersecting Point's region of interest. The pixels are
+    stored as numpy masked arrays.
+    
+    With the pixels extracted, calculate the zonal statistics.
+    There are two categories of statistics:
+    standard (std_stats) and user-supplied (user_stats).
+    
+    std_stats is a list of standard stats defined in the pointstats module
+    with the STATS_* attributes. To use the standard statistics,
+    every asset must be a single-band raster.
+        
+    user_stats is a list of (name, function) pairs. The function is used
+    to calculate a user-specified statistics.
+    The signature of a user-supplied function must be::
+
+        def user_func(array_info, item, pt):
+
+    where:
+    - array_info is a list containing the data and meta data about the pixels
+      extracted from each asset; each element is an instance of
+      asset_reader.ArrayInfo
+    - item is the STAC item associated with the assets; it is an instance of
+      pystac.Item from the PySTAC package
+    - pt is the pointstats.Point object from around which the pixels
+      were extracted
+
+    Each ArrayInfo instance has a data attribute that contains a 3D numpy
+    masked array with the pixel data for the asset defined by the instance's
+    asset_id attribute. But note that each element in array_info corresponds
+    to the raster_assets passed to drill().
+
+    The user function must return a value. It can be any data type.
+    The returned value is stored with the point without modification.
+
+    With the statistics calculated, you retrieve their values point-by-point.
+    The Point class's get_stats() function returns a dictionary of
+    pointstats.ItemStats objects, keyed by the STAC Item's ID. So, the
+    dictionary's length is matches the number of STAC Items that the
+    Point intersects. The zonal statistics are retrieved using the ItemStats
+    get_stats() function, passing it the statistic's name. For example::
+
+        item_stats_dict = pt.get_stats()
+        for item_id, item_stats in item_stats_dict.items():
             print(f"    Item ID={item_id}") # The pystac.item.Item
             print(f"        Raw arrays : {item_stats.get_stats(pointstats.STATS_RAW)}")
             print(f"        Mean values: {item_stats.get_stats(pointstats.STATS_MEAN)}")
             print(f"        Counts     : {item_stats.get_stats(pointstats.STATS_COUNT)}")
             print(f"        Null Counts: {item_stats.get_stats(pointstats.STATS_COUNTNULL)}")
-            print(f"        My Stat    : {item_stats.get_stats("my_stat_name")})
+            print(f"        My Stat    : {item_stats.get_stats("MY STAT")})
 
-    Note that the raw arrays are always populated, even if pointstats.STATS_RAW
-    is not one of the standard stats specified.
+    A few things to note in this example:
+    - the std_stats argument passed to drill() is
+      [pointstats.STATS_MEAN, pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
+    - the user_stats argument defines the 'MY_STAT' statistic and its
+      corresponding function name: [('MY_STAT', my_stat_function)]
+    - the numpy masked arrays are retrievable from the ItemStats.get_stats()
+      function with pointstats.STATS_RAW - these are always supplied
+    - likewise, the ArrayInfo object is retrievable from the ItemStats.get_stats()
+      function with pointstats.STATS_ARRAYINFO 
 
-    
-    buffer is the distance around the point that defines the region of interest.
-    Its units (e.g. metre) are assumed to be the same as the units of the
-    coordinate reference system of the STAC Item's assets.
-    It is the caller's responsibility to know what these are.
-    
-    Time (in the X-Y-Time point) is a datetime.datetime object.
-    It may be timezone aware or unaware,
-    in which case they are handled as per the pystac_client.Client.search
-    interface. See:
-    https://pystac-client.readthedocs.io/en/stable/api.html
-    
+    Additional implementation details.
+
     endpoint is passed to pystac_client.Client.Open.
-    properties are passed through to pystac_client.Client.search
+
+    TODO: properties are passed through to pystac_client.Client.search
     https://pystac-client.readthedocs.io/en/stable/api.html
 
     TODO: ignore_val is the list of null values for each raster asset (or specify one
     value to be used for all raster assets). It should only be used if the
-    null value of the raster is not set. It's used for:
-      - as the mask value when 'removing' pixels from the raw arrays that
+    null value of the raster is not set or to override it. It's used for:
+      - the mask value when 'removing' pixels from the raw arrays that
         are outside the region of interest, e.g. if the ROI is a circle then
         we remove pixels from the raw rectangular arrays
       - excluding pixels within the raw arrays from the stats calculations,
@@ -150,25 +159,11 @@ def drill(
                 ip, raster_assets, std_stats=std_stats, user_stats=user_stats)
 
 
-def calc_stats(item_points, raster_assets, std_stats=None, user_stats=None):
-    """
-    Calculate the statistics for all points in the given ItemPoints object.
-
-    This reads the rasters and calculates the stats.
-
-    """
-    logging.info(
-          f"calculating stats for {len(item_points.points)} points " \
-          f"in item {item_points.item.id}")
-    item_points.read_data(raster_assets)
-    item_points.calc_stats(std_stats, user_stats)
-
-
 def stac_search(stac_client, points, collections):
     """
     Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the list of points and are within the
-    points' temporal search windows.
+    Points' temporal search windows.
 
     stac_client is the pystac.Client object returned from calling
     pystac.Client.open(endpoint_url).
@@ -222,3 +217,17 @@ def stac_search(stac_client, points, collections):
                 item_points[item.id] = pointstats.ItemPoints(item)
             item_points[item.id].add_point(pt)
     return list(item_points.values())
+
+
+def calc_stats(item_points, raster_assets, std_stats=None, user_stats=None):
+    """
+    Calculate the statistics for all points in the given ItemPoints object.
+
+    This reads the rasters and calculates the stats.
+
+    """
+    logging.info(
+          f"calculating stats for {len(item_points.points)} points " \
+          f"in item {item_points.item.id}")
+    item_points.read_data(raster_assets)
+    item_points.calc_stats(std_stats, user_stats)
