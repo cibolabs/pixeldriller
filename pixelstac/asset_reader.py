@@ -91,6 +91,61 @@ class ImageInfo:
         return result
 
 
+class ArrayInfo:
+    """
+    Contains information about the array read from the image around a point.
+
+    The attributes are:
+    - data: the numpy masked array containing the pixel data
+    - asset_id: the id of the Stac Item's asset from which the data was read
+    - The pixel window read from the asset in pixel coordinates:
+        - xoff, yoff, win_xsize, win_ysize
+        - where xoff and yoff are the coordinates of the upper left pixel in
+          the array in pixel coordinates
+    - The bounding box of the array in image coordinates, defined using
+      two points:
+      - upper left (ulx, uly)
+      - lower right (lrx, lry)
+    - The pixel size in the same units as the image coordinate reference system:
+        - x_res, y_res
+
+    """
+    def __init__(
+        self, data, asset_id, xoff, yoff, win_xsize, win_ysize,
+        ulx, uly, lrx, lry, x_res, y_res):
+        """Create and ArrayInfo object."""
+        self.data = data
+        self.asset_id = asset_id
+        self.xoff = xoff
+        self.yoff = yoff
+        self.win_xsize = win_xsize
+        self.win_ysize = win_ysize
+        self.ulx = ulx
+        self.uly = uly
+        self.lrx = lrx
+        self.lry = lry
+        self.x_res = x_res
+        self.y_res = y_res
+
+    def __repr__(self):
+        """
+        Return a string representation of this object
+        without the numpy masked array.
+
+        """
+        return f"ArrayInfo({self.asset_id=}, " \
+            f"{self.xoff=}, " \
+            f"{self.yoff=}, " \
+            f"{self.win_xsize=}, " \
+            f"{self.win_ysize=}, " \
+            f"{self.ulx=}, " \
+            f"{self.uly=}, " \
+            f"{self.lrx=}, " \
+            f"{self.lry=}, " \
+            f"{self.x_res=}, " \
+            f"{self.y_res=})" \
+
+
 class AssetReader:
     """
     Encapsulates the GDAL Dataset object, metadata about a
@@ -122,11 +177,13 @@ class AssetReader:
         # I suspect that there is a tipping point where it is more
         # efficient to read the entire image (or several large chunks) as the
         # number of points per image increases.
-        extract_per_point = True
-        if extract_per_point:
-            for pt in points:
-                arr = self.read_roi(pt, ignore_val=ignore_val)
-                pt.add_data(self.item, arr)
+        # TODO: remove extract_per_point and associated code.
+#        extract_per_point = True
+#        if extract_per_point:
+        for pt in points:
+            # TODO: update test for read_data().
+            arr_info = self.read_roi(pt, ignore_val=ignore_val)
+            pt.add_data(self.item, arr_info)
 
         # Read the regions of interest for all points. But first read the
         # entire asset into an array.
@@ -134,17 +191,58 @@ class AssetReader:
         # the problem is a small number of points on a large number of items.
         # Reading the image's entire array is slower than reading a few
         # image chunks about a small number of points.
-        else:
-            asset_layers = []
-            for band_num in range(1, self.info.raster_count + 1):
-                band = self.dataset.GetRasterBand(band_num)
-                asset_layers.append(band.ReadAsArray())
-            # TODO: sort the points so there are fewer cache misses when
-            # reading from the numpy arrays? May become a factor as the
-            # number of points increases.
-            for pt in points:
-                arr = self.read_roi_from_array(pt, asset_layers, ignore_val=ignore_val)
-                pt.add_data(self.item, arr)
+#        else:
+#            asset_layers = []
+#            for band_num in range(1, self.info.raster_count + 1):
+#                band = self.dataset.GetRasterBand(band_num)
+#                asset_layers.append(band.ReadAsArray())
+#            # TODO: sort the points so there are fewer cache misses when
+#            # reading from the numpy arrays? May become a factor as the
+#            # number of points increases.
+#            for pt in points:
+#                arr = self.read_roi_from_array(pt, asset_layers, ignore_val=ignore_val)
+#                pt.add_data(self.item, arr)
+
+
+#    def array_info(self, pt):
+#        """
+#        Get information about the region of interest about the point.
+#
+#        The info contains the ROI's window information: xoff, yoff,
+#        win_xsize, and win_ysize in pixel coordinates. The window is the
+#        smallest number of pixels required to cover the region of interest.
+#        It is slightly larger than the region of interest defined by the point's
+#        location and buffer.
+#
+#        The info also contains the ROI's bounds in georeferenced coordinates:
+#        ulx, uly, lrx, lry.
+#
+#        Return an ArrayInfo object.
+#
+#        """
+#        xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
+#        # Reduce the window size if it is straddles the image extents.
+#        # If the resulting window is less than or equal to 0, the ROI is outside of
+#        # the image's extents.
+#        if xoff < 0:
+#            win_xsize = win_xsize + xoff
+#            xoff = 0
+#        elif xoff + win_xsize > self.info.ncols:
+#            win_xsize = self.info.ncols - xoff
+#        if yoff < 0:
+#            win_ysize = win_ysize + yoff
+#            yoff = 0
+#        elif yoff + win_ysize >= self.info.nrows:
+#            win_ysize = self.info.nrows - yoff
+#        ulx_c, uly_c = self.pix2wld(xoff, yoff) # Coords of the upper-left pixel's centre
+#        ulx = ulx_c - self.info.x_res / 2
+#        uly = uly_c + self.info.y_res / 2
+#        lrx = ulx + self.info.x_res * win_xsize
+#        lry = uly - self.info.y_res * win_ysize
+#        arr_info = ArrayInfo(
+#            xoff, yoff, win_xsize, win_ysize,
+#            ulx, uly, lrx, lry, self.info.x_res, self.info.y_res)
+#        return arr_info
 
 
     def read_roi(self, pt, ignore_val=None):
@@ -153,15 +251,18 @@ class AssetReader:
         interest. By doing so, the area covered by the returned pixels is slightly
         larger than the region of interest defined by the point's location
         and buffer.
+        
+        Return an ArrayInfo object.
 
-        Return a 3D numpy masked array (numpy.ma.MaskedArray) by using the ignore_val
-        to create a mask. If ignore_val=None, the no-data value set on the
+        The ArrayInfo object contains a 3D numpy masked array (numpy.ma.MaskedArray)
+        with the pixel data. If ignore_val=None, the no-data value set on the
         asset is used.
+        
+        The returned ArrayInfo object also contains information about the ROI's
+        location within the image.
 
         If the ROI straddles the image extents, the ROI is clipped to the extents
         (i.e. only that portion of the image that is within the extents is returned).
-
-        Return an empty MaskedArray if the ROI lies outside the image extents.
 
         """
         xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
@@ -197,50 +298,61 @@ class AssetReader:
             m_arr = numpy.ma.masked_array(arr, mask=mask)
         else:
             m_arr = numpy.ma.masked_array([], mask=True)
-        return m_arr
+        # ROI bounds in image coordinates:
+        ulx, uly = self.pix2wld(xoff, yoff) # Coords of the upper-left pixel's upper-left corner
+#        ulx = ulx_c - self.info.x_res / 2
+#        uly = uly_c + self.info.y_res / 2
+#        lrx = ulx + self.info.x_res * win_xsize
+#        lry = uly - self.info.y_res * win_ysize
+        lrx, lry = self.pix2wld(xoff+win_xsize, yoff+win_ysize) # Coords of the upper-left pixel's upper-left corner
+        arr_info = ArrayInfo(
+            m_arr, self.asset_id,
+            xoff, yoff, win_xsize, win_ysize,
+            ulx, uly, lrx, lry, self.info.x_res, self.info.y_res)
+        return arr_info
 
 
-    def read_roi_from_array(self, pt, asset_layers, ignore_val=None):
-        """
-        Read rois from the img_arrays, which are the numpy arrays for the
-        entire image.
-
-        This algorithm is not currently used. See the comments in read_data().
-
-        """
-        xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
-        # Reduce the window size if it is straddles the image extents.
-        # If the resulting window less than or equal to 0, the ROI is outside of
-        # the image's extents.
-        if xoff < 0:
-            win_xsize = win_xsize + xoff
-            xoff = 0
-        elif xoff + win_xsize > self.info.ncols:
-            win_xsize = self.info.ncols - xoff
-        if yoff < 0:
-            win_ysize = win_ysize + yoff
-            yoff = 0
-        elif yoff + win_ysize >= self.info.nrows:
-            win_ysize = self.info.nrows - yoff
-        # Read the raster.
-        if win_xsize > 0 and win_ysize > 0:
-            band_data = []
-            mask_data = []
-            for idx, layer in enumerate(asset_layers):
-                b_arr = layer[yoff:yoff+win_ysize, xoff:xoff+win_xsize]
-                band_data.append(b_arr)
-                nodata_val = ignore_val if ignore_val else self.info.nodataval[idx]
-                if nodata_val is None:
-                    mask = numpy.zeros(b_arr.shape, dtype=bool)
-                else:
-                    mask = b_arr==nodata_val
-                mask_data.append(mask)
-            arr = numpy.array(band_data)
-            mask = numpy.array(mask_data)
-            m_arr = numpy.ma.masked_array(arr, mask=mask)
-        else:
-            m_arr = numpy.ma.masked_array([], mask=True)
-        return m_arr
+#    def read_roi_from_array(self, pt, asset_layers, ignore_val=None):
+#        """
+#        Read rois from the img_arrays, which are the numpy arrays for the
+#        entire image.
+#
+#        This algorithm is not currently used. See the comments in read_data().
+#
+#        """
+#        xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
+#        # Reduce the window size if it is straddles the image extents.
+#        # If the resulting window less than or equal to 0, the ROI is outside of
+#        # the image's extents.
+#        if xoff < 0:
+#            win_xsize = win_xsize + xoff
+#            xoff = 0
+#        elif xoff + win_xsize > self.info.ncols:
+#            win_xsize = self.info.ncols - xoff
+#        if yoff < 0:
+#            win_ysize = win_ysize + yoff
+#            yoff = 0
+#        elif yoff + win_ysize >= self.info.nrows:
+#            win_ysize = self.info.nrows - yoff
+#        # Read the raster.
+#        if win_xsize > 0 and win_ysize > 0:
+#            band_data = []
+#            mask_data = []
+#            for idx, layer in enumerate(asset_layers):
+#                b_arr = layer[yoff:yoff+win_ysize, xoff:xoff+win_xsize]
+#                band_data.append(b_arr)
+#                nodata_val = ignore_val if ignore_val else self.info.nodataval[idx]
+#                if nodata_val is None:
+#                    mask = numpy.zeros(b_arr.shape, dtype=bool)
+#                else:
+#                    mask = b_arr==nodata_val
+#                mask_data.append(mask)
+#            arr = numpy.array(band_data)
+#            mask = numpy.array(mask_data)
+#            m_arr = numpy.ma.masked_array(arr, mask=mask)
+#        else:
+#            m_arr = numpy.ma.masked_array([], mask=True)
+#        return m_arr
 
 
     def get_pix_window(self, pt):
@@ -286,6 +398,12 @@ class AssetReader:
         inv_transform = gdal.InvGeoTransform(self.info.transform)
         x, y = gdal.ApplyGeoTransform(inv_transform, geox, geoy)
         return (x, y)
+
+    
+    def pix2wld(self, x, y):
+        """converts a set of pixel coords to map coords"""
+        geo_x, geo_y = gdal.ApplyGeoTransform(self.info.transform, x, y)
+        return (geo_x, geo_y)
 
 
 class AssetReaderError(Exception):

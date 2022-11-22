@@ -21,7 +21,7 @@ def test_point(point_albers):
     assert point_albers.end_date.strftime("%Y-%m-%d") == "2022-07-31"
     assert point_albers.buffer == 50
     assert point_albers.shape == pointstats.ROI_SHP_SQUARE
-    assert point_albers.other_attributes == {"PointID": "def456", "OwnerID": "uvw000"}
+    assert getattr(point_albers, "other_atts") == {"PointID": "def456", "OwnerID": "uvw000"}
     assert point_albers.item_stats == {}
     # Also tests Point.to_wgs84()
     assert round(point_albers.wgs84_x, 1) == 132.0
@@ -37,10 +37,10 @@ def test_point_transform(point_albers):
     assert round(northing, 2) == 8815628.66
 
 
-def test_item_stats(real_item):
+def test_item_stats(point_one_item, real_item):
     """Test construction of the ItemStats object."""
     # PointStats creates a list of ItemStats objects.
-    item_stats = pointstats.ItemStats(real_item)
+    item_stats = pointstats.ItemStats(point_one_item, real_item)
     assert item_stats.item.id == "S2B_53HPV_20220728_0_L2A"
     assert item_stats.stats == {}
 
