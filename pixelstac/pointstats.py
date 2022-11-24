@@ -22,7 +22,7 @@ from . import asset_reader
 STATS_RAW = 'raw'
 STATS_ARRAYINFO = 'arrayinfo'
 STATS_MEAN = 'mean'
-STATS_STDDEV = 'stddev'
+STATS_STDEV = 'stddev'
 # STATS_COUNT is the number of non-null pixels used in stats calcs.
 # STATS_COUNTNULL is the number of null pixels in an array.
 # They sum to the size of the array.
@@ -35,7 +35,7 @@ STATS_COUNTNULL ='countnull' # number of null pixels in an array.
 # For defining the shape of a Point's region of interest.
 ROI_SHP_SQUARE = 'square'
 # TODO: implement circle as an ROI.
-#ROI_SHP_CIRCLE = 'circle'
+ROI_SHP_CIRCLE = 'circle'
 
 class Point:
     """
@@ -161,6 +161,15 @@ class Point:
         return self.item_stats.keys()
 
 
+    def get_stat(self, item_id, stat_name):
+        """
+        Get a the requested statistic for the item.
+
+        """
+        item_stats = self.get_item_stats(item_id)
+        return item_stats.get_stats(stat_name)
+
+
     def get_stats(self):
         """
         Return a dictionary with all stats for this point. The dictionary's
@@ -169,7 +178,7 @@ class Point:
         """
         return self.item_stats
 
-    
+
     def get_item_stats(self, item_id):
         """
         Return the ItemStats object for this point that corresponds to the
@@ -178,7 +187,7 @@ class Point:
         """
         return self.item_stats[item_id]
 
-    
+
     def transform(self, dst_srs):
         """
         Transform the point's x, y location to the destination
@@ -201,7 +210,7 @@ class Point:
         self.sp_ref.SetAxisMappingStrategy(src_map_strat)
         dst_srs.SetAxisMappingStrategy(dst_map_strat)
         return (tr[0], tr[1])
- 
+
 
     def to_wgs84(self):
         """
@@ -451,21 +460,36 @@ def check_std_arrays(item, asset_arrays):
 def std_stat_mean(asset_arrays):
     """
     Return a 1D array with the mean values for each masked array
-    in the list of asset_arrays. Assumes that each passed array contains
-    data for only one raster band.
+    in the list of asset_arrays.
 
     """
-    # Calculate the stat for each array because their their x and y sizes will
+    # Calculate the stat for each array because their x and y sizes will
     # differ if their pixel sizes are different.
+    # If all values in an array are masked, then mean=numpy.nan.
     mean_vals = [arr.mean() for arr in asset_arrays]
     return numpy.array(mean_vals)
+
+
+def std_stat_stdev(asset_arrays):
+    """
+    Return a 1D array with the standard deviation for each masked array
+    in the list of asset_arrays.
+
+    If all values in an input array are masked, then return numpy.ma.masked
+    for that array.
+
+    """
+    # Calculate the stat for each array because their x and y sizes will
+    # differ if their pixel sizes are different.
+    # If all values in an array are masked, then stdev=numpy.nan.
+    stdev_vals = [arr.std() for arr in asset_arrays]
+    return numpy.array(stdev_vals)
 
 
 def std_stat_count(asset_arrays):
     """
     Return a 1D array with the number of non-null pixels in each masked array
-    in the list of asset_arrays. Assumes that each passed array contains
-    data for only one raster band.
+    in the list of asset_arrays.
 
     """
     counts = [arr.count() for arr in asset_arrays]
@@ -475,8 +499,7 @@ def std_stat_count(asset_arrays):
 def std_stat_countnull(asset_arrays):
     """
     Return a 1D array with the number of null pixels in each masked array
-    in the list of asset_arrays. Assumes that each passed array contains
-    data for only one raster band.
+    in the list of asset_arrays.
 
     """
     counts = [arr.mask.sum() for arr in asset_arrays]
@@ -486,6 +509,7 @@ def std_stat_countnull(asset_arrays):
 # STATS_RAW is a special cased and handled in ItemStats.add_data().
 STD_STATS_FUNCS = {
     STATS_MEAN: std_stat_mean,
+    STATS_STDEV: std_stat_stdev,
     STATS_COUNT: std_stat_count,
     STATS_COUNTNULL: std_stat_countnull
 }

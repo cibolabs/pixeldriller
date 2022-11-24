@@ -108,6 +108,7 @@ class ArrayInfo:
       - lower right (lrx, lry)
     - The pixel size in the same units as the image coordinate reference system:
         - x_res, y_res
+    - nodataval: list of no-data values for the array, one for each layer
 
     """
     def __init__(
@@ -244,6 +245,8 @@ class AssetReader:
         # ROI bounds in image coordinates:
         ulx, uly = self.pix2wld(xoff, yoff) # Coords of the upper-left pixel's upper-left corner
         lrx, lry = self.pix2wld(xoff+win_xsize, yoff+win_ysize) # Coords of the upper-left pixel's upper-left corner
+        nodata_info = [ignore_val] * self.info.raster_count if ignore_val \
+                       else self.info.nodataval
         arr_info = ArrayInfo(
             m_arr, self.asset_id,
             xoff, yoff, win_xsize, win_ysize,
