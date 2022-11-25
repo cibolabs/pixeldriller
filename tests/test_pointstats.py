@@ -1,5 +1,7 @@
 """Tests for pointstats.py"""
 
+#TODO: add test for point.get_stat.
+
 import pytest
 import numpy
 from osgeo import osr
@@ -67,7 +69,7 @@ def test_calc_stats(point_one_item, real_item):
     """Test the calc_stats methods of both PointStats and ItemStats."""
     # Standard functions.
     std_stats = [
-        pointstats.STATS_RAW, pointstats.STATS_MEAN,
+        pointstats.STATS_RAW, pointstats.STATS_MEAN, pointstats.STATS_STDEV,
         pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
     # Couple of user functions. stat_1 is the sum of the mean of the two arrays.
     # stat_2 is a list with the min value of each array.
@@ -88,6 +90,7 @@ def test_calc_stats(point_one_item, real_item):
     # Standard stats
     assert pointstats.STATS_RAW in item_stats.stats
     assert pointstats.STATS_MEAN in item_stats.stats
+    assert pointstats.STATS_STDEV in item_stats.stats
     assert pointstats.STATS_COUNT in item_stats.stats
     assert pointstats.STATS_COUNTNULL in item_stats.stats
     mean_vals = item_stats.get_stats(pointstats.STATS_MEAN)
@@ -101,6 +104,9 @@ def test_calc_stats(point_one_item, real_item):
     test_stat_2 = item_stats.get_stats("TEST_STAT_2")
     assert round(test_stat_1, 2) == 576.61
     assert test_stat_2 == [364, 75]
+    # Test the Point.get_stat function.
+    stdev = point_one_item.get_stat(real_item.id, pointstats.STATS_STDEV)
+    assert list(stdev.round(2)) == [31.05, 24.92]
 
 
 def test_check_std_arrays(fake_item):

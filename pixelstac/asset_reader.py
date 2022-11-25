@@ -108,6 +108,7 @@ class ArrayInfo:
       - lower right (lrx, lry)
     - The pixel size in the same units as the image coordinate reference system:
         - x_res, y_res
+    - nodataval: list of no-data values for the array, one for each layer
 
     """
     def __init__(
