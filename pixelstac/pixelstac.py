@@ -137,11 +137,7 @@ def drill(
     item_points = {}
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
     item_points = stac_search(client, points, collections)
-    image_points = None
-    if gdalrasters is not None:
-        image_points = []
-        for rasters in gdalrasters:
-            image = 
+    image_points = gdal_image_list(gdalrasters)
     # Read the pixel data from the rasters and calculate the stats.
     # Each point will contain ItemStats objects, with its stats for those
     # item's assets.
@@ -153,15 +149,23 @@ def drill(
     if concurrent:
         logging.info("Running extract concurrently.")
         with futures.ThreadPoolExecutor() as executor:
-            tasks = [executor.submit(
-                calc_stats(
+            tasks_stac = [executor.submit(
+                calc_stats_stac(
                     ip, raster_assets, std_stats=std_stats, user_stats=user_stats)) \
                     for ip in item_points]
+            tasks_rasters = [executor.submit(
+                calc_stats_rasters(
+                    ip, std_stats=std_stats, user_stats=user_stats)) \
+                    for ip in image_points]
     else:
         logging.info("Running extract sequentially.")
         for ip in item_points:
-            calc_stats(
+            calc_stats_stac(
                 ip, raster_assets, std_stats=std_stats, user_stats=user_stats)
+        if image_points is not None:
+            for ip in image_points:
+                calc_stats_rasters(ip, std_stats=std_stats, 
+                    user_stats=user_stats)
 
 def gdal_image_list(gdalrasters):
     """
@@ -238,7 +242,7 @@ def stac_search(stac_client, points, collections):
     return list(item_points.values())
 
 
-def calc_stats(item_points, raster_assets, std_stats=None, user_stats=None):
+def calc_stats_stac(item_points, raster_assets, std_stats=None, user_stats=None):
     """
     Calculate the statistics for all points in the given ItemPoints object.
 
@@ -250,3 +254,16 @@ def calc_stats(item_points, raster_assets, std_stats=None, user_stats=None):
           f"in item {item_points.item.id}")
     item_points.read_data(raster_assets)
     item_points.calc_stats(std_stats, user_stats)
+
+def calc_stats_rasters(image_points, std_stats=None, user_stats=None):
+    """
+    Calculate the statistics for all points in the given ImagePoints object.
+
+    This reads the rasters and calculates the stats.
+    
+    """
+    logging.info(
+          f"calculating stats for {len(item_points.points)} points " \
+          f"in item {item_points.item.id}")
+    image_points.read_data()
+    image_points.calc_stats(std_stats, user_stats)

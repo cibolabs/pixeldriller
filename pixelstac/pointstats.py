@@ -320,34 +320,31 @@ class ImagePoints(PointCollection):
     """
     A collection of points that intersect a standard Image, represented
     by a path or URL.
+    
+    Note this can be any GDAL path so can start with /vsicurl or
+    /vsis3 for network filepaths. Ensure you set 
 
     """
     def __init__(self, filepath):
         super().__init__(self, None)
         self.filepath = filepath
 
-    def read_data(self, asset_ids, ignore_val=None):
+    def read_data(self, ignore_val=None):
         """
         Read the pixels around every point for the given GDAL filepath
 
         ignore_val specifies the no data values of the assets.
-        It can be a single value, a list of values, or None.
-        A single value is used for all bands of all assets.
-        A list of values is the null value per asset. It assumes all
-        bands in an asset use the same null value.
-        None means to use the no data value set on each asset.
+        It can be a single value or None.
+        A single value is used for all bands.
+        It assumes all bands in an asset use the same null value.
+        None means to use the no data value set on each band.
 
         The reading is done by asset_reader.AssetReader.read_data().
 
         """
-        if isinstance(ignore_val, list):
-            errmsg = "The ignore_val list must be the same length as asset_ids."
-            assert len(ignore_val) == len(asset_ids), errmsg
-        else:
-            ignore_val = [ignore_val] * len(asset_ids)
         for asset_id, i_v in zip(asset_ids, ignore_val):
             reader = asset_reader.RasterReader(self.filepath)
-            reader.read_data(self.points, ignore_val=i_v)
+            reader.read_data(self.points, ignore_val)
 
 
 
