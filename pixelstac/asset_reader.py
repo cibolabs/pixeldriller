@@ -303,5 +303,19 @@ class AssetReader:
         return (geo_x, geo_y)
 
 
+class RasterReader(AssetReader):
+    """
+    Like AssetReader, but works on a raster filepath rather than a
+    STAC Asset. Leaves the STAC related attributes (item, asset_id)
+    as None.
+    """
+    def __init__(self, filepath):
+        self.item = None
+        self.asset_id = None
+        sef.filepath = filepath
+        self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
+        self.info = ImageInfo(self.dataset)
+        
+
 class AssetReaderError(Exception):
     """For exceptions raised in this module."""

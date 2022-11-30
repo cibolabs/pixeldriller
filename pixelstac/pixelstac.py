@@ -28,7 +28,7 @@ def drill(
     stac_endpoint, points, raster_assets,
     collections=None, nearest_n=1, item_properties=None,
     std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None,
-    concurrent=False):
+    concurrent=False, gdalrasters=None):
     """
     Given a STAC endpoint and a list of pointstats.Point objects,
     compute the zonal statistics for all raster assets for
@@ -137,6 +137,11 @@ def drill(
     item_points = {}
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
     item_points = stac_search(client, points, collections)
+    image_points = None
+    if gdalrasters is not None:
+        image_points = []
+        for rasters in gdalrasters:
+            image = 
     # Read the pixel data from the rasters and calculate the stats.
     # Each point will contain ItemStats objects, with its stats for those
     # item's assets.
@@ -158,6 +163,20 @@ def drill(
             calc_stats(
                 ip, raster_assets, std_stats=std_stats, user_stats=user_stats)
 
+def gdal_image_list(gdalrasters):
+    """
+    Return a list of pointstats.ImagePoints() objects.
+    If gdalrasters is None it also returns None
+    
+    """
+    image_list = None
+    if gdalrasters is not None:
+        image_list = []
+        for raster in gdalrasters:
+            image = pointstats.ImagePoints(raster)
+            image_list.append(image)
+            
+    return image_list
 
 def stac_search(stac_client, points, collections):
     """

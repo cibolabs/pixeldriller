@@ -141,7 +141,8 @@ def run_example():
     pixelstac.drill(
         endpoint, points,
         ['B02', 'B11'], collections=collections,
-        std_stats=std_stats, user_stats=user_stats)
+        std_stats=std_stats, user_stats=user_stats,
+        gdalrasters=['/vsis3/cibo-100m-oregon/MODEL/forestMask.tif'])
     for pt in points:
         print(f"Stats for point: x={pt.x}, y={pt.y}")
         pid = getattr(pt, "other_atts")["PointID"]
