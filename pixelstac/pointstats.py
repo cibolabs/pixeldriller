@@ -316,7 +316,7 @@ class ItemPoints(PointCollection):
         return self.item
 
 
-class ImagePoints(PointCollection):
+class ImagePoints(ItemPoints):
     """
     A collection of points that intersect a standard Image, represented
     by a path or URL.
@@ -326,7 +326,7 @@ class ImagePoints(PointCollection):
 
     """
     def __init__(self, filepath):
-        super().__init__(self, None)
+        super().__init__(None)
         self.filepath = filepath
 
     def read_data(self, ignore_val=None):
@@ -342,9 +342,9 @@ class ImagePoints(PointCollection):
         The reading is done by asset_reader.AssetReader.read_data().
 
         """
-        for asset_id, i_v in zip(asset_ids, ignore_val):
-            reader = asset_reader.RasterReader(self.filepath)
-            reader.read_data(self.points, ignore_val)
+        print('ImagePoints.read_data', self.filepath)
+        reader = asset_reader.RasterReader(self.filepath)
+        reader.read_data(self.points, ignore_val)
 
 
 

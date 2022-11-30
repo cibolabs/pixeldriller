@@ -9,6 +9,8 @@ import numpy
 from osgeo import gdal
 from osgeo import osr
 
+gdal.UseExceptions()
+
 class ImageInfo:
     """
     An object with metadata for the given image, in GDAL conventions.
@@ -183,10 +185,12 @@ class AssetReader:
         # I suspect that there is a tipping point where it is more
         # efficient to read the entire image (or several large chunks) as the
         # number of points per image increases.
+        print('AssetReader.read_data', points)
         for pt in points:
             # TODO: update test for read_data().
             arr_info = self.read_roi(pt, ignore_val=ignore_val)
             pt.add_data(self.item, arr_info)
+            print('read_data', self.item)
 
 
     def read_roi(self, pt, ignore_val=None):
@@ -312,7 +316,7 @@ class RasterReader(AssetReader):
     def __init__(self, filepath):
         self.item = None
         self.asset_id = None
-        sef.filepath = filepath
+        self.filepath = filepath
         self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
         self.info = ImageInfo(self.dataset)
         

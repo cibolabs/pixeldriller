@@ -137,7 +137,7 @@ def drill(
     item_points = {}
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
     item_points = stac_search(client, points, collections)
-    image_points = gdal_image_list(gdalrasters)
+    image_points = gdal_image_list(gdalrasters, points)
     # Read the pixel data from the rasters and calculate the stats.
     # Each point will contain ItemStats objects, with its stats for those
     # item's assets.
@@ -167,7 +167,7 @@ def drill(
                 calc_stats_rasters(ip, std_stats=std_stats, 
                     user_stats=user_stats)
 
-def gdal_image_list(gdalrasters):
+def gdal_image_list(gdalrasters, points):
     """
     Return a list of pointstats.ImagePoints() objects.
     If gdalrasters is None it also returns None
@@ -262,8 +262,9 @@ def calc_stats_rasters(image_points, std_stats=None, user_stats=None):
     This reads the rasters and calculates the stats.
     
     """
+    print('calc_stats_rasters', image_points)
     logging.info(
-          f"calculating stats for {len(item_points.points)} points " \
-          f"in item {item_points.item.id}")
+          f"calculating stats for {len(image_points.points)} points " \
+          f"in item {image_points.filepath}")
     image_points.read_data()
     image_points.calc_stats(std_stats, user_stats)
