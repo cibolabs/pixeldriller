@@ -129,6 +129,18 @@ class Point:
 
         """
         self.item_stats[item.id].add_data(arr_info)
+        
+    def intersects(self, filepath):
+        """
+        Returns True if the point intersects the given GDAL filepath
+        """
+        ds = gdal.Open(filepath)
+        transform = ds.GetGeoTransform()
+        tlx, tly = gdal.ApplyGeoTransform(transform, 0, 0)
+        brx, bry = gdal.ApplyGeoTransform(transform, 
+                ds.RasterXSize, ds.RasterYSize)
+        # TODO: all coordinate systems have bry < tly?
+        return self.x >= tlx and self.x <= brx and self.y <= tly and self.y >= bry
 
     
     def calc_stats(self, item, std_stats, user_stats):
@@ -222,7 +234,14 @@ class Point:
         dst_srs.ImportFromEPSG(4326)
         return self.transform(dst_srs)
 
+##############################################
 
+class ImageItem:
+    """
+    Can be used instead of pystac.Item 
+    """
+    def __init__(self, filepath):
+        self.id = filepath
 
 ##############################################
 # Collections of points.
@@ -241,7 +260,7 @@ class ItemPoints(PointCollection):
     def __init__(self, item):
         """
         Construct an ItemPoints object, setting the following attributes:
-        - item: the pystac.Item object
+        - item: the pystac.Item object or an ImageItem
         - points: to an empty list
 
         """
@@ -271,13 +290,24 @@ class ItemPoints(PointCollection):
         The reading is done by asset_reader.AssetReader.read_data().
 
         """
-        if isinstance(ignore_val, list):
-            errmsg = "The ignore_val list must be the same length as asset_ids."
-            assert len(ignore_val) == len(asset_ids), errmsg
+        if asset_ids is not None:
+            if isinstance(ignore_val, list):
+                errmsg = "The ignore_val list must be the same length as asset_ids."
+                assert len(ignore_val) == len(asset_ids), errmsg
+            else:
+                ignore_val = [ignore_val] * len(asset_ids)
+            for asset_id, i_v in zip(asset_ids, ignore_val):
+                reader = asset_reader.AssetReader(self.item, asset_id)
+                reader.read_data(self.points, ignore_val=i_v)
         else:
-            ignore_val = [ignore_val] * len(asset_ids)
-        for asset_id, i_v in zip(asset_ids, ignore_val):
-            reader = asset_reader.AssetReader(self.item, asset_id)
+            # we aren't dealing with STAC - use an ImageReader
+            num_bands = self.item.get_num_bands()
+            if isinstance(ignore_val, list):
+                errmsg = "The ignore_val list must be the same length as asset_ids."
+                assert len(ignore_val) == num_bands, errmsg
+            else:
+                ignore_val = [ignore_val] * num_bands
+            reader = asset_reader.ImageReader(self.item)
             reader.read_data(self.points, ignore_val=i_v)
 
     
@@ -314,38 +344,6 @@ class ItemPoints(PointCollection):
     def get_item(self):
         """Return the pystac.Item"""
         return self.item
-
-
-class ImagePoints(ItemPoints):
-    """
-    A collection of points that intersect a standard Image, represented
-    by a path or URL.
-    
-    Note this can be any GDAL path so can start with /vsicurl or
-    /vsis3 for network filepaths. Ensure you set 
-
-    """
-    def __init__(self, filepath):
-        super().__init__(None)
-        self.filepath = filepath
-
-    def read_data(self, ignore_val=None):
-        """
-        Read the pixels around every point for the given GDAL filepath
-
-        ignore_val specifies the no data values of the assets.
-        It can be a single value or None.
-        A single value is used for all bands.
-        It assumes all bands in an asset use the same null value.
-        None means to use the no data value set on each band.
-
-        The reading is done by asset_reader.AssetReader.read_data().
-
-        """
-        print('ImagePoints.read_data', self.filepath)
-        reader = asset_reader.RasterReader(self.filepath)
-        reader.read_data(self.points, ignore_val)
-
 
 
 ##############################################

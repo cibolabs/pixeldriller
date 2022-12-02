@@ -307,18 +307,21 @@ class AssetReader:
         return (geo_x, geo_y)
 
 
-class RasterReader(AssetReader):
+class ImageReader(AssetReader):
     """
-    Like AssetReader, but works on a raster filepath rather than a
-    STAC Asset. Leaves the STAC related attributes (item, asset_id)
-    as None.
+    Like AssetReader, but works on a ImageItem rather than a
+    pystac.Item. Leaves the STAC related attribute asset_id
+    as None, but id is the filepath.
     """
-    def __init__(self, filepath):
-        self.item = None
+    def __init__(self, item):
+        self.item = item
         self.asset_id = None
-        self.filepath = filepath
+        self.filepath = item.id
         self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
         self.info = ImageInfo(self.dataset)
+        
+    def get_num_bands(self):
+        return self.dataset.RasterCount
         
 
 class AssetReaderError(Exception):
