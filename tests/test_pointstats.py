@@ -248,3 +248,39 @@ def test_handle_outofrange(
     assert raw_b02.shape == (0,)
     mean_b02 = item_stats.get_stats(pointstats.STATS_MEAN)[0]
     assert numpy.isnan(mean_b02)
+
+
+def test_reset(point_one_item, real_item):
+    """
+    Test resetting of stats and calculating a new set of stats.
+
+    """
+    ip = pointstats.ItemPoints(real_item)
+    ip.add_point(point_one_item)
+    std_stats = [pointstats.STATS_MEAN]
+    ip.read_data(['B02', 'B11'])
+    ip.calc_stats(std_stats, None)
+    i_stats = list(point_one_item.get_stats().values())[0]
+    assert list(i_stats.stats.keys()) == [
+        pointstats.STATS_RAW, pointstats.STATS_ARRAYINFO, pointstats.STATS_MEAN]
+    assert len(point_one_item.get_stat(real_item.id, pointstats.STATS_MEAN)) == 2
+    # Now do another read/calc stats, overwriting the B02 and B11 data and
+    # adding the B8A data. We'll also add the count as well.
+    std_stats.append(pointstats.STATS_COUNT)
+    ip.read_data(['B8A'])
+    ip.calc_stats(std_stats, None)
+    i_stats = list(point_one_item.get_stats().values())[0]
+    assert list(i_stats.stats.keys()) == [
+        pointstats.STATS_RAW, pointstats.STATS_ARRAYINFO,
+        pointstats.STATS_MEAN, pointstats.STATS_COUNT]
+    assert len(point_one_item.get_stat(real_item.id, pointstats.STATS_MEAN)) == 3
+    # Now, reset the stats. This will wipe the ItemStats object from the point.
+    # Then calculate stats on a different asset.
+    ip.reset()
+    std_stats = [pointstats.STATS_COUNT]
+    ip.read_data(['SCL'])
+    ip.calc_stats(std_stats, None)
+    i_stats = list(point_one_item.get_stats().values())[0]
+    assert list(i_stats.stats.keys()) == [
+        pointstats.STATS_RAW, pointstats.STATS_ARRAYINFO, pointstats.STATS_COUNT]
+    assert len(point_one_item.get_stat(real_item.id, pointstats.STATS_COUNT)) == 1
