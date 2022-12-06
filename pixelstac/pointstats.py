@@ -191,6 +191,15 @@ class Point:
         return self.item_stats
 
 
+    def reset(self):
+        """
+        Remove all stats from the attached ItemStats objects.
+
+        """
+        for stats in self.item_stats.values():
+            stats.reset()
+
+
     def get_item_stats(self, item_id):
         """
         Return the ItemStats object for this point that corresponds to the
@@ -346,6 +355,27 @@ class ItemPoints(PointCollection):
         return self.item
 
 
+    def reset(self):
+        """
+        Remove the statistics for every point.
+
+        """
+        for pt in self.points:
+            pt.reset()
+
+
+class ImagePoints(PointCollection):
+    """
+    A collection of points that intersect a standard Image, represented
+    by a path or URL.
+
+    TODO: Implement this class, which will mean this package is capable
+    of drilling non-stac datasets.
+
+    """
+    pass
+
+
 ##############################################
 # Classes for calculating statistics.
 ##############################################
@@ -446,6 +476,14 @@ class ItemStats:
 
         """
         return self.stats[stat_name]
+
+
+    def reset(self):
+        """
+        Delete all previously calculated stats and raw arrays.
+
+        """
+        self.stats = {}
 
 
 ################################################
