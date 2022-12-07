@@ -53,12 +53,14 @@ def test_item_stats(point_one_item, real_item):
 
 def test_item_points(real_item):
     """Test the ItemPoints constructor."""
-    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
+    ip = pointstats.ItemPoints(real_item)
+    with pytest.raises(pointstats.ItemPointsError) as excinfo:
+        ip.read_data()
+    assert "Cannot read data from pystac.Item objects without " in str(excinfo)
+    ip.set_asset_ids(['B02', 'B11'])
+    ip.read_data()
     assert ip.item.id == "S2B_53HPV_20220728_0_L2A"
     assert ip.asset_ids == ['B02', 'B11']
-    with pytest.raises(pointstats.ItemPointsError) as excinfo:
-        pointstats.ItemPoints(real_item)
-    assert "must set asset_ids when item is a pystac.Item" in str(excinfo.value)
     with pytest.raises(pointstats.ItemPointsError) as excinfo:
         pointstats.ItemPoints(pointstats.ImageItem("fake_path"), asset_ids=['B02'])
     assert "do not set asset_ids when item is an ImageItem" in str(excinfo.value)

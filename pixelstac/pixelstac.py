@@ -180,7 +180,7 @@ def assign_points_to_images(points, images):
 
 
 def assign_points_to_stac_items(
-    stac_client, points, collections, raster_assets):
+    stac_client, points, collections, raster_assets=None):
     """
     Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the list of points and are within the

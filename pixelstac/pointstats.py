@@ -281,15 +281,13 @@ class ItemPoints:
         Construct an ItemPoints object, setting the following attributes:
         - item: the pystac.Item object or an ImageItem
         - asset_ids: the IDs of the pystac.Item's raster assets to read; leave
-          this as None if item is an instance of ImageItem.
+          this as None if item is an instance of ImageItem or you want
+          to set the assets later using set_asset_ids().
         - points: to an empty list
 
         """
         if isinstance(item, ImageItem) and asset_ids is not None:
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
-            raise ItemPointsError(errmsg)
-        elif not isinstance(item, ImageItem) and asset_ids is None:
-            errmsg = "ERROR: must set asset_ids when item is a pystac.Item."
             raise ItemPointsError(errmsg)
         self.item = item
         self.asset_ids = asset_ids
@@ -300,13 +298,18 @@ class ItemPoints:
         """
         Set which asset IDs to read data from on the next call to read_data().
         This function is not relevant when self.item is an ImageItem.
+        But if self.item is a pystac.Item, then you must set the asset_ids
+        using this function or in the constructor.
 
-        Using this function probably only makes sense in the context of
+        Using this function probably only makes sense in the contexts of
+        setting the asset IDs for the first time or
         reusing the pystac.Item objects to calculate statistics for an
-        entirely new set of raster assets. That is, you would call this function
-        after calling reset() and before calling read_data() and calc_stats().
+        entirely new set of raster assets. In the latter case,
+        you would call this function after calling reset() and before calling
+        read_data() and calc_stats().
 
-        You may experience strange side effects if you don't call reset().
+        You may experience strange side effects if you don't call reset() on
+        an ItemPoints object that previously had assets assigned.
         The underlying behaviour is that arrays for the new set of asset_ids
         will be appended to the existing arrays for each point's ItemStats objects.
         Then, on the next calc_stats() call, the stats for all previously read
@@ -352,17 +355,7 @@ class ItemPoints:
         The reading is done by asset_reader.AssetReader.read_data().
 
         """
-        if self.asset_ids is not None:
-            # Read assets from a Stac Item.
-            if isinstance(ignore_val, list):
-                errmsg = "The ignore_val list must be the same length as asset_ids."
-                assert len(ignore_val) == len(self.asset_ids), errmsg
-            else:
-                ignore_val = [ignore_val] * len(self.asset_ids)
-            for asset_id, i_v in zip(self.asset_ids, ignore_val):
-                reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
-                reader.read_data(self.points, ignore_val=i_v)
-        else:
+        if isinstance(self.item, ImageItem):
             # Read bands from an image
             reader = asset_reader.AssetReader(self.item)
             if ignore_val is not None:
@@ -371,6 +364,22 @@ class ItemPoints:
                              "an image is unsupported"
                     raise ItemPointsError(errmsg)
             reader.read_data(self.points, ignore_val=ignore_val)
+        else:
+            # Read assets from a Stac Item.
+            if self.asset_ids is None:
+                errmsg = ("ERROR: Cannot read data from pystac.Item objects " +
+                          "without first setting the asset IDs. Asset IDs " +
+                          "are set in the ItemPoints constructor or by " +
+                          "calling ItemPoints.set_asset_ids()")
+                raise ItemPointsError(errmsg)
+            if isinstance(ignore_val, list):
+                errmsg = "The ignore_val list must be the same length as asset_ids."
+                assert len(ignore_val) == len(self.asset_ids), errmsg
+            else:
+                ignore_val = [ignore_val] * len(self.asset_ids)
+            for asset_id, i_v in zip(self.asset_ids, ignore_val):
+                reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
+                reader.read_data(self.points, ignore_val=i_v)
 
     
     def get_points(self):

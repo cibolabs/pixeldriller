@@ -16,7 +16,7 @@ def test_assign_points_to_stac_items(point_wgs84):
     """Test pixelstac.stac_search."""
     # point_wgs84 intersects two items in the time range.
     item_points_list = pixelstac.assign_points_to_stac_items(
-        get_stac_client(), [point_wgs84], COLLECTIONS, ['B02'])
+        get_stac_client(), [point_wgs84], COLLECTIONS)
     # curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2A_54HVE_20220730_0_L2A | jq | less
     assert len(item_points_list) == 2
     assert item_points_list[0].get_item().assets['B02'].href == \

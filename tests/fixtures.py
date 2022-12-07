@@ -260,7 +260,7 @@ def real_item(point_one_item):
     # Note that we return a pystac.StacItem, so the raster_assets here have
     # no effect; they're only needed by assign_points_to_stac_items.
     item_points = pixelstac.assign_points_to_stac_items(
-        client, [point_one_item], COLLECTIONS, ['B02', 'B11'])
+        client, [point_one_item], COLLECTIONS)
     return item_points[0].get_item()
 
 
