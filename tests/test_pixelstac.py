@@ -88,3 +88,18 @@ def test_assign_points_to_images(
     i_ids = ap.get_item_ids()
     assert len(i_ids) == 1
     assert i_ids[0] == real_image_path
+    # The same test, but this time explicitly set the image IDs.
+    # Remove the previous items from the point first.
+    ap.item_stats = {}
+    item_points = pixelstac.assign_points_to_images(
+        [point_intersects, point_outside_bounds_1], [real_image_path],
+        image_ids=['real_image'])
+    assert len(item_points) == 1
+    ip = item_points[0]
+    assigned_points = ip.get_points()
+    assert len(assigned_points) == 1
+    ap = assigned_points[0]
+    assert ap == point_intersects
+    i_ids = ap.get_item_ids()
+    assert len(i_ids) == 1
+    assert i_ids[0] == 'real_image'

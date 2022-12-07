@@ -90,7 +90,7 @@ def test_calc_stats_image(point_one_item, real_image_path):
     and also calculate stats.
 
     """
-    image_item = pointstats.ImageItem(real_image_path)
+    image_item = pointstats.ImageItem(real_image_path, id='real_image')
     point_one_item.add_items([image_item])
     ip = pointstats.ItemPoints(image_item)
     ip.add_point(point_one_item)
@@ -98,7 +98,8 @@ def test_calc_stats_image(point_one_item, real_image_path):
     std_stats = [pointstats.STATS_COUNT]
     # A user function, which is a nonsense calculation of the sum of the scl pixels.
     def test_stat_1(array_info, item, pt):
-        assert item.id == real_image_path
+        assert item.id == 'real_image'
+        assert item.filepath == real_image_path
         stat_1 = array_info[0].data.sum()
         return stat_1
     user_stats = [("TEST_STAT_1", test_stat_1)]

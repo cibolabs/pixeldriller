@@ -24,7 +24,8 @@ from osgeo import gdal
 from pystac_client import Client
 
 from . import pointstats
-from . import asset_reader
+
+class PixelStacError(Exception): pass
 
 def drill(
     points, images=None,
@@ -157,7 +158,7 @@ def drill(
                 ip, std_stats=std_stats, user_stats=user_stats)
 
 
-def assign_points_to_images(points, images):
+def assign_points_to_images(points, images, image_ids=None):
     """
     Return a list of pointstats.ItemPoints collections, one for each image
     in the images list.
@@ -167,8 +168,15 @@ def assign_points_to_images(points, images):
 
     """
     item_points = []
-    for image in images:
-        image_item = pointstats.ImageItem(image)
+    if image_ids is None:
+        image_ids = [None] * len(images)
+    elif len(images) != len(set(image_ids)):
+        errmsg = ("ERROR: the number of image IDs must be the same as the " +
+                  "number of images and each ID must be unique")
+        raise PixelStacError(errmsg)
+    for image ,image_id in zip(images, image_ids):
+        # TODO: update the ImageItem constructor, and write a test.
+        image_item = pointstats.ImageItem(image, id=image_id)
         ip = pointstats.ItemPoints(image_item)
         item_points.append(ip)
         ds = gdal.Open(image, gdal.GA_ReadOnly)

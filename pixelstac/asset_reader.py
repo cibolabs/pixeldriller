@@ -179,7 +179,7 @@ class AssetReader:
         self.asset_id = asset_id
         if self.asset_id is None:
             # item is an instance of pointstats.ImageItem
-            self.filepath = item.id
+            self.filepath = item.filepath
         else:
             self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
         self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)

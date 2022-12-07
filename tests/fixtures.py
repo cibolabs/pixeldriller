@@ -248,9 +248,9 @@ def real_item(point_one_item):
     Of course, this assumes that pixelstac.stac_search is functioning
     as expected - see test_pixelstac.test_stac_search.
 
-    A side-effect of calling stac_search() to find this real_item is that
-    the item is attached to point_one_item, so point_one_item.get_item_ds()
-    contains S2B_53HPV_20220728_0_L2A.
+    A side-effect of calling assign_points_to_stac_items() to find this
+    real_item is that the item is attached to point_one_item,
+    so point_one_item.get_item_ids() contains S2B_53HPV_20220728_0_L2A.
 
     """
     client = get_stac_client()

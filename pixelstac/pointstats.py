@@ -255,11 +255,20 @@ class ImageItem:
     Analogous to a pystac.Item object, which is to be passed to the
     ItemPoints constructor when drilling pixels from an image file.
 
-    It just sets the Item's id attribute to the given filepath.
+    An ImageItem has only two attributes: id and filepath.
 
     """
-    def __init__(self, filepath):
-        self.id = filepath
+    def __init__(self, filepath, id=None):
+        """
+        Construct the ImageItem. If id is None, then set the id attribute
+        to filepath.
+
+        """
+        self.filepath = filepath
+        if id:
+            self.id = id
+        else:
+            self.id = filepath
 
 
 ##############################################
