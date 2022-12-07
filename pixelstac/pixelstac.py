@@ -128,13 +128,7 @@ def drill(
     
     """
     # TODO: Choose the n nearest-in-time items.
-#    item_points = {}
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
-    # TODO: Should I rename this to make it sound more like assign_image_points?
-    # Is assign_image_points a good function name anymore, given we can do
-    # everything we need with the ItemPoints class?
-    # TODO: append the returned lists from each of the stac_search and
-    # assign_image_points to a single item_points list.
     item_points = []
     if stac_endpoint:
         client = Client.open(stac_endpoint)
@@ -145,12 +139,8 @@ def drill(
         image_item_points = assign_points_to_images(points, images)
         item_points.extend(image_item_points)
     # Read the pixel data from the rasters and calculate the stats.
-    # Each point will contain ItemStats objects, with its stats for those
-    # item's assets.
-    # Similar to ItemPoints.read_data(), we could read data for each Item
-    # in a threadpool. Probably makes sense to do it at this level than at
-    # the Asset level because we expect there to be more items than there 
-    # are assets. And also the asset reads can be done sequentially.
+    # On completion, each point will contain ItemStats objects, with stats
+    # stats for each item.
     logging.info(f"The {len(points)} points intersect {len(item_points)} items")
     if concurrent:
         logging.info("Running extract concurrently.")
@@ -160,22 +150,12 @@ def drill(
                 calc_stats(
                     ip, std_stats=std_stats, user_stats=user_stats)) \
                     for ip in item_points]
-#            if image_points is not None:
-#                tasks_rasters = [executor.submit(
-#                    calc_stats(
-#                        ip, None, std_stats=std_stats, user_stats=user_stats)) \
-#                        for ip in image_points]
     else:
         logging.info("Running extract sequentially.")
-        # TODO: raster_assets ought to be optional when working with ImagePoints.
-        # The key might be to store the assets (or not) with the ItemPoints object.
         for ip in item_points:
             calc_stats(
                 ip, std_stats=std_stats, user_stats=user_stats)
-#        if image_points is not None:
-#            for ip in image_points:
-#                calc_stats_rasters(ip, None, std_stats=std_stats, 
-#                    user_stats=user_stats)
+
 
 def assign_points_to_images(points, images):
     """
@@ -187,7 +167,6 @@ def assign_points_to_images(points, images):
 
     """
     item_points = []
-    added = 0
     for image in images:
         image_item = pointstats.ImageItem(image)
         ip = pointstats.ItemPoints(image_item)
@@ -195,7 +174,6 @@ def assign_points_to_images(points, images):
         ds = gdal.Open(image, gdal.GA_ReadOnly)
         for pt in points:
             if pt.intersects(ds):
-                added += 1
                 ip.add_point(pt)
                 pt.add_items([image_item])
     return item_points

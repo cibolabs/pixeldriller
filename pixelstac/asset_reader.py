@@ -172,7 +172,7 @@ class AssetReader:
 
         item is a pystac.Item or ImageItem object. If it is a pystac.Item
         object then you must supply the asset_id. If it is a pointstats.ImageItem
-        object, then its id must be the path to the file to be read.
+        object, then its id must be the path of the file to be read.
 
         """
         self.item = item
@@ -193,9 +193,8 @@ class AssetReader:
         The data is read using read_roi(), passing it the ignore_val.
         The data is attached to each point.
 
-        Once read, the ItemStats object (corresponding to this asset's Item)
-        of every Point will contain the pixel
-        data (numpy masked array) and ArrayInfo object for the asset.
+        Once read, the ItemStats object (corresponding to this asset's Item ID)
+        of every Point will contain the ArrayInfo object for data read.
 
         """
         # Do a naive read, reading a small chunk of the image for every point.
@@ -207,7 +206,6 @@ class AssetReader:
         # efficient to read the entire image (or several large chunks) as the
         # number of points per image increases.
         for pt in points:
-            # TODO: update test for read_data().
             arr_info = self.read_roi(pt, ignore_val=ignore_val)
             pt.add_data(self.item, arr_info)
 
@@ -324,24 +322,3 @@ class AssetReader:
         """converts a set of pixel coords to map coords"""
         geo_x, geo_y = gdal.ApplyGeoTransform(self.info.transform, x, y)
         return (geo_x, geo_y)
-
-
-#class ImageReader(AssetReader):
-#    """
-#    Like AssetReader, but works on a ImageItem rather than a
-#    pystac.Item. Leaves the STAC related attribute asset_id
-#    as None, but id is the filepath.
-#    """
-#    def __init__(self, item):
-#        self.item = item
-#        self.asset_id = None
-#        self.filepath = item.id
-#        self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
-#        self.info = ImageInfo(self.dataset)
-#        
-#    def get_num_bands(self):
-#        return self.dataset.RasterCount
-        
-
-class AssetReaderError(Exception):
-    """For exceptions raised in this module."""

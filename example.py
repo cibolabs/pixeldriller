@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 """
-Work through this example in conjunction with the documentation
-for pixelstac.drill().
+Work through this example, starting in the run_example() function,
+in conjunction with the documentation for pixelstac.drill().
 
 """
 
@@ -172,8 +172,9 @@ def run_example():
         pid = getattr(pt, "other_atts")["PointID"]
         print(f"with ID {pid}")
         for item_id, item_stats in pt.get_stats().items():
-            print(f"    Item ID={item_id}") # The pystac.Item ID
+            print(f"    Item ID={item_id}") # The pystac.Item or ImageItem ID
             array_info = item_stats.get_stats(pointstats.STATS_ARRAYINFO)
+            # The asset_id for arrays extracted from Images is None.
             asset_ids = [a_info.asset_id for a_info in array_info]
             print(f"        Asset IDs  : {asset_ids}")
 #            print(f"        Raw arrays: {item_stats.get_stats(pointstats.STATS_RAW)}")

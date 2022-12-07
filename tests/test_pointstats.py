@@ -1,7 +1,5 @@
 """Tests for pointstats.py"""
 
-#TODO: add test for point.get_stat.
-
 import pytest
 import numpy
 from osgeo import osr

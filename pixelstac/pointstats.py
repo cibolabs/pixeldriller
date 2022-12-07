@@ -16,7 +16,6 @@ from . import asset_reader
 # Symbols defining the statistics.
 ##############################################
 
-# TODO: expand the set of stats
 # The Set of standard statistics. See the STD_STATS_FUNCS dictionary at
 # the end of this module, which maps the statistic to a function.
 STATS_RAW = 'raw'
@@ -133,7 +132,7 @@ class Point:
 
     def intersects(self, ds):
         """
-        Returns True if the point intersects the GDAL dataset. ds can be a
+        Return True if the point intersects the GDAL dataset. ds can be a
         open gdal.Dataest or a filepath as a string.
 
         The comparison is made using the image's coordinate reference system.
@@ -252,8 +251,8 @@ class Point:
 
 class ImageItem:
     """
-    Can be used instead of pystac.Item when reading data from an image file
-    instead of a Stac Item.
+    Analogous to a pystac.Item object, which is to be passed to the
+    ItemPoints constructor when drilling pixels from an image file.
 
     It just sets the Item's id attribute to the given filepath.
 
@@ -261,13 +260,10 @@ class ImageItem:
     def __init__(self, filepath):
         self.id = filepath
 
+
 ##############################################
 # Collections of points.
 ##############################################
-
-#class PointCollection:
-#    """An abstract class that represents a collection of points."""
-#    pass
 
 class ItemPointsError(Exception): pass
 
@@ -284,7 +280,7 @@ class ItemPoints:
         Construct an ItemPoints object, setting the following attributes:
         - item: the pystac.Item object or an ImageItem
         - asset_ids: the IDs of the pystac.Item's raster assets to read; leave
-          this as None if item is an ImageItem.
+          this as None if item is an instance of ImageItem.
         - points: to an empty list
 
         """
@@ -305,15 +301,15 @@ class ItemPoints:
         This function is not relevant when self.item is an ImageItem.
 
         Using this function probably only makes sense in the context of
-        reusing the pystac.Item objects to calculate statistics for a an
+        reusing the pystac.Item objects to calculate statistics for an
         entirely new set of raster assets. That is, you would call this function
         after calling reset() and before calling read_data() and calc_stats().
 
         You may experience strange side effects if you don't call reset().
         The underlying behaviour is that arrays for the new set of asset_ids
-        will be appended to the existing arrays in ItemStats objects. Then, on
-        the next calc_stats() call, the stats for all previously read data will
-        be recalculated in addition to the new stats for the new assets.
+        will be appended to the existing arrays for each point's ItemStats objects.
+        Then, on the next calc_stats() call, the stats for all previously read
+        data will be recalculated in addition to the new stats for the new assets.
 
         """
         if isinstance(self.item, ImageItem):
@@ -325,7 +321,7 @@ class ItemPoints:
         else:
             self.asset_ids = asset_ids
 
-    
+
     def add_point(self, pt):
         """
         Append the Point to this object's points list.
@@ -333,12 +329,10 @@ class ItemPoints:
         """
         self.points.append(pt)
 
-    
+ 
     def read_data(self, ignore_val=None):
         """
         Read the pixels around every point for the given raster assets.
-
-        If asset_ids is None, then the Item is a plain image.
 
         ignore_val specifies the no data values of the rasters being read.
         
@@ -351,8 +345,8 @@ class ItemPoints:
         
         When reading from a plain image, ignore_val can be a single value
         or None.
-        A single value is used for all bands of all assets.
-        None means to use the no data value set on each asset.
+        A single value is used for all bands in the image.
+        None means to use the image band's no data value.
 
         The reading is done by asset_reader.AssetReader.read_data().
 
@@ -371,9 +365,10 @@ class ItemPoints:
             # Read bands from an image
             reader = asset_reader.AssetReader(self.item)
             if ignore_val is not None:
-                errmsg = "Passing a list of ignore_vals when reading from " \
-                         "an image is unsupported"
-                assert not isinstance(ignore_val, list), errmsg
+                if isinstance(ignore_val, list):
+                    errmsg = "Passing a list of ignore_vals when reading from " \
+                             "an image is unsupported"
+                    raise ItemPointsError(errmsg)
             reader.read_data(self.points, ignore_val=ignore_val)
 
     
@@ -419,18 +414,6 @@ class ItemPoints:
         """
         for pt in self.points:
             pt.reset()
-
-
-#class ImagePoints(PointCollection):
-#    """
-#    A collection of points that intersect a standard Image, represented
-#    by a path or URL.
-#
-#    TODO: Implement this class, which will mean this package is capable
-#    of drilling non-stac datasets.
-#
-#    """
-#    pass
 
 
 ##############################################
@@ -508,6 +491,8 @@ class ItemStats:
         """
         if std_stats:
             # Check that all arrays are single-band.
+            # TODO: Permit std stats being calculated on multi-band images.
+            # See https://github.com/cibolabs/pixelstac/issues/30.
             check_std_arrays(self.item, self.stats[STATS_RAW])
             warnings.filterwarnings(
                 'ignore', message='Warning: converting a masked element to nan.',
