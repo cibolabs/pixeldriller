@@ -1,8 +1,12 @@
 # pixelstac
 
-pixelstac is for the following use case:
+pixelstac is for the following use cases:
 
-Given a STAC endpoint, set of X-Y-Time points, and a buffer, return the n nearest-in-time zonal stats for all bands of the specified raster assets.
+- Given a STAC endpoint, set of X-Y-Time points, and a buffer, return the
+  n nearest-in-time zonal stats for all bands of the specified raster assets
+  about each point
+- Given a list of images, a set of X-Y points, and a buffer, return the
+  zonal stats for the bands in each image about each point
 
 Good starting points are:
 - example.py
@@ -62,9 +66,11 @@ Stats for point: x=140, y=-36.5
   ROI is applied consistently across all assets
 - The coordinate reference system of the assets being read define north as up.
 
-## Limitations
+## Known limitations
 
-- Has only been tested with single-band assets
+- Has only been tested with single-band assets and images
+- Calculation of 'standard' statistics is not supported for multi-band
+  assets and images
 
 ## Tests and coverage
 
