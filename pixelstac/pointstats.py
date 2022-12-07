@@ -130,19 +130,24 @@ class Point:
         """
         self.item_stats[item.id].add_data(arr_info)
         
-    def intersects(self, filepath):
-        """
-        Returns True if the point intersects the given GDAL filepath
-        """
-        ds = gdal.Open(filepath)
-        transform = ds.GetGeoTransform()
-        tlx, tly = gdal.ApplyGeoTransform(transform, 0, 0)
-        brx, bry = gdal.ApplyGeoTransform(transform, 
-                ds.RasterXSize, ds.RasterYSize)
-        # TODO: all coordinate systems have bry < tly?
-        return self.x >= tlx and self.x <= brx and self.y <= tly and self.y >= bry
 
-    
+    def intersects(self, ds):
+        """
+        Returns True if the point intersects the GDAL dataset. ds can be a
+        open gdal.Dataest or a filepath as a string.
+
+        The comparison is made using the image's coordinate reference system.
+
+        """
+        iinfo = asset_reader.ImageInfo(ds)
+        img_srs = osr.SpatialReference()
+        img_srs.ImportFromWkt(iinfo.projection)
+        pt_x, pt_y = self.transform(img_srs)
+        in_bounds = (pt_x >= iinfo.x_min and pt_x <= iinfo.x_max and
+                     pt_y >= iinfo.y_min and pt_y <= iinfo.y_max)
+        return in_bounds
+
+ 
     def calc_stats(self, item, std_stats, user_stats):
         """
         Calculate the stats for the pixels about the point for all data that
@@ -167,10 +172,10 @@ class Point:
 
     def get_item_ids(self):
         """
-        Return the IDs of the pystac.Item items associated with this point.
+        Return a list of the IDs of the pystac.Item items associated with this point.
 
         """
-        return self.item_stats.keys()
+        return list(self.item_stats.keys())
 
 
     def get_stat(self, item_id, stat_name):
@@ -247,7 +252,11 @@ class Point:
 
 class ImageItem:
     """
-    Can be used instead of pystac.Item 
+    Can be used instead of pystac.Item when reading data from an image file
+    instead of a Stac Item.
+
+    It just sets the Item's id attribute to the given filepath.
+
     """
     def __init__(self, filepath):
         self.id = filepath
@@ -256,25 +265,65 @@ class ImageItem:
 # Collections of points.
 ##############################################
 
-class PointCollection:
-    """An abstract class that represents a collection of points."""
-    pass
+#class PointCollection:
+#    """An abstract class that represents a collection of points."""
+#    pass
 
+class ItemPointsError(Exception): pass
 
-class ItemPoints(PointCollection):
+class ItemPoints:
     """
-    A collection of points that Intersect a STAC Item.
+    A collection of points that Intersect a pystac.Item or an ImageItem.
+
+    The read_data() function is used to read the pixels from the associated
+    rasters.
 
     """
-    def __init__(self, item):
+    def __init__(self, item, asset_ids=None):
         """
         Construct an ItemPoints object, setting the following attributes:
         - item: the pystac.Item object or an ImageItem
+        - asset_ids: the IDs of the pystac.Item's raster assets to read; leave
+          this as None if item is an ImageItem.
         - points: to an empty list
 
         """
+        if isinstance(item, ImageItem) and asset_ids is not None:
+            errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
+            raise ItemPointsError(errmsg)
+        elif not isinstance(item, ImageItem) and asset_ids is None:
+            errmsg = "ERROR: must set asset_ids when item is a pystac.Item."
+            raise ItemPointsError(errmsg)
         self.item = item
+        self.asset_ids = asset_ids
         self.points = []
+
+    
+    def set_asset_ids(self, asset_ids):
+        """
+        Set which asset IDs to read data from on the next call to read_data().
+        This function is not relevant when self.item is an ImageItem.
+
+        Using this function probably only makes sense in the context of
+        reusing the pystac.Item objects to calculate statistics for a an
+        entirely new set of raster assets. That is, you would call this function
+        after calling reset() and before calling read_data() and calc_stats().
+
+        You may experience strange side effects if you don't call reset().
+        The underlying behaviour is that arrays for the new set of asset_ids
+        will be appended to the existing arrays in ItemStats objects. Then, on
+        the next calc_stats() call, the stats for all previously read data will
+        be recalculated in addition to the new stats for the new assets.
+
+        """
+        if isinstance(self.item, ImageItem):
+            errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
+            raise ItemPointsError(errmsg)
+        elif not asset_ids:
+            errmsg = "ERROR: must set asset_ids."
+            raise ItemPointsError(errmsg)
+        else:
+            self.asset_ids = asset_ids
 
     
     def add_point(self, pt):
@@ -285,39 +334,47 @@ class ItemPoints(PointCollection):
         self.points.append(pt)
 
     
-    def read_data(self, asset_ids, ignore_val=None):
+    def read_data(self, ignore_val=None):
         """
         Read the pixels around every point for the given raster assets.
 
-        ignore_val specifies the no data values of the assets.
-        It can be a single value, a list of values, or None.
-        A single value is used for all bands of all assets.
+        If asset_ids is None, then the Item is a plain image.
+
+        ignore_val specifies the no data values of the rasters being read.
+        
+        When reading from the assets of a STAC Item, ignore_val can be
+        a single value, a list of values, or None.
         A list of values is the null value per asset. It assumes all
         bands in an asset use the same null value.
+        A single value is used for all bands of all assets.
+        None means to use the no data value set on each asset.
+        
+        When reading from a plain image, ignore_val can be a single value
+        or None.
+        A single value is used for all bands of all assets.
         None means to use the no data value set on each asset.
 
         The reading is done by asset_reader.AssetReader.read_data().
 
         """
-        if asset_ids is not None:
+        if self.asset_ids is not None:
+            # Read assets from a Stac Item.
             if isinstance(ignore_val, list):
                 errmsg = "The ignore_val list must be the same length as asset_ids."
-                assert len(ignore_val) == len(asset_ids), errmsg
+                assert len(ignore_val) == len(self.asset_ids), errmsg
             else:
-                ignore_val = [ignore_val] * len(asset_ids)
-            for asset_id, i_v in zip(asset_ids, ignore_val):
+                ignore_val = [ignore_val] * len(self.asset_ids)
+            for asset_id, i_v in zip(self.asset_ids, ignore_val):
                 reader = asset_reader.AssetReader(self.item, asset_id)
                 reader.read_data(self.points, ignore_val=i_v)
         else:
-            # we aren't dealing with STAC - use an ImageReader
-            num_bands = self.item.get_num_bands()
-            if isinstance(ignore_val, list):
-                errmsg = "The ignore_val list must be the same length as asset_ids."
-                assert len(ignore_val) == num_bands, errmsg
-            else:
-                ignore_val = [ignore_val] * num_bands
-            reader = asset_reader.ImageReader(self.item)
-            reader.read_data(self.points, ignore_val=i_v)
+            # Read bands from an image
+            reader = asset_reader.AssetReader(self.item)
+            if ignore_val is not None:
+                errmsg = "Passing a list of ignore_vals when reading from " \
+                         "an image is unsupported"
+                assert not isinstance(ignore_val, list), errmsg
+            reader.read_data(self.points, ignore_val=ignore_val)
 
     
     def get_points(self):
@@ -351,7 +408,7 @@ class ItemPoints(PointCollection):
 
 
     def get_item(self):
-        """Return the pystac.Item"""
+        """Return the pystac.Item or ImageItem."""
         return self.item
 
 
@@ -364,16 +421,16 @@ class ItemPoints(PointCollection):
             pt.reset()
 
 
-class ImagePoints(PointCollection):
-    """
-    A collection of points that intersect a standard Image, represented
-    by a path or URL.
-
-    TODO: Implement this class, which will mean this package is capable
-    of drilling non-stac datasets.
-
-    """
-    pass
+#class ImagePoints(PointCollection):
+#    """
+#    A collection of points that intersect a standard Image, represented
+#    by a path or URL.
+#
+#    TODO: Implement this class, which will mean this package is capable
+#    of drilling non-stac datasets.
+#
+#    """
+#    pass
 
 
 ##############################################

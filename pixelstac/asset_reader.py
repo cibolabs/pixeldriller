@@ -6,6 +6,8 @@ For reading pixel data and metadata from raster assets.
 import math
 import numpy
 
+import pystac
+
 from osgeo import gdal
 from osgeo import osr
 
@@ -14,7 +16,8 @@ gdal.UseExceptions()
 class ImageInfo:
     """
     An object with metadata for the given image, in GDAL conventions.
-    Pass an already-opened gdal.Dataset object to the constructor.
+    ds is an already-opened gdal.Dataset object, or the path to the image as
+    a string.
 
     Sourced from rios:
     https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py
@@ -46,6 +49,10 @@ class ImageInfo:
 
     """
     def __init__(self, ds, omit_per_band=False):
+        opened=False
+        if not isinstance(ds, gdal.Dataset):
+            ds = gdal.Open(ds, gdal.GA_ReadOnly)
+            opened=True
         geotrans = ds.GetGeoTransform()
         (ncols, nrows) = (ds.RasterXSize, ds.RasterYSize)
         self.raster_count = ds.RasterCount
@@ -76,6 +83,8 @@ class ImageInfo:
         # Pixel datatype, stored as a GDAL enum value. 
         self.data_type = ds.GetRasterBand(1).DataType
         self.data_type_name = gdal.GetDataTypeName(self.data_type)
+        if opened:
+            ds = None
 
 
     def __str__(self):
@@ -152,19 +161,31 @@ class ArrayInfo:
 
 class AssetReader:
     """
-    Encapsulates the GDAL Dataset object, metadata about a
-    STAC asset (an ImageInfo object) and algorithms
+    Encapsulates the GDAL Dataset object and metadata (an ImageInfo object) for
+    a STAC asset or raster image. It also contains the algorithms
     used to read arrays of pixels around a list of points.
 
     """
-    def __init__(self, item, asset_id):
+    def __init__(self, item, asset_id=None):
+        """
+        Construct an AssetReader object.
+
+        item is a pystac.Item or ImageItem object. If it is a pystac.Item
+        object then you must supply the asset_id. If it is a pointstats.ImageItem
+        object, then its id must be the path to the file to be read.
+
+        """
         self.item = item
         self.asset_id = asset_id
-        self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
+        if self.asset_id is None:
+            # item is an instance of pointstats.ImageItem
+            self.filepath = item.id
+        else:
+            self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
         self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
         self.info = ImageInfo(self.dataset)
 
-
+    
     def read_data(self, points, ignore_val=None):
         """
         Read the data around each of the given points and add it to the point.
@@ -185,12 +206,10 @@ class AssetReader:
         # I suspect that there is a tipping point where it is more
         # efficient to read the entire image (or several large chunks) as the
         # number of points per image increases.
-        print('AssetReader.read_data', points)
         for pt in points:
             # TODO: update test for read_data().
             arr_info = self.read_roi(pt, ignore_val=ignore_val)
             pt.add_data(self.item, arr_info)
-            print('read_data', self.item)
 
 
     def read_roi(self, pt, ignore_val=None):
@@ -307,21 +326,21 @@ class AssetReader:
         return (geo_x, geo_y)
 
 
-class ImageReader(AssetReader):
-    """
-    Like AssetReader, but works on a ImageItem rather than a
-    pystac.Item. Leaves the STAC related attribute asset_id
-    as None, but id is the filepath.
-    """
-    def __init__(self, item):
-        self.item = item
-        self.asset_id = None
-        self.filepath = item.id
-        self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
-        self.info = ImageInfo(self.dataset)
-        
-    def get_num_bands(self):
-        return self.dataset.RasterCount
+#class ImageReader(AssetReader):
+#    """
+#    Like AssetReader, but works on a ImageItem rather than a
+#    pystac.Item. Leaves the STAC related attribute asset_id
+#    as None, but id is the filepath.
+#    """
+#    def __init__(self, item):
+#        self.item = item
+#        self.asset_id = None
+#        self.filepath = item.id
+#        self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
+#        self.info = ImageInfo(self.dataset)
+#        
+#    def get_num_bands(self):
+#        return self.dataset.RasterCount
         
 
 class AssetReaderError(Exception):

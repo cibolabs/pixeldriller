@@ -126,6 +126,26 @@ def user_range(array_info, item, pt):
     return [a_info.data.max() - a_info.data.min() for a_info in array_info]
 
 
+def get_image_path(stac_id, asset_id):
+    """
+    Get a path to the image represented by the stac_id and asset_id.
+
+    stac_id is the ID of a item on the EarthSearch endpoint:
+    https://earth-search.aws.element84.com/v0.
+    For example: S2A_54HVE_20220730_0_L2A
+
+    """
+    components = stac_id.split('_')
+    zone = components[1][:2]
+    t1 = components[1][2]
+    t2 = components[1][3:5]
+    dt = datetime.datetime.strptime(components[2], "%Y%m%d")
+    image_path = (
+        "/vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/" +
+        f"{zone}/{t1}/{t2}/{dt.year}/{dt.month}/{stac_id}/{asset_id}.tif")
+    return image_path
+
+
 def run_example():
     """
     Run the example.
@@ -138,10 +158,14 @@ def run_example():
         pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
     user_stats = [("USER_RANGE", user_range)]
     points = [pt_1(), pt_2(), pt_3(), pt_4()]
+    # Direct-read these images that contain pt_2.
+    aot_img = get_image_path("S2A_54HVE_20220730_0_L2A", "AOT")
+    wvp_img = get_image_path("S2A_54HVE_20220730_0_L2A", "WVP")
+    # Drill the rasters.
     pixelstac.drill(
-        endpoint, points,
-        ['B02', 'B11'], collections=collections,
-        images=['/vsis3/cibo-100m-oregon/MODEL/forestMask.tif']
+        points, images=[aot_img, wvp_img],
+        stac_endpoint=endpoint, raster_assets=['B02', 'B11'],
+        collections=collections,
         std_stats=std_stats, user_stats=user_stats)
     for pt in points:
         print(f"Stats for point: x={pt.x}, y={pt.y}")

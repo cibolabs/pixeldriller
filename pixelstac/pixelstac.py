@@ -20,23 +20,34 @@ It depends on:
 import logging
 from concurrent import futures
 
+from osgeo import gdal
 from pystac_client import Client
 
 from . import pointstats
+from . import asset_reader
 
 def drill(
-    stac_endpoint, points, raster_assets,
-    collections=None, nearest_n=1, item_properties=None,
-    images=None,
-    std_stats=[pointstats.STATS_RAW], user_stats=None, ignore_val=None,
+    points, images=None,
+    stac_endpoint=None, raster_assets=None, collections=None, item_properties=None,
+    nearest_n=1, std_stats=None, user_stats=None, ignore_val=None,
     concurrent=False):
     """
-    Given a STAC endpoint and a list of pointstats.Point objects,
-    compute the zonal statistics for all raster assets for
-    the n nearest-in-time STAC items for every point.
+    Given a list of pointstats.Point objects, compute the zonal statistics for
+    the specified rasters.
     
-    Thus, for every Point find zero or more STAC Items, and calculate a set of
-    zonal statistics for each raster asset.
+    Rasters are specified in one of two ways. Firstly, use the images
+    argument to supply a list of paths to rasters. In this case a path may be
+    any string understood by GDAL. All bands in each raster will be read.
+    
+    The second method of specifying rasters is to search a STAC endpoint for them.
+    In this case, you must also supply a list of raster_assets, and optionally
+    a list of collection names in the STAC catalogue and a list of item properties
+    to filter the search by. stac_search() is called to find all STAC items
+    that intersect the survey points within their time-window; but only the
+    n nearest-in-time Items are used.
+
+    For each raster, the pixels are drilled and zonal statistics calculated
+    using the list of standard stats and user stats.
 
     The statistics are stored with the Point object, retrievable using the
     Point class's get_stats() or get_item_stats() functions.
@@ -46,27 +57,10 @@ def drill(
     Familiarise yourself with the concepts of a Point's region of interest and
     temporal window by reading the pointstats.Point documentation.
 
-    The algorithm proceed as follows...
-
-    Query the STAC endpoint for Items that intersect each point within the
-    Point's temporal window.
-
-    TODO: The items can be optionally filtered by the list of item properties.
-    
-    TODO: Restrict the number of Items for each point to the nearest_n in time.
-    
-    Then for each Item returned, extract the pixels for every raster
-    asset for each intersecting Point's region of interest. The pixels are
-    stored as numpy masked arrays.
-    
-    With the pixels extracted, calculate the zonal statistics.
-    There are two categories of statistics:
-    standard (std_stats) and user-supplied (user_stats).
-    
     std_stats is a list of standard stats defined in the pointstats module
     with the STATS_* attributes. To use the standard statistics,
-    every asset must be a single-band raster.
-        
+    every raster to be read must be a single-band raster.
+ 
     user_stats is a list of (name, function) pairs. The function is used
     to calculate a user-specified statistics.
     The signature of a user-supplied function must be::
@@ -77,8 +71,8 @@ def drill(
     - array_info is a list containing the data and meta data about the pixels
       extracted from each asset; each element is an instance of
       asset_reader.ArrayInfo
-    - item is the STAC item associated with the assets; it is an instance of
-      pystac.Item from the PySTAC package
+    - item is the pystac.Item object (for STAC rasters) or ImageItem for 
+      image. pystac.Item is part of the PySTAC package.
     - pt is the pointstats.Point object from around which the pixels
       were extracted
 
@@ -134,11 +128,22 @@ def drill(
     
     """
     # TODO: Choose the n nearest-in-time items.
-    client = Client.open(stac_endpoint)
-    item_points = {}
+#    item_points = {}
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
-    item_points = stac_search(client, points, collections)
-    image_points = assign_image_points(images, points)
+    # TODO: Should I rename this to make it sound more like assign_image_points?
+    # Is assign_image_points a good function name anymore, given we can do
+    # everything we need with the ItemPoints class?
+    # TODO: append the returned lists from each of the stac_search and
+    # assign_image_points to a single item_points list.
+    item_points = []
+    if stac_endpoint:
+        client = Client.open(stac_endpoint)
+        stac_item_points = assign_points_to_stac_items(
+            client, points, collections, raster_assets)
+        item_points.extend(stac_item_points)
+    if images:
+        image_item_points = assign_points_to_images(points, images)
+        item_points.extend(image_item_points)
     # Read the pixel data from the rasters and calculate the stats.
     # Each point will contain ItemStats objects, with its stats for those
     # item's assets.
@@ -150,47 +155,54 @@ def drill(
     if concurrent:
         logging.info("Running extract concurrently.")
         with futures.ThreadPoolExecutor() as executor:
-            tasks_stac = [executor.submit(
+            # TODO: raster_assets ought to be optional.
+            tasks = [executor.submit(
                 calc_stats(
-                    ip, raster_assets, std_stats=std_stats, user_stats=user_stats)) \
+                    ip, std_stats=std_stats, user_stats=user_stats)) \
                     for ip in item_points]
-            if image_points is not None:
-                tasks_rasters = [executor.submit(
-                    calc_stats(
-                        ip, None, std_stats=std_stats, user_stats=user_stats)) \
-                        for ip in image_points]
+#            if image_points is not None:
+#                tasks_rasters = [executor.submit(
+#                    calc_stats(
+#                        ip, None, std_stats=std_stats, user_stats=user_stats)) \
+#                        for ip in image_points]
     else:
         logging.info("Running extract sequentially.")
+        # TODO: raster_assets ought to be optional when working with ImagePoints.
+        # The key might be to store the assets (or not) with the ItemPoints object.
         for ip in item_points:
-            calc_stats_stac(
-                ip, raster_assets, std_stats=std_stats, user_stats=user_stats)
-        if image_points is not None:
-            for ip in image_points:
-                calc_stats_rasters(ip, None, std_stats=std_stats, 
-                    user_stats=user_stats)
+            calc_stats(
+                ip, std_stats=std_stats, user_stats=user_stats)
+#        if image_points is not None:
+#            for ip in image_points:
+#                calc_stats_rasters(ip, None, std_stats=std_stats, 
+#                    user_stats=user_stats)
 
-def assign_image_points(images, points):
+def assign_points_to_images(points, images):
     """
-    Return a list of pointstats.ImagePoints() objects.
-    If gdalrasters is None it also returns None
-    
+    Return a list of pointstats.ItemPoints collections, one for each image
+    in the images list.
+
+    A point will be added to those ItemPoints collection that it intersects,
+    and a pointstats.ImageItem is also added to the point.
+
     """
-    image_list = None
-    if images is not None:
-        image_list = []
-        for raster in images:
-            item = pointstats.ImageItem(raster)
-            image = pointstats.ItemPoints(item)
+    item_points = []
+    added = 0
+    for image in images:
+        image_item = pointstats.ImageItem(image)
+        ip = pointstats.ItemPoints(image_item)
+        item_points.append(ip)
+        ds = gdal.Open(image, gdal.GA_ReadOnly)
+        for pt in points:
+            if pt.intersects(ds):
+                added += 1
+                ip.add_point(pt)
+                pt.add_items([image_item])
+    return item_points
 
-            for pt in points:
-                if pt.intersects(raster):
-                    pt.add_point(image)
 
-            image_list.append(image)
-            
-    return image_list
-
-def stac_search(stac_client, points, collections):
+def assign_points_to_stac_items(
+    stac_client, points, collections, raster_assets):
     """
     Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the list of points and are within the
@@ -245,12 +257,13 @@ def stac_search(stac_client, points, collections):
         # Group all points for each item together in an ItemPoints collection.
         for item in items:
             if item.id not in item_points:
-                item_points[item.id] = pointstats.ItemPoints(item)
+                item_points[item.id] = pointstats.ItemPoints(
+                    item, asset_ids=raster_assets)
             item_points[item.id].add_point(pt)
     return list(item_points.values())
 
 
-def calc_stats(item_points, raster_assets, std_stats=None, user_stats=None):
+def calc_stats(item_points, std_stats=None, user_stats=None):
     """
     Calculate the statistics for all points in the given ItemPoints object.
 
@@ -260,5 +273,5 @@ def calc_stats(item_points, raster_assets, std_stats=None, user_stats=None):
     logging.info(
           f"calculating stats for {len(item_points.points)} points " \
           f"in item {item_points.item.id}")
-    item_points.read_data(raster_assets)
+    item_points.read_data()
     item_points.calc_stats(std_stats, user_stats)

@@ -10,7 +10,7 @@ from pixelstac import pointstats
 from .fixtures import point_albers
 from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
 from .fixtures import point_straddle_bounds_1, point_outside_bounds_1
-from .fixtures import fake_item, real_item
+from .fixtures import fake_item, real_item, real_image_path
 
 
 def test_point(point_albers):
@@ -39,6 +39,12 @@ def test_point_transform(point_albers):
     assert round(northing, 2) == 8815628.66
 
 
+def test_point_intersects(point_one_item, point_outside_bounds_1, real_image_path):
+    """Test Point.intersects."""
+    assert point_one_item.intersects(real_image_path)
+    assert not point_outside_bounds_1.intersects(real_image_path)
+
+
 def test_item_stats(point_one_item, real_item):
     """Test construction of the ItemStats object."""
     # PointStats creates a list of ItemStats objects.
@@ -47,15 +53,28 @@ def test_item_stats(point_one_item, real_item):
     assert item_stats.stats == {}
 
 
+def test_item_points(real_item):
+    """Test the ItemPoints constructor."""
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
+    assert ip.item.id == "S2B_53HPV_20220728_0_L2A"
+    assert ip.asset_ids == ['B02', 'B11']
+    with pytest.raises(pointstats.ItemPointsError) as excinfo:
+        pointstats.ItemPoints(real_item)
+    assert "must set asset_ids when item is a pystac.Item" in str(excinfo.value)
+    with pytest.raises(pointstats.ItemPointsError) as excinfo:
+        pointstats.ItemPoints(pointstats.ImageItem("fake_path"), asset_ids=['B02'])
+    assert "do not set asset_ids when item is an ImageItem" in str(excinfo.value)
+
+
 def test_read_data(point_one_item, real_item):
     """
     Test ItemPoints.read_data() and Point.add_data() function.
 
     """
     point_one_item.add_items([real_item])
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_one_item)
-    ip.read_data(['B02', 'B11'])
+    ip.read_data()
     item_stats = point_one_item.get_item_stats(real_item.id)
     raw_stats = item_stats.get_stats(pointstats.STATS_RAW)
     assert len(raw_stats) == 2
@@ -63,6 +82,33 @@ def test_read_data(point_one_item, real_item):
     assert raw_stats[1].shape == (1, 6, 6)
     assert raw_stats[0][0, 0, 0] == 406 # Top-left array element.
     assert raw_stats[1][0, 5, 5] == 135 # Bottom-right array element.
+
+
+def test_calc_stats_image(point_one_item, real_image_path):
+    """
+    Test reading data from a normal image and not a Stac Item,
+    and also calculate stats.
+
+    """
+    image_item = pointstats.ImageItem(real_image_path)
+    point_one_item.add_items([image_item])
+    ip = pointstats.ItemPoints(image_item)
+    ip.add_point(point_one_item)
+    ip.read_data()
+    std_stats = [pointstats.STATS_COUNT]
+    # A user function, which is a nonsense calculation of the sum of the scl pixels.
+    def test_stat_1(array_info, item, pt):
+        assert item.id == real_image_path
+        stat_1 = array_info[0].data.sum()
+        return stat_1
+    user_stats = [("TEST_STAT_1", test_stat_1)]
+    ip.calc_stats(std_stats, user_stats)
+    item_stats = point_one_item.get_item_stats(image_item.id)
+    raw_stats = item_stats.get_stats(pointstats.STATS_RAW)
+    assert len(raw_stats) == 1
+    assert raw_stats[0].shape == (1, 6, 6)
+    stat_1 = item_stats.get_stats("TEST_STAT_1")
+    assert stat_1 == 216 # each of the 36 elements in the raw array is 6.
 
 
 def test_calc_stats(point_one_item, real_item):
@@ -82,9 +128,9 @@ def test_calc_stats(point_one_item, real_item):
     user_stats = [
         ("TEST_STAT_1", test_stat_1), ("TEST_STAT_2", test_stat_2)]
     point_one_item.add_items([real_item])
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_one_item)
-    ip.read_data(['B02', 'B11'])
+    ip.read_data()
     ip.calc_stats(std_stats, user_stats)
     item_stats = point_one_item.get_item_stats(real_item.id)
     # Standard stats
@@ -176,18 +222,18 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     # Partials. Assumes the asets' no data values are set.
     std_stats = [pointstats.STATS_MEAN]
     point_partial_nulls.add_items([real_item])
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_partial_nulls)
-    ip.read_data(['B02', 'B11'])
+    ip.read_data()
     ip.calc_stats(std_stats, None)
     item_stats = point_partial_nulls.get_item_stats(real_item.id)
     mean_vals = item_stats.get_stats(pointstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [1473.43, 1019.69]
     # All nulls. Assumes the assets' no data values are set.
     point_all_nulls.add_items([real_item])
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_all_nulls)
-    ip.read_data(['B02', 'B11'])
+    ip.read_data()
     ip.calc_stats(std_stats, None)
     item_stats = point_all_nulls.get_item_stats(real_item.id)
     mean_vals = item_stats.get_stats(pointstats.STATS_MEAN)
@@ -205,12 +251,12 @@ def test_user_nulls(point_all_nulls, real_item):
     # The test assumes that the asset's no-data value=0, thus giving a mean of 0.
     std_stats = [pointstats.STATS_MEAN]
     point_all_nulls.add_items([real_item])
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_all_nulls)
     with pytest.raises(AssertionError) as excinfo:
-        ip.read_data(['B02', 'B11'], ignore_val=[-9999])
+        ip.read_data(ignore_val=[-9999])
     assert "ignore_val list must be the same length as asset_ids" in str(excinfo.value)
-    ip.read_data(['B02', 'B11'], ignore_val=-9999)
+    ip.read_data(ignore_val=-9999)
     ip.calc_stats(std_stats, None)
     item_stats = point_all_nulls.get_item_stats(real_item.id)
     mean_vals = item_stats.get_stats(pointstats.STATS_MEAN)
@@ -227,9 +273,9 @@ def test_handle_outofrange(
     std_stats = [pointstats.STATS_MEAN]
     # Case: the ROI straddles the image extents.
     point_straddle_bounds_1.add_items([real_item])
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_straddle_bounds_1)
-    ip.read_data(['B02', 'B11'])
+    ip.read_data()
     ip.calc_stats(std_stats, None)
     item_stats = point_straddle_bounds_1.get_item_stats(real_item.id)
     raw_b02 = item_stats.get_stats(pointstats.STATS_RAW)[0]
@@ -239,9 +285,9 @@ def test_handle_outofrange(
     assert list(mean_vals.round(2)) == [3520.44, 2146.22]
     # Case: the ROI is entirely outside the image extents.
     point_outside_bounds_1.add_items([real_item])
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_outside_bounds_1)
-    ip.read_data(['B02', 'B11'])
+    ip.read_data()
     ip.calc_stats(std_stats, None)
     item_stats = point_outside_bounds_1.get_item_stats(real_item.id)
     raw_b02 = item_stats.get_stats(pointstats.STATS_RAW)[0]
@@ -255,19 +301,20 @@ def test_reset(point_one_item, real_item):
     Test resetting of stats and calculating a new set of stats.
 
     """
-    ip = pointstats.ItemPoints(real_item)
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_one_item)
     std_stats = [pointstats.STATS_MEAN]
-    ip.read_data(['B02', 'B11'])
+    ip.read_data()
     ip.calc_stats(std_stats, None)
     i_stats = list(point_one_item.get_stats().values())[0]
     assert list(i_stats.stats.keys()) == [
         pointstats.STATS_RAW, pointstats.STATS_ARRAYINFO, pointstats.STATS_MEAN]
     assert len(point_one_item.get_stat(real_item.id, pointstats.STATS_MEAN)) == 2
-    # Now do another read/calc stats, overwriting the B02 and B11 data and
-    # adding the B8A data. We'll also add the count as well.
+    # Now do another read/calc stats, appending B8A data to the ItemStats objects.
+    # Note that stats for B02 and B11 are recalculated as well.
     std_stats.append(pointstats.STATS_COUNT)
-    ip.read_data(['B8A'])
+    ip.set_asset_ids(['B8A'])
+    ip.read_data()
     ip.calc_stats(std_stats, None)
     i_stats = list(point_one_item.get_stats().values())[0]
     assert list(i_stats.stats.keys()) == [
@@ -278,7 +325,8 @@ def test_reset(point_one_item, real_item):
     # Then calculate stats on a different asset.
     ip.reset()
     std_stats = [pointstats.STATS_COUNT]
-    ip.read_data(['SCL'])
+    ip.set_asset_ids(['SCL'])
+    ip.read_data()
     ip.calc_stats(std_stats, None)
     i_stats = list(point_one_item.get_stats().values())[0]
     assert list(i_stats.stats.keys()) == [
