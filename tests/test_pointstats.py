@@ -100,7 +100,7 @@ def test_calc_stats_image(point_one_item, real_image_path):
         stat_1 = array_info[0].data.sum()
         return stat_1
     user_stats = [("TEST_STAT_1", test_stat_1)]
-    ip.calc_stats(std_stats, user_stats)
+    ip.calc_stats(std_stats=std_stats, user_stats=user_stats)
     item_stats = point_one_item.get_item_stats(image_item.id)
     raw_stats = item_stats.get_stats(pointstats.STATS_RAW)
     assert len(raw_stats) == 1
@@ -129,7 +129,7 @@ def test_calc_stats(point_one_item, real_item):
     ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_one_item)
     ip.read_data()
-    ip.calc_stats(std_stats, user_stats)
+    ip.calc_stats(std_stats=std_stats, user_stats=user_stats)
     item_stats = point_one_item.get_item_stats(real_item.id)
     # Standard stats
     assert pointstats.STATS_RAW in item_stats.stats
@@ -223,7 +223,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_partial_nulls)
     ip.read_data()
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     item_stats = point_partial_nulls.get_item_stats(real_item.id)
     mean_vals = item_stats.get_stats(pointstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [1473.43, 1019.69]
@@ -232,7 +232,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_all_nulls)
     ip.read_data()
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     item_stats = point_all_nulls.get_item_stats(real_item.id)
     mean_vals = item_stats.get_stats(pointstats.STATS_MEAN)
     assert numpy.isnan(mean_vals[0])
@@ -255,7 +255,7 @@ def test_user_nulls(point_all_nulls, real_item):
         ip.read_data(ignore_val=[-9999])
     assert "ignore_val list must be the same length as asset_ids" in str(excinfo.value)
     ip.read_data(ignore_val=-9999)
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     item_stats = point_all_nulls.get_item_stats(real_item.id)
     mean_vals = item_stats.get_stats(pointstats.STATS_MEAN)
     assert list(mean_vals) == [0, 0]
@@ -274,7 +274,7 @@ def test_handle_outofrange(
     ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_straddle_bounds_1)
     ip.read_data()
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     item_stats = point_straddle_bounds_1.get_item_stats(real_item.id)
     raw_b02 = item_stats.get_stats(pointstats.STATS_RAW)[0]
     assert raw_b02.shape == (1, 6, 6)
@@ -286,7 +286,7 @@ def test_handle_outofrange(
     ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_outside_bounds_1)
     ip.read_data()
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     item_stats = point_outside_bounds_1.get_item_stats(real_item.id)
     raw_b02 = item_stats.get_stats(pointstats.STATS_RAW)[0]
     assert raw_b02.shape == (0,)
@@ -303,7 +303,7 @@ def test_reset(point_one_item, real_item):
     ip.add_point(point_one_item)
     std_stats = [pointstats.STATS_MEAN]
     ip.read_data()
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     i_stats = list(point_one_item.get_stats().values())[0]
     assert list(i_stats.stats.keys()) == [
         pointstats.STATS_RAW, pointstats.STATS_ARRAYINFO, pointstats.STATS_MEAN]
@@ -313,7 +313,7 @@ def test_reset(point_one_item, real_item):
     std_stats.append(pointstats.STATS_COUNT)
     ip.set_asset_ids(['B8A'])
     ip.read_data()
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     i_stats = list(point_one_item.get_stats().values())[0]
     assert list(i_stats.stats.keys()) == [
         pointstats.STATS_RAW, pointstats.STATS_ARRAYINFO,
@@ -325,7 +325,7 @@ def test_reset(point_one_item, real_item):
     std_stats = [pointstats.STATS_COUNT]
     ip.set_asset_ids(['SCL'])
     ip.read_data()
-    ip.calc_stats(std_stats, None)
+    ip.calc_stats(std_stats=std_stats)
     i_stats = list(point_one_item.get_stats().values())[0]
     assert list(i_stats.stats.keys()) == [
         pointstats.STATS_RAW, pointstats.STATS_ARRAYINFO, pointstats.STATS_COUNT]

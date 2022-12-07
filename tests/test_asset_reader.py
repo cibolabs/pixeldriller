@@ -14,7 +14,7 @@ from .fixtures import real_item
 
 def test_asset_reader(real_item):
     """test the AssetReader constructor."""
-    reader = asset_reader.AssetReader(real_item, 'B02')
+    reader = asset_reader.AssetReader(real_item, asset_id='B02')
     assert reader.filepath == \
             "/vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/" \
             "sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif"
@@ -38,7 +38,7 @@ def test_asset_reader(real_item):
 
 def test_wld2pix(real_item):
     """Test AssetReader.wld2pix."""
-    reader = asset_reader.AssetReader(real_item, 'B02') # 10 m pixels.
+    reader = asset_reader.AssetReader(real_item, asset_id='B02') # 10 m pixels.
     a_info = reader.info
     x, y = reader.wld2pix(a_info.x_min, a_info.y_max)
     assert math.isclose(x, 0, abs_tol=1e-9)
@@ -52,7 +52,7 @@ def test_pix2wld(real_item):
     """
     Test AssetReader.pix2wld.
     """
-    reader = asset_reader.AssetReader(real_item, 'B02') # 10 m pixels.
+    reader = asset_reader.AssetReader(real_item, asset_id='B02') # 10 m pixels.
     a_info = reader.info
     px, py = reader.pix2wld(0, 0)
     assert math.isclose(px, a_info.x_min, abs_tol=1e-9)
@@ -64,13 +64,13 @@ def test_pix2wld(real_item):
 
 def test_get_pix_window(real_item, point_one_item):
     """Test AssetReader.get_pix_window"""
-    reader = asset_reader.AssetReader(real_item, 'B02') # 10 m pixels
+    reader = asset_reader.AssetReader(real_item, asset_id='B02') # 10 m pixels
     xoff, yoff, win_xsize, win_ysize = reader.get_pix_window(point_one_item)
     assert xoff == 3428
     assert yoff == 4044
     assert win_xsize == 11
     assert win_ysize == 11
-    reader = asset_reader.AssetReader(real_item, 'B11') # 20 m pixels
+    reader = asset_reader.AssetReader(real_item, asset_id='B11') # 20 m pixels
     xoff, yoff, win_xsize, win_ysize = reader.get_pix_window(point_one_item)
     assert xoff == 1714
     assert yoff == 2022
@@ -85,7 +85,7 @@ def test_read_roi(real_item, point_one_item):
 #    href = asset_reader.asset_filepath(real_item, 'B02')
 #    print(href)
     # Sentinel-2 10 m pixels, 100 m square ROI, check the 4 pixels in top left.
-    reader = asset_reader.AssetReader(real_item, 'B02') # 10 m pixels
+    reader = asset_reader.AssetReader(real_item, asset_id='B02') # 10 m pixels
     arr_info = reader.read_roi(point_one_item)
     arr = arr_info.data
     assert arr.shape == (1, 11, 11)
@@ -106,7 +106,7 @@ def test_read_roi(real_item, point_one_item):
     assert arr_info.y_res == 10.0
 
     # Sentinel-2 20 m pixels, 100 m square ROI, check the 4 pixels in bottom right.
-    reader = asset_reader.AssetReader(real_item, 'B11') # 20 m pixels
+    reader = asset_reader.AssetReader(real_item, asset_id='B11') # 20 m pixels
     arr_info = reader.read_roi(point_one_item)
     arr = arr_info.data
     assert arr.shape == (1, 6, 6)
@@ -141,7 +141,7 @@ def test_read_roi_with_nulls(real_item, point_partial_nulls, point_all_nulls):
     See also test_read_roi_outofrange.
 
     """
-    reader = asset_reader.AssetReader(real_item, 'B11') # 20 m pixels
+    reader = asset_reader.AssetReader(real_item, asset_id='B11') # 20 m pixels
     arr_info = reader.read_roi(point_partial_nulls)
     arr = arr_info.data
     assert arr.shape == (1, 6, 6)
@@ -188,7 +188,7 @@ def test_read_roi_outofrange(
     """
     # The first ROI straddles the UL pixel of the image. Its size is 
     # smaller than the nominal ROI size of (1, 11, 11).
-    reader = asset_reader.AssetReader(real_item, 'B02')
+    reader = asset_reader.AssetReader(real_item, asset_id='B02')
     arr_info = reader.read_roi(point_straddle_bounds_1)
     arr = arr_info.data
     assert arr.shape == (1, 6, 6)

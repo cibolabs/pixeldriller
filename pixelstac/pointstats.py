@@ -147,7 +147,7 @@ class Point:
         return in_bounds
 
  
-    def calc_stats(self, item, std_stats, user_stats):
+    def calc_stats(self, item, std_stats=None, user_stats=None):
         """
         Calculate the stats for the pixels about the point for all data that
         has been stored for the given pystac.Item.
@@ -166,7 +166,8 @@ class Point:
         ItemStats.calc_stats() function.
 
         """
-        self.item_stats[item.id].calc_stats(std_stats, user_stats)
+        self.item_stats[item.id].calc_stats(
+            std_stats=std_stats, user_stats=user_stats)
 
 
     def get_item_ids(self):
@@ -359,7 +360,7 @@ class ItemPoints:
             else:
                 ignore_val = [ignore_val] * len(self.asset_ids)
             for asset_id, i_v in zip(self.asset_ids, ignore_val):
-                reader = asset_reader.AssetReader(self.item, asset_id)
+                reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
                 reader.read_data(self.points, ignore_val=i_v)
         else:
             # Read bands from an image
@@ -380,7 +381,7 @@ class ItemPoints:
         return self.points
 
     
-    def calc_stats(self, std_stats, user_stats):
+    def calc_stats(self, std_stats=None, user_stats=None):
         """
         Calculate the statistics for every Point.
 
@@ -399,7 +400,7 @@ class ItemPoints:
 
         """
         for pt in self.points:
-            pt.calc_stats(self.item, std_stats, user_stats)
+            pt.calc_stats(self.item, std_stats=std_stats, user_stats=user_stats)
 
 
     def get_item(self):
@@ -464,7 +465,7 @@ class ItemStats:
         self.stats[STATS_ARRAYINFO].append(arr_info)
 
     
-    def calc_stats(self, std_stats, user_stats):
+    def calc_stats(self, std_stats=None, user_stats=None):
         """
         Calculate the given list of standard and user-defined statistics
         on each asset's array of data.
