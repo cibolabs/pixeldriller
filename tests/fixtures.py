@@ -73,6 +73,21 @@ def point_albers():
 
 
 @pytest.fixture
+def point_albers_buffer_degrees():
+    """Create a point in Australian albers with a buffer distance in degrees."""
+    sp_ref = create_sp_ref(3577)
+    x = 0
+    y = -1123600
+    date, t_delta = create_date(3)
+    other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
+    pt = Point(
+        (x, y, date), sp_ref, t_delta, 0.0005, ROI_SHP_SQUARE,
+        buffer_degrees=True)
+    setattr(pt, "other_atts", other_atts)
+    return pt
+
+
+@pytest.fixture
 def point_wgs84():
     """Create a point in WGS 84."""
     sp_ref = create_sp_ref(4326)
@@ -80,6 +95,20 @@ def point_wgs84():
     y = -36.5
     date, t_delta = create_date(3)
     pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture
+def point_wgs84_buffer_degrees():
+    """Create a point in WGS 84 with a buffer distance in degrees."""
+    sp_ref = create_sp_ref(4326)
+    x = 136.5
+    y = -36.5
+    date, t_delta = create_date(3)
+    # A buffer of 0.00056 degrees is 50.20 m at this latitude.
+    pt = Point(
+        (x, y, date), sp_ref, t_delta, 0.00056, ROI_SHP_SQUARE,
+        buffer_degrees=True)
     return pt
 
 

@@ -5,6 +5,7 @@ a pixelstac query.
 """
 
 import warnings
+import math
 
 import numpy
 from osgeo import osr
@@ -36,6 +37,8 @@ ROI_SHP_SQUARE = 'square'
 # TODO: implement circle as an ROI.
 ROI_SHP_CIRCLE = 'circle'
 
+class PointError(Exception): pass
+
 class Point:
     """
     A structure for an X-Y-Time point with a corresponding 
@@ -56,10 +59,12 @@ class Point:
     - end_date: the datetime.datetime end date of the temporal buffer
     - buffer: the distance from the point that defines the region of interest
     - shape: the shape of the region of interest
+    - buffer_degrees: True if the buffer distance is in degrees or False if
+      it is in metres
 
     """
     def __init__(
-        self, point, sp_ref, t_delta, buffer, shape):
+        self, point, sp_ref, t_delta, buffer, shape, buffer_degrees=False):
         """
         Point constructor.
 
@@ -76,9 +81,10 @@ class Point:
         t_delta is a datetime.timedelta object, which defines the
         temporal window either side of the given Time.
 
-        buffer defines the region of interest about the point. It is assumed
-        to be in the same coordinate reference system as the raster assets
-        being queried.
+        buffer defines the region of interest about the point.
+        If buffer_degrees is True, then the units for the point's buffer are
+        assumed to be in degrees, otherwise they are assumed to be in metres.
+        The default is metres.
 
         shape defines the shape of the region of interest. If shape is
         ROI_SHP_SQUARE, then buffer is half the length of the square's side.
@@ -91,11 +97,13 @@ class Point:
         self.x_y = (self.x, self.y)
         self.sp_ref = sp_ref
         self.wgs84_x, self.wgs84_y = self.to_wgs84()
+        self.wgs84_x = -180 if math.isclose(self.wgs84_x, 180) else self.wgs84_x
         self.start_date = self.t - t_delta
         self.end_date = self.t + t_delta
         self.buffer = buffer
         self.shape = shape
         self.item_stats = {}
+        self.buffer_degrees = buffer_degrees
 
 
     def add_items(self, items):
@@ -214,26 +222,35 @@ class Point:
         return self.item_stats[item_id]
 
 
-    def transform(self, dst_srs):
+    def transform(self, dst_srs, src_srs=None, x=None, y=None):
         """
         Transform the point's x, y location to the destination
         osr.SpatialReference coordinate reference system.
 
         Return the transformed (x, y) point.
 
+        You may supply an alternative src_srs for the (x, y) Point. If not
+        supplied the points sp_ref is used.
+
+        You may supply alternative x, y coordinates. If not supplied the 
+        point's x, y coordinates are used.
+
         Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
         to guarantee x, y point ordering of the input and output points.
 
         """
-        src_map_strat = self.sp_ref.GetAxisMappingStrategy()
+        x = self.x if x is None else x
+        y = self.y if y is None else y
+        src_srs = self.sp_ref if src_srs is None else src_srs
+        src_map_strat = src_srs.GetAxisMappingStrategy()
         dst_map_strat = dst_srs.GetAxisMappingStrategy()
-        self.sp_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         dst_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         # TODO: handle problems that may arise. See:
         # https://gdal.org/tutorials/osr_api_tut.html#coordinate-transformation
-        ct = osr.CoordinateTransformation(self.sp_ref, dst_srs)
-        tr = ct.TransformPoint(self.x, self.y)
-        self.sp_ref.SetAxisMappingStrategy(src_map_strat)
+        ct = osr.CoordinateTransformation(src_srs, dst_srs)
+        tr = ct.TransformPoint(x, y)
+        src_srs.SetAxisMappingStrategy(src_map_strat)
         dst_srs.SetAxisMappingStrategy(dst_map_strat)
         return (tr[0], tr[1])
 
@@ -247,6 +264,93 @@ class Point:
         dst_srs = osr.SpatialReference()
         dst_srs.ImportFromEPSG(4326)
         return self.transform(dst_srs)
+
+
+    def change_buffer_units(self, dst_srs):
+        """
+        Given the destination (target) spatial reference system, change
+        the point's buffer units and estimate a new distance in the dst_srs.
+        
+        Handles two cases:
+
+        1. convert the point's buffer distance to metres if it is in degrees
+           and the dst_srs is a projected reference system.
+        2. convert the point's buffer distance to degrees if it is in metres
+           and the dst_srs is a geographic reference system.
+
+        Return the buffer distance in the new units.
+
+        Do nothing, returning self.buffer, if the buffer distance and dst_srs
+        are compatible; that is:
+        1. the buffer distance is metres and dst_srs is a
+           projected reference system
+        2. the buffer distance is in degrees and dst_srs is a
+           geographic reference system
+
+        """
+        if not self.buffer_degrees and dst_srs.IsGeographic():
+            # Convert buffer units from metres to degrees
+            if self.sp_ref.IsProjected():
+                buffer = self._transformed_buffer(
+                    self.x, self.y, self.buffer, self.sp_ref, dst_srs)
+            elif self.sp_ref.IsGeographic():
+                # Which CRS is the buffer distance defined in? We don't know.
+                # So convert x, y to the following projected CRS:
+                # - EPSG 32601 - 32660 for the northern hemisphere, and
+                # - EPSG 32701 = 32770 for the southern hemisphere
+                if self.wgs84_y >= 0:
+                    epsg = 32600 + int(self.wgs84_x/6.0) + 31
+                else:
+                    epsg = 32700 + int(self.wgs84_x/6.0) + 31
+                p_sp_ref = osr.SpatialReference()
+                p_sp_ref.ImportFromEPSG(epsg)
+                px, py = self.transform(p_sp_ref)
+                buffer = self._transformed_buffer(
+                    px, py, self.buffer, p_sp_ref, dst_srs)
+            else:
+                # Dunno! Is self.sp_ref.IsLocal() ??
+                raise PointError("ERROR: unknown Spatial Reference type for sp_ref.")
+        elif self.buffer_degrees and dst_srs.IsProjected():
+            # Convert buffer units from degrees to metres
+            if self.sp_ref.IsProjected():
+                # Which CRS is the buffer distance defined in? We don't know.
+                # So, assume EPSG 4326.
+                g_sp_ref = osr.SpatialReference()
+                g_sp_ref.ImportFromEPSG(4326)
+                buffer = self._transformed_buffer(
+                    self.wgs84_x, self.wgs84_y, self.buffer, g_sp_ref, dst_srs)
+            elif self.sp_ref.IsGeographic():
+                buffer = self._transformed_buffer(
+                    self.x, self.y, self.buffer, self.sp_ref, dst_srs)
+            else:
+                # Dunno! Is self.sp_ref.IsLocal() ??
+                raise PointError("ERROR: unknown Spatial Reference type for sp_ref.")
+        elif not (dst_srs.IsProjected() or dst_srs.IsGeographic()):
+            # Dunno! What is dst_srs ??
+            raise PointError("ERROR: unknown Spatial Reference type for dst_srs.")
+        else:
+            # The buffer units and destination spatial reference system are compatible.
+            buffer = self.buffer
+        return buffer
+
+
+    def _transformed_buffer(self, x, y, buffer, src_srs, dst_srs):
+        """
+        Add buffer to x to create a new point.
+        Project both points to dst_srs and calculate a new buffer distance
+        in the dst_srs.
+
+        Assumptions:
+            - x, y is in src_srs
+            - buffer's units are the same as the src_srs
+
+        """
+        xn = buffer + x
+        t_x, t_y = self.transform(dst_srs, src_srs=src_srs, x=x, y=y)
+        t_xn, t_y = self.transform(dst_srs, src_srs=src_srs, x=xn, y=y)
+        new_buff = t_xn - t_x
+        return new_buff
+
 
 ##############################################
 

@@ -9,7 +9,7 @@ from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
 from .fixtures import point_straddle_bounds_1, point_straddle_bounds_2
 from .fixtures import point_outside_bounds_1, point_outside_bounds_2
 from .fixtures import point_outside_bounds_3
-from .fixtures import real_item
+from .fixtures import real_item, point_wgs84_buffer_degrees
 
 
 def test_asset_reader(real_item):
@@ -62,7 +62,7 @@ def test_pix2wld(real_item):
     assert math.isclose(py, a_info.y_min, abs_tol=1e-9)
 
 
-def test_get_pix_window(real_item, point_one_item):
+def test_get_pix_window(real_item, point_one_item, point_wgs84_buffer_degrees):
     """Test AssetReader.get_pix_window"""
     reader = asset_reader.AssetReader(real_item, asset_id='B02') # 10 m pixels
     xoff, yoff, win_xsize, win_ysize = reader.get_pix_window(point_one_item)
@@ -72,6 +72,14 @@ def test_get_pix_window(real_item, point_one_item):
     assert win_ysize == 11
     reader = asset_reader.AssetReader(real_item, asset_id='B11') # 20 m pixels
     xoff, yoff, win_xsize, win_ysize = reader.get_pix_window(point_one_item)
+    assert xoff == 1714
+    assert yoff == 2022
+    assert win_xsize == 6
+    assert win_ysize == 6
+    # The following forces the point's buffer to be transformed from
+    # degrees to metres.
+    xoff, yoff, win_xsize, win_ysize = reader.get_pix_window(
+        point_wgs84_buffer_degrees)
     assert xoff == 1714
     assert yoff == 2022
     assert win_xsize == 6

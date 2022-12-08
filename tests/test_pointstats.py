@@ -5,7 +5,8 @@ import numpy
 from osgeo import osr
 
 from pixelstac import pointstats
-from .fixtures import point_albers
+from .fixtures import point_wgs84, point_wgs84_buffer_degrees
+from .fixtures import point_albers, point_albers_buffer_degrees
 from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
 from .fixtures import point_straddle_bounds_1, point_outside_bounds_1
 from .fixtures import fake_item, real_item, real_image_path
@@ -29,12 +30,68 @@ def test_point(point_albers):
 
 
 def test_point_transform(point_albers):
-    """Test Point.transform_point."""
+    """Test Point.transform."""
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(28353)
     easting, northing = point_albers.transform(dst_srs)
     assert round(easting, 2) == 171800.62
     assert round(northing, 2) == 8815628.66
+    # Use the transform function to reproject a different coordinate.
+    # The coordinate is offset from point_albers by 10 m in each direction.
+    easting, northing = point_albers.transform(dst_srs, x=10, y=-1123610)
+    assert round(easting, 2) == 171810.48
+    assert round(northing, 2) == 8815618.49
+    # Supply a src_srs and alternative x, y coords, effectively
+    # reversing the first transformation.
+    src_srs = osr.SpatialReference()
+    src_srs.ImportFromEPSG(28353)
+    dst_srs = osr.SpatialReference()
+    dst_srs.ImportFromEPSG(3577)
+    t_x, t_y = point_albers.transform(
+        dst_srs, src_srs=src_srs, x=171800.62, y=8815628.66)
+    assert round(t_x, 2) == 0.00
+    assert round(t_y, 2) == -1123600.00
+
+
+def test_point_change_buffer_units(
+    point_albers, point_albers_buffer_degrees,
+    point_wgs84, point_wgs84_buffer_degrees):
+    """Test Point.change_buffer_units."""
+    # There are five cases:
+    # 1. convert buffer distance from metres to degrees where point is projected
+    # 2. convert buffer distance from metres to degrees where point is geographic
+    # 3. convert buffer distance from degrees to metres where point is projected
+    # 4. convert buffer distance from degrees to metres where point is geographic
+    # 5. no conversion needed, because the buffer units and destination
+    #    spatial reference system are compatible.
+
+    # Case 1.
+    dst_srs = osr.SpatialReference()
+    dst_srs.ImportFromEPSG(4326)
+    t_buffer = point_albers.change_buffer_units(dst_srs)
+    assert round(t_buffer, 6) == 0.000446
+    # Case 2.
+    t_buffer = point_wgs84.change_buffer_units(dst_srs)
+    assert round(t_buffer, 6) == 0.000558
+    # Case 3.
+ #   dst_srs = osr.SpatialReference()
+    dst_srs.ImportFromEPSG(28353)
+    t_buffer = point_albers_buffer_degrees.change_buffer_units(dst_srs)
+    assert round(t_buffer, 2) == 54.75
+    # Case 4.
+#    dst_srs = osr.SpatialReference()
+    dst_srs.ImportFromEPSG(28354)
+    t_buffer = point_wgs84_buffer_degrees.change_buffer_units(dst_srs)
+    assert round(t_buffer, 2) == 50.20
+    # Case 5.
+    # 5a. buffer in metres and a projected CRS.
+    dst_srs.ImportFromEPSG(28354)
+    t_buffer = point_albers.change_buffer_units(dst_srs)
+    assert t_buffer == 50
+    # 5b. buffer in degrees and a geographic CRS.
+    dst_srs.ImportFromEPSG(4326)
+    t_buffer = point_albers_buffer_degrees.change_buffer_units(dst_srs)
+    assert t_buffer == 0.0005
 
 
 def test_point_intersects(point_one_item, point_outside_bounds_1, real_image_path):

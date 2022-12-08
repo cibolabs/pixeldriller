@@ -231,6 +231,7 @@ class AssetReader:
 
         """
         xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
+        print("window=", xoff, yoff, win_xsize, win_ysize)
         # Reduce the window size if it is straddles the image extents.
         # If the resulting window is less than or equal to 0, the ROI is outside of
         # the image's extents.
@@ -295,11 +296,13 @@ class AssetReader:
         """
         a_sp_ref = osr.SpatialReference()
         a_sp_ref.ImportFromWkt(self.info.projection)
+        # Transform the point and buffer into same CRS as the image.
         c_x, c_y = pt.transform(a_sp_ref)
-        ul_geo_x = c_x - pt.buffer
-        ul_geo_y = c_y + pt.buffer
-        lr_geo_x = c_x + pt.buffer
-        lr_geo_y = c_y - pt.buffer
+        buffer = pt.change_buffer_units(a_sp_ref)
+        ul_geo_x = c_x - buffer
+        ul_geo_y = c_y + buffer
+        lr_geo_x = c_x + buffer
+        lr_geo_y = c_y - buffer
         ul_px, ul_py = self.wld2pix(ul_geo_x, ul_geo_y)
         lr_px, lr_py = self.wld2pix(lr_geo_x, lr_geo_y)
         ul_px = math.floor(ul_px)
@@ -309,8 +312,8 @@ class AssetReader:
         win_xsize = lr_px - ul_px
         win_ysize = lr_py - ul_py
         return (ul_px, ul_py, win_xsize, win_ysize)
-
-
+    
+    
     def wld2pix(self, geox, geoy):
         """converts a set of map coords to pixel coords"""
         inv_transform = gdal.InvGeoTransform(self.info.transform)
