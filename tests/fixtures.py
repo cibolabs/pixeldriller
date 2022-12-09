@@ -73,6 +73,21 @@ def point_albers():
 
 
 @pytest.fixture
+def point_albers_buffer_degrees():
+    """Create a point in Australian albers with a buffer distance in degrees."""
+    sp_ref = create_sp_ref(3577)
+    x = 0
+    y = -1123600
+    date, t_delta = create_date(3)
+    other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
+    pt = Point(
+        (x, y, date), sp_ref, t_delta, 0.0005, ROI_SHP_SQUARE,
+        buffer_degrees=True)
+    setattr(pt, "other_atts", other_atts)
+    return pt
+
+
+@pytest.fixture
 def point_wgs84():
     """Create a point in WGS 84."""
     sp_ref = create_sp_ref(4326)
@@ -84,10 +99,41 @@ def point_wgs84():
 
 
 @pytest.fixture
+def point_wgs84_buffer_degrees():
+    """Create a point in WGS 84 with a buffer distance in degrees."""
+    sp_ref = create_sp_ref(4326)
+    x = 136.5
+    y = -36.5
+    date, t_delta = create_date(3)
+    # A buffer of 0.00056 degrees is 50.20 m at this latitude.
+    pt = Point(
+        (x, y, date), sp_ref, t_delta, 0.00056, ROI_SHP_SQUARE,
+        buffer_degrees=True)
+    return pt
+
+
+@pytest.fixture
 def point_one_item():
     """
     Create a point in WGS 84 that returns only one item from the
     earth-search stac for the sentinel-s2-l2a-cogs collection.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 136.5
+    y = -36.5
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture
+def point_intersects():
+    """
+    Create a point in WGS 84 that returns that is known to intersect
+    the real_item below. It's the same as point_one_item above, but
+    without the side-effect of having the real_item attached to it
+    (see real_item below).
 
     """
     sp_ref = create_sp_ref(4326)
@@ -231,10 +277,30 @@ def real_item(point_one_item):
     Of course, this assumes that pixelstac.stac_search is functioning
     as expected - see test_pixelstac.test_stac_search.
 
+    A side-effect of calling assign_points_to_stac_items() to find this
+    real_item is that the item is attached to point_one_item,
+    so point_one_item.get_item_ids() contains S2B_53HPV_20220728_0_L2A.
+
     """
     client = get_stac_client()
     # Retrieves the Item with id=S2B_53HPV_20220728_0_L2A
     # The URL to the B02 asset is:
     # https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif
-    items = pixelstac.stac_search(client, [point_one_item], COLLECTIONS)
-    return items[0].get_item()
+    # Note that we return a pystac.StacItem, so the raster_assets here have
+    # no effect; they're only needed by assign_points_to_stac_items.
+    item_points = pixelstac.assign_points_to_stac_items(
+        client, [point_one_item], COLLECTIONS)
+    return item_points[0].get_item()
+
+
+@pytest.fixture
+def real_image_path(real_item):
+    """
+    Return a path to a real image that can be opened with gdal.Open.
+
+    What's returned is the path to the real_item's SCL raster.
+
+    """
+    # /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/SCL.tif
+    filepath = f"/vsicurl/{real_item.assets['SCL'].href}"
+    return filepath

@@ -5,6 +5,7 @@ a pixelstac query.
 """
 
 import warnings
+import math
 
 import numpy
 from osgeo import osr
@@ -16,7 +17,6 @@ from . import asset_reader
 # Symbols defining the statistics.
 ##############################################
 
-# TODO: expand the set of stats
 # The Set of standard statistics. See the STD_STATS_FUNCS dictionary at
 # the end of this module, which maps the statistic to a function.
 STATS_RAW = 'raw'
@@ -36,6 +36,8 @@ STATS_COUNTNULL ='countnull' # number of null pixels in an array.
 ROI_SHP_SQUARE = 'square'
 # TODO: implement circle as an ROI.
 ROI_SHP_CIRCLE = 'circle'
+
+class PointError(Exception): pass
 
 class Point:
     """
@@ -57,10 +59,12 @@ class Point:
     - end_date: the datetime.datetime end date of the temporal buffer
     - buffer: the distance from the point that defines the region of interest
     - shape: the shape of the region of interest
+    - buffer_degrees: True if the buffer distance is in degrees or False if
+      it is in metres
 
     """
     def __init__(
-        self, point, sp_ref, t_delta, buffer, shape):
+        self, point, sp_ref, t_delta, buffer, shape, buffer_degrees=False):
         """
         Point constructor.
 
@@ -77,9 +81,10 @@ class Point:
         t_delta is a datetime.timedelta object, which defines the
         temporal window either side of the given Time.
 
-        buffer defines the region of interest about the point. It is assumed
-        to be in the same coordinate reference system as the raster assets
-        being queried.
+        buffer defines the region of interest about the point.
+        If buffer_degrees is True, then the units for the point's buffer are
+        assumed to be in degrees, otherwise they are assumed to be in metres.
+        The default is metres.
 
         shape defines the shape of the region of interest. If shape is
         ROI_SHP_SQUARE, then buffer is half the length of the square's side.
@@ -92,11 +97,13 @@ class Point:
         self.x_y = (self.x, self.y)
         self.sp_ref = sp_ref
         self.wgs84_x, self.wgs84_y = self.to_wgs84()
+        self.wgs84_x = -180 if math.isclose(self.wgs84_x, 180) else self.wgs84_x
         self.start_date = self.t - t_delta
         self.end_date = self.t + t_delta
         self.buffer = buffer
         self.shape = shape
         self.item_stats = {}
+        self.buffer_degrees = buffer_degrees
 
 
     def add_items(self, items):
@@ -129,9 +136,26 @@ class Point:
 
         """
         self.item_stats[item.id].add_data(arr_info)
+        
 
-    
-    def calc_stats(self, item, std_stats, user_stats):
+    def intersects(self, ds):
+        """
+        Return True if the point intersects the GDAL dataset. ds can be a
+        open gdal.Dataest or a filepath as a string.
+
+        The comparison is made using the image's coordinate reference system.
+
+        """
+        iinfo = asset_reader.ImageInfo(ds)
+        img_srs = osr.SpatialReference()
+        img_srs.ImportFromWkt(iinfo.projection)
+        pt_x, pt_y = self.transform(img_srs)
+        in_bounds = (pt_x >= iinfo.x_min and pt_x <= iinfo.x_max and
+                     pt_y >= iinfo.y_min and pt_y <= iinfo.y_max)
+        return in_bounds
+
+ 
+    def calc_stats(self, item, std_stats=None, user_stats=None):
         """
         Calculate the stats for the pixels about the point for all data that
         has been stored for the given pystac.Item.
@@ -150,15 +174,16 @@ class Point:
         ItemStats.calc_stats() function.
 
         """
-        self.item_stats[item.id].calc_stats(std_stats, user_stats)
+        self.item_stats[item.id].calc_stats(
+            std_stats=std_stats, user_stats=user_stats)
 
 
     def get_item_ids(self):
         """
-        Return the IDs of the pystac.Item items associated with this point.
+        Return a list of the IDs of the pystac.Item items associated with this point.
 
         """
-        return self.item_stats.keys()
+        return list(self.item_stats.keys())
 
 
     def get_stat(self, item_id, stat_name):
@@ -197,26 +222,35 @@ class Point:
         return self.item_stats[item_id]
 
 
-    def transform(self, dst_srs):
+    def transform(self, dst_srs, src_srs=None, x=None, y=None):
         """
         Transform the point's x, y location to the destination
         osr.SpatialReference coordinate reference system.
 
         Return the transformed (x, y) point.
 
+        You may supply an alternative src_srs for the (x, y) Point. If not
+        supplied the points sp_ref is used.
+
+        You may supply alternative x, y coordinates. If not supplied the 
+        point's x, y coordinates are used.
+
         Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
         to guarantee x, y point ordering of the input and output points.
 
         """
-        src_map_strat = self.sp_ref.GetAxisMappingStrategy()
+        x = self.x if x is None else x
+        y = self.y if y is None else y
+        src_srs = self.sp_ref if src_srs is None else src_srs
+        src_map_strat = src_srs.GetAxisMappingStrategy()
         dst_map_strat = dst_srs.GetAxisMappingStrategy()
-        self.sp_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         dst_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         # TODO: handle problems that may arise. See:
         # https://gdal.org/tutorials/osr_api_tut.html#coordinate-transformation
-        ct = osr.CoordinateTransformation(self.sp_ref, dst_srs)
-        tr = ct.TransformPoint(self.x, self.y)
-        self.sp_ref.SetAxisMappingStrategy(src_map_strat)
+        ct = osr.CoordinateTransformation(src_srs, dst_srs)
+        tr = ct.TransformPoint(x, y)
+        src_srs.SetAxisMappingStrategy(src_map_strat)
         dst_srs.SetAxisMappingStrategy(dst_map_strat)
         return (tr[0], tr[1])
 
@@ -232,32 +266,179 @@ class Point:
         return self.transform(dst_srs)
 
 
+    def change_buffer_units(self, dst_srs):
+        """
+        Given the destination (target) spatial reference system, change
+        the point's buffer units and estimate a new distance in the dst_srs.
+        
+        Handles two cases:
+
+        1. convert the point's buffer distance to metres if it is in degrees
+           and the dst_srs is a projected reference system.
+        2. convert the point's buffer distance to degrees if it is in metres
+           and the dst_srs is a geographic reference system.
+
+        Return the buffer distance in the new units.
+
+        Do nothing, returning self.buffer, if the buffer distance and dst_srs
+        are compatible; that is:
+        1. the buffer distance is metres and dst_srs is a
+           projected reference system
+        2. the buffer distance is in degrees and dst_srs is a
+           geographic reference system
+
+        """
+        if not self.buffer_degrees and dst_srs.IsGeographic():
+            # Convert buffer units from metres to degrees
+            if self.sp_ref.IsProjected():
+                buffer = self._transformed_buffer(
+                    self.x, self.y, self.buffer, self.sp_ref, dst_srs)
+            elif self.sp_ref.IsGeographic():
+                # Which CRS is the buffer distance defined in? We don't know.
+                # So convert x, y to the following projected CRS:
+                # - EPSG 32601 - 32660 for the northern hemisphere, and
+                # - EPSG 32701 = 32770 for the southern hemisphere
+                if self.wgs84_y >= 0:
+                    epsg = 32600 + int(self.wgs84_x/6.0) + 31
+                else:
+                    epsg = 32700 + int(self.wgs84_x/6.0) + 31
+                p_sp_ref = osr.SpatialReference()
+                p_sp_ref.ImportFromEPSG(epsg)
+                px, py = self.transform(p_sp_ref)
+                buffer = self._transformed_buffer(
+                    px, py, self.buffer, p_sp_ref, dst_srs)
+            else:
+                # Dunno! Is self.sp_ref.IsLocal() ??
+                raise PointError("ERROR: unknown Spatial Reference type for sp_ref.")
+        elif self.buffer_degrees and dst_srs.IsProjected():
+            # Convert buffer units from degrees to metres
+            if self.sp_ref.IsProjected():
+                # Which CRS is the buffer distance defined in? We don't know.
+                # So, assume EPSG 4326.
+                g_sp_ref = osr.SpatialReference()
+                g_sp_ref.ImportFromEPSG(4326)
+                buffer = self._transformed_buffer(
+                    self.wgs84_x, self.wgs84_y, self.buffer, g_sp_ref, dst_srs)
+            elif self.sp_ref.IsGeographic():
+                buffer = self._transformed_buffer(
+                    self.x, self.y, self.buffer, self.sp_ref, dst_srs)
+            else:
+                # Dunno! Is self.sp_ref.IsLocal() ??
+                raise PointError("ERROR: unknown Spatial Reference type for sp_ref.")
+        elif not (dst_srs.IsProjected() or dst_srs.IsGeographic()):
+            # Dunno! What is dst_srs ??
+            raise PointError("ERROR: unknown Spatial Reference type for dst_srs.")
+        else:
+            # The buffer units and destination spatial reference system are compatible.
+            buffer = self.buffer
+        return buffer
+
+
+    def _transformed_buffer(self, x, y, buffer, src_srs, dst_srs):
+        """
+        Add buffer to x to create a new point.
+        Project both points to dst_srs and calculate a new buffer distance
+        in the dst_srs.
+
+        Assumptions:
+            - x, y is in src_srs
+            - buffer's units are the same as the src_srs
+
+        """
+        xn = buffer + x
+        t_x, t_y = self.transform(dst_srs, src_srs=src_srs, x=x, y=y)
+        t_xn, t_y = self.transform(dst_srs, src_srs=src_srs, x=xn, y=y)
+        new_buff = t_xn - t_x
+        return new_buff
+
+
+##############################################
+
+class ImageItem:
+    """
+    Analogous to a pystac.Item object, which is to be passed to the
+    ItemPoints constructor when drilling pixels from an image file.
+
+    An ImageItem has only two attributes: id and filepath.
+
+    """
+    def __init__(self, filepath, id=None):
+        """
+        Construct the ImageItem. If id is None, then set the id attribute
+        to filepath.
+
+        """
+        self.filepath = filepath
+        if id:
+            self.id = id
+        else:
+            self.id = filepath
+
 
 ##############################################
 # Collections of points.
 ##############################################
 
-class PointCollection:
-    """An abstract class that represents a collection of points."""
-    pass
+class ItemPointsError(Exception): pass
 
-
-class ItemPoints(PointCollection):
+class ItemPoints:
     """
-    A collection of points that Intersect a STAC Item.
+    A collection of points that Intersect a pystac.Item or an ImageItem.
+
+    The read_data() function is used to read the pixels from the associated
+    rasters.
 
     """
-    def __init__(self, item):
+    def __init__(self, item, asset_ids=None):
         """
         Construct an ItemPoints object, setting the following attributes:
-        - item: the pystac.Item object
+        - item: the pystac.Item object or an ImageItem
+        - asset_ids: the IDs of the pystac.Item's raster assets to read; leave
+          this as None if item is an instance of ImageItem or you want
+          to set the assets later using set_asset_ids().
         - points: to an empty list
 
         """
+        if isinstance(item, ImageItem) and asset_ids is not None:
+            errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
+            raise ItemPointsError(errmsg)
         self.item = item
+        self.asset_ids = asset_ids
         self.points = []
 
     
+    def set_asset_ids(self, asset_ids):
+        """
+        Set which asset IDs to read data from on the next call to read_data().
+        This function is not relevant when self.item is an ImageItem.
+        But if self.item is a pystac.Item, then you must set the asset_ids
+        using this function or in the constructor.
+
+        Using this function probably only makes sense in the contexts of
+        setting the asset IDs for the first time or
+        reusing the pystac.Item objects to calculate statistics for an
+        entirely new set of raster assets. In the latter case,
+        you would call this function after calling reset() and before calling
+        read_data() and calc_stats().
+
+        You may experience strange side effects if you don't call reset() on
+        an ItemPoints object that previously had assets assigned.
+        The underlying behaviour is that arrays for the new set of asset_ids
+        will be appended to the existing arrays for each point's ItemStats objects.
+        Then, on the next calc_stats() call, the stats for all previously read
+        data will be recalculated in addition to the new stats for the new assets.
+
+        """
+        if isinstance(self.item, ImageItem):
+            errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
+            raise ItemPointsError(errmsg)
+        elif not asset_ids:
+            errmsg = "ERROR: must set asset_ids."
+            raise ItemPointsError(errmsg)
+        else:
+            self.asset_ids = asset_ids
+
+
     def add_point(self, pt):
         """
         Append the Point to this object's points list.
@@ -265,29 +446,53 @@ class ItemPoints(PointCollection):
         """
         self.points.append(pt)
 
-    
-    def read_data(self, asset_ids, ignore_val=None):
+ 
+    def read_data(self, ignore_val=None):
         """
         Read the pixels around every point for the given raster assets.
 
-        ignore_val specifies the no data values of the assets.
-        It can be a single value, a list of values, or None.
-        A single value is used for all bands of all assets.
+        ignore_val specifies the no data values of the rasters being read.
+        
+        When reading from the assets of a STAC Item, ignore_val can be
+        a single value, a list of values, or None.
         A list of values is the null value per asset. It assumes all
         bands in an asset use the same null value.
+        A single value is used for all bands of all assets.
         None means to use the no data value set on each asset.
+        
+        When reading from a plain image, ignore_val can be a single value
+        or None.
+        A single value is used for all bands in the image.
+        None means to use the image band's no data value.
 
         The reading is done by asset_reader.AssetReader.read_data().
 
         """
-        if isinstance(ignore_val, list):
-            errmsg = "The ignore_val list must be the same length as asset_ids."
-            assert len(ignore_val) == len(asset_ids), errmsg
+        if isinstance(self.item, ImageItem):
+            # Read bands from an image
+            reader = asset_reader.AssetReader(self.item)
+            if ignore_val is not None:
+                if isinstance(ignore_val, list):
+                    errmsg = "Passing a list of ignore_vals when reading from " \
+                             "an image is unsupported"
+                    raise ItemPointsError(errmsg)
+            reader.read_data(self.points, ignore_val=ignore_val)
         else:
-            ignore_val = [ignore_val] * len(asset_ids)
-        for asset_id, i_v in zip(asset_ids, ignore_val):
-            reader = asset_reader.AssetReader(self.item, asset_id)
-            reader.read_data(self.points, ignore_val=i_v)
+            # Read assets from a Stac Item.
+            if self.asset_ids is None:
+                errmsg = ("ERROR: Cannot read data from pystac.Item objects " +
+                          "without first setting the asset IDs. Asset IDs " +
+                          "are set in the ItemPoints constructor or by " +
+                          "calling ItemPoints.set_asset_ids()")
+                raise ItemPointsError(errmsg)
+            if isinstance(ignore_val, list):
+                errmsg = "The ignore_val list must be the same length as asset_ids."
+                assert len(ignore_val) == len(self.asset_ids), errmsg
+            else:
+                ignore_val = [ignore_val] * len(self.asset_ids)
+            for asset_id, i_v in zip(self.asset_ids, ignore_val):
+                reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
+                reader.read_data(self.points, ignore_val=i_v)
 
     
     def get_points(self):
@@ -298,7 +503,7 @@ class ItemPoints(PointCollection):
         return self.points
 
     
-    def calc_stats(self, std_stats, user_stats):
+    def calc_stats(self, std_stats=None, user_stats=None):
         """
         Calculate the statistics for every Point.
 
@@ -317,11 +522,11 @@ class ItemPoints(PointCollection):
 
         """
         for pt in self.points:
-            pt.calc_stats(self.item, std_stats, user_stats)
+            pt.calc_stats(self.item, std_stats=std_stats, user_stats=user_stats)
 
 
     def get_item(self):
-        """Return the pystac.Item"""
+        """Return the pystac.Item or ImageItem."""
         return self.item
 
 
@@ -332,18 +537,6 @@ class ItemPoints(PointCollection):
         """
         for pt in self.points:
             pt.reset()
-
-
-class ImagePoints(PointCollection):
-    """
-    A collection of points that intersect a standard Image, represented
-    by a path or URL.
-
-    TODO: Implement this class, which will mean this package is capable
-    of drilling non-stac datasets.
-
-    """
-    pass
 
 
 ##############################################
@@ -357,13 +550,13 @@ class ItemStats:
 
     Has the following attributes:
     - pt: the point associated with this ItemStats object
-    - item: the pystac.item.Item
+    - item: the pystac.item.Item or ImageItem
     - stats: a dictionary containing the raster statistics within the region
       of interest of the associated point.
       The dictionary's keys are defined by names of the std_stats and
       user_stats passed to PointStats.calc_stats(). The dictionary's values are
       a list of the return values of the corresponding stats functions. There
-      is one element a the list for each raster asset.
+      is one element in the list for each raster asset.
     
     """
     def __init__(self, pt, item):
@@ -375,7 +568,7 @@ class ItemStats:
     
     def add_data(self, arr_info):
         """
-        Add the pointstats.ArrayInfo object.
+        Add the asset_reader.ArrayInfo object.
 
         Elements are added to two of the stats dictionary's entries::
 
@@ -394,7 +587,7 @@ class ItemStats:
         self.stats[STATS_ARRAYINFO].append(arr_info)
 
     
-    def calc_stats(self, std_stats, user_stats):
+    def calc_stats(self, std_stats=None, user_stats=None):
         """
         Calculate the given list of standard and user-defined statistics
         on each asset's array of data.
@@ -421,6 +614,8 @@ class ItemStats:
         """
         if std_stats:
             # Check that all arrays are single-band.
+            # TODO: Permit std stats being calculated on multi-band images.
+            # See https://github.com/cibolabs/pixelstac/issues/30.
             check_std_arrays(self.item, self.stats[STATS_RAW])
             warnings.filterwarnings(
                 'ignore', message='Warning: converting a masked element to nan.',

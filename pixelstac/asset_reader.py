@@ -6,13 +6,18 @@ For reading pixel data and metadata from raster assets.
 import math
 import numpy
 
+import pystac
+
 from osgeo import gdal
 from osgeo import osr
+
+gdal.UseExceptions()
 
 class ImageInfo:
     """
     An object with metadata for the given image, in GDAL conventions.
-    Pass an already-opened gdal.Dataset object to the constructor.
+    ds is an already-opened gdal.Dataset object, or the path to the image as
+    a string.
 
     Sourced from rios:
     https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py
@@ -44,6 +49,10 @@ class ImageInfo:
 
     """
     def __init__(self, ds, omit_per_band=False):
+        opened=False
+        if not isinstance(ds, gdal.Dataset):
+            ds = gdal.Open(ds, gdal.GA_ReadOnly)
+            opened=True
         geotrans = ds.GetGeoTransform()
         (ncols, nrows) = (ds.RasterXSize, ds.RasterYSize)
         self.raster_count = ds.RasterCount
@@ -74,6 +83,8 @@ class ImageInfo:
         # Pixel datatype, stored as a GDAL enum value. 
         self.data_type = ds.GetRasterBand(1).DataType
         self.data_type_name = gdal.GetDataTypeName(self.data_type)
+        if opened:
+            ds = None
 
 
     def __str__(self):
@@ -150,19 +161,31 @@ class ArrayInfo:
 
 class AssetReader:
     """
-    Encapsulates the GDAL Dataset object, metadata about a
-    STAC asset (an ImageInfo object) and algorithms
+    Encapsulates the GDAL Dataset object and metadata (an ImageInfo object) for
+    a STAC asset or raster image. It also contains the algorithms
     used to read arrays of pixels around a list of points.
 
     """
-    def __init__(self, item, asset_id):
+    def __init__(self, item, asset_id=None):
+        """
+        Construct an AssetReader object.
+
+        item is a pystac.Item or ImageItem object. If it is a pystac.Item
+        object then you must supply the asset_id. If it is a pointstats.ImageItem
+        object, then its id must be the path of the file to be read.
+
+        """
         self.item = item
         self.asset_id = asset_id
-        self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
+        if self.asset_id is None:
+            # item is an instance of pointstats.ImageItem
+            self.filepath = item.filepath
+        else:
+            self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
         self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
         self.info = ImageInfo(self.dataset)
 
-
+    
     def read_data(self, points, ignore_val=None):
         """
         Read the data around each of the given points and add it to the point.
@@ -170,9 +193,8 @@ class AssetReader:
         The data is read using read_roi(), passing it the ignore_val.
         The data is attached to each point.
 
-        Once read, the ItemStats object (corresponding to this asset's Item)
-        of every Point will contain the pixel
-        data (numpy masked array) and ArrayInfo object for the asset.
+        Once read, the ItemStats object (corresponding to this asset's Item ID)
+        of every Point will contain the ArrayInfo object for data read.
 
         """
         # Do a naive read, reading a small chunk of the image for every point.
@@ -184,7 +206,6 @@ class AssetReader:
         # efficient to read the entire image (or several large chunks) as the
         # number of points per image increases.
         for pt in points:
-            # TODO: update test for read_data().
             arr_info = self.read_roi(pt, ignore_val=ignore_val)
             pt.add_data(self.item, arr_info)
 
@@ -274,11 +295,13 @@ class AssetReader:
         """
         a_sp_ref = osr.SpatialReference()
         a_sp_ref.ImportFromWkt(self.info.projection)
+        # Transform the point and buffer into same CRS as the image.
         c_x, c_y = pt.transform(a_sp_ref)
-        ul_geo_x = c_x - pt.buffer
-        ul_geo_y = c_y + pt.buffer
-        lr_geo_x = c_x + pt.buffer
-        lr_geo_y = c_y - pt.buffer
+        buffer = pt.change_buffer_units(a_sp_ref)
+        ul_geo_x = c_x - buffer
+        ul_geo_y = c_y + buffer
+        lr_geo_x = c_x + buffer
+        lr_geo_y = c_y - buffer
         ul_px, ul_py = self.wld2pix(ul_geo_x, ul_geo_y)
         lr_px, lr_py = self.wld2pix(lr_geo_x, lr_geo_y)
         ul_px = math.floor(ul_px)
@@ -288,8 +311,8 @@ class AssetReader:
         win_xsize = lr_px - ul_px
         win_ysize = lr_py - ul_py
         return (ul_px, ul_py, win_xsize, win_ysize)
-
-
+    
+    
     def wld2pix(self, geox, geoy):
         """converts a set of map coords to pixel coords"""
         inv_transform = gdal.InvGeoTransform(self.info.transform)
@@ -301,7 +324,3 @@ class AssetReader:
         """converts a set of pixel coords to map coords"""
         geo_x, geo_y = gdal.ApplyGeoTransform(self.info.transform, x, y)
         return (geo_x, geo_y)
-
-
-class AssetReaderError(Exception):
-    """For exceptions raised in this module."""
