@@ -231,7 +231,6 @@ class AssetReader:
 
         """
         xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
-        print("window=", xoff, yoff, win_xsize, win_ysize)
         # Reduce the window size if it is straddles the image extents.
         # If the resulting window is less than or equal to 0, the ROI is outside of
         # the image's extents.

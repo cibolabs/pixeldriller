@@ -550,13 +550,13 @@ class ItemStats:
 
     Has the following attributes:
     - pt: the point associated with this ItemStats object
-    - item: the pystac.item.Item
+    - item: the pystac.item.Item or ImageItem
     - stats: a dictionary containing the raster statistics within the region
       of interest of the associated point.
       The dictionary's keys are defined by names of the std_stats and
       user_stats passed to PointStats.calc_stats(). The dictionary's values are
       a list of the return values of the corresponding stats functions. There
-      is one element a the list for each raster asset.
+      is one element in the list for each raster asset.
     
     """
     def __init__(self, pt, item):
@@ -568,7 +568,7 @@ class ItemStats:
     
     def add_data(self, arr_info):
         """
-        Add the pointstats.ArrayInfo object.
+        Add the asset_reader.ArrayInfo object.
 
         Elements are added to two of the stats dictionary's entries::
 
