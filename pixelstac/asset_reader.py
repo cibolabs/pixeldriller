@@ -6,10 +6,10 @@ For reading pixel data and metadata from raster assets.
 import math
 import numpy
 
-import pystac
-
 from osgeo import gdal
 from osgeo import osr
+
+from . import pointstats
 
 gdal.UseExceptions()
 
@@ -159,6 +159,8 @@ class ArrayInfo:
             f"{self.y_res=})" \
 
 
+class AssetReaderError(Exception): pass
+
 class AssetReader:
     """
     Encapsulates the GDAL Dataset object and metadata (an ImageInfo object) for
@@ -220,8 +222,9 @@ class AssetReader:
         Return an ArrayInfo object.
 
         The ArrayInfo object contains a 3D numpy masked array (numpy.ma.MaskedArray)
-        with the pixel data. If ignore_val=None, the no-data value set on the
-        asset is used.
+        with the pixel data. If ignore_val=None, the no-data value set on each
+        band in the asset/image is used. If ignore_val is set then the same
+        value is used for every band in the asset/image.
         
         The returned ArrayInfo object also contains information about the ROI's
         location within the image.
@@ -244,6 +247,9 @@ class AssetReader:
             yoff = 0
         elif yoff + win_ysize >= self.info.nrows:
             win_ysize = self.info.nrows - yoff
+        # ROI bounds in image coordinates:
+        ulx, uly = self.pix2wld(xoff, yoff) # Coords of the upper-left pixel's upper-left corner
+        lrx, lry = self.pix2wld(xoff+win_xsize, yoff+win_ysize) # Coords of the upper-left pixel's upper-left corner
         # Read the raster.
         if win_xsize > 0 and win_ysize > 0:
             band_data = []
@@ -263,13 +269,12 @@ class AssetReader:
             m_arr = numpy.ma.masked_array(arr, mask=mask)
         else:
             m_arr = numpy.ma.masked_array([], mask=True)
-        # ROI bounds in image coordinates:
-        ulx, uly = self.pix2wld(xoff, yoff) # Coords of the upper-left pixel's upper-left corner
-        lrx, lry = self.pix2wld(xoff+win_xsize, yoff+win_ysize) # Coords of the upper-left pixel's upper-left corner
         arr_info = ArrayInfo(
             m_arr, self.asset_id,
             xoff, yoff, win_xsize, win_ysize,
             ulx, uly, lrx, lry, self.info.x_res, self.info.y_res)
+        if arr_info.data.size > 0:
+            self.mask_roi_shape(pt, arr_info, ignore_val=ignore_val)
         return arr_info
 
 
@@ -311,6 +316,49 @@ class AssetReader:
         win_xsize = lr_px - ul_px
         win_ysize = lr_py - ul_py
         return (ul_px, ul_py, win_xsize, win_ysize)
+
+
+    def mask_roi_shape(self, pt, arr_info, ignore_val):
+        """
+        Mask the pixels in the ArrayInfo.data's array that are outside
+        the region of interest.
+
+        arr_info is the ArrayInfo instance.
+        pt is the Point.
+        The pixels outside the shape are set to ignore_val. If ignore_val is None,
+        the no-data value set on each band of the asset/image is used. If
+        ignore_val is set use the same value for every band of the asset/image.
+
+        arr_info.data is updated in place, so the function returns nothing.
+
+        """
+        if pt.shape==pointstats.ROI_SHP_SQUARE:
+            # Do nothing. arr_info.data is already the correct shape.
+            pass
+        elif pt.shape==pointstats.ROI_SHP_CIRCLE:
+            a_sp_ref = osr.SpatialReference()
+            a_sp_ref.ImportFromWkt(self.info.projection)
+            # Circle centre and radius in the same CRS as the image.
+            c_x, c_y = pt.transform(a_sp_ref)
+            radius = pt.change_buffer_units(a_sp_ref)
+            # Create an mgrid containing the image coordinates of the centre of
+            # each pixel in the array. Then determine if the centres of each
+            # pixel are outside the circle and mask them.
+            ys, xs = numpy.mgrid[0.5:arr_info.win_ysize+0.5, 0.5:arr_info.win_xsize+0.5]
+            ys = arr_info.uly - ys * arr_info.y_res
+            xs = arr_info.ulx + xs * arr_info.x_res
+#            print(numpy.round(numpy.sqrt((ys-c_y)**2 + (xs-c_x)**2), 2))
+            
+            outside = (ys-c_y)**2 + (xs-c_x)**2 > radius**2
+            num_bands = arr_info.data.shape[0]
+            for idx in range(num_bands):
+                nodata_val = ignore_val if ignore_val else self.info.nodataval[idx]
+                arr_info.data[idx][outside] = nodata_val
+                arr_info.data.mask[idx][outside] = True
+#                print(arr_info.data.data)
+#                print(arr_info.data.mask)
+        else:
+            raise AssetReaderError(f"Unknown ROI shape {pt.shape}")
     
     
     def wld2pix(self, geox, geoy):

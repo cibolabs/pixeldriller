@@ -7,7 +7,7 @@ from osgeo import osr
 from pystac_client import Client
 
 from pixelstac import pixelstac
-from pixelstac.pointstats import Point, ROI_SHP_SQUARE
+from pixelstac.pointstats import Point, ROI_SHP_SQUARE, ROI_SHP_CIRCLE
 
 # We use Element84's STAC endpoint and search the sentinel-s2-l2a-cogs
 # collection in many tests.
@@ -124,6 +124,22 @@ def point_one_item():
     y = -36.5
     date, t_delta = create_date(1)
     pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    return pt
+
+
+@pytest.fixture
+def point_one_item_circle():
+    """
+    Create a point in WGS 84 that returns only one item from the
+    earth-search stac for the sentinel-s2-l2a-cogs collection.
+    It's region of interest is a circle with a 50 m radius.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 136.5
+    y = -36.5
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_CIRCLE)
     return pt
 
 

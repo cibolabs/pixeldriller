@@ -34,7 +34,6 @@ STATS_COUNTNULL ='countnull' # number of null pixels in an array.
 ##############################################
 # For defining the shape of a Point's region of interest.
 ROI_SHP_SQUARE = 'square'
-# TODO: implement circle as an ROI.
 ROI_SHP_CIRCLE = 'circle'
 
 class PointError(Exception): pass
