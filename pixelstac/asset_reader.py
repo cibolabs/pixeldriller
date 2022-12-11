@@ -347,16 +347,12 @@ class AssetReader:
             ys, xs = numpy.mgrid[0.5:arr_info.win_ysize+0.5, 0.5:arr_info.win_xsize+0.5]
             ys = arr_info.uly - ys * arr_info.y_res
             xs = arr_info.ulx + xs * arr_info.x_res
-#            print(numpy.round(numpy.sqrt((ys-c_y)**2 + (xs-c_x)**2), 2))
-            
             outside = (ys-c_y)**2 + (xs-c_x)**2 > radius**2
             num_bands = arr_info.data.shape[0]
             for idx in range(num_bands):
                 nodata_val = ignore_val if ignore_val else self.info.nodataval[idx]
                 arr_info.data[idx][outside] = nodata_val
                 arr_info.data.mask[idx][outside] = True
-#                print(arr_info.data.data)
-#                print(arr_info.data.mask)
         else:
             raise AssetReaderError(f"Unknown ROI shape {pt.shape}")
     
