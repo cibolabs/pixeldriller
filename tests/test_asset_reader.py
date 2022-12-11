@@ -8,7 +8,7 @@ from pixelstac import asset_reader
 from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
 from .fixtures import point_straddle_bounds_1, point_straddle_bounds_2
 from .fixtures import point_outside_bounds_1, point_outside_bounds_2
-from .fixtures import point_outside_bounds_3
+from .fixtures import point_outside_bounds_3, point_one_item_circle
 from .fixtures import real_item, point_wgs84_buffer_degrees
 
 
@@ -223,3 +223,22 @@ def test_read_roi_outofrange(
     arr = arr_info.data
     assert arr.count() == 0
     assert arr.shape == (0,)
+
+
+def test_read_roi_circle(real_item, point_one_item_circle):
+    """
+    Test reading of an array of data when the point's shape is a circle.
+
+    """
+    # Sentinel-2 10 m pixels, 100 m square ROI, check the 4 pixels in top left.
+    reader = asset_reader.AssetReader(real_item, asset_id='B02') # 10 m pixels
+    arr_info = reader.read_roi(point_one_item_circle)
+    arr = arr_info.data
+    assert arr.shape == (1, 11, 11)
+    # Check values of the first and last rows
+    assert arr.data[0, 0, :].tolist() ==  [0, 0, 0, 0, 0, 408, 425, 0, 0, 0, 0]
+    assert arr.mask[0, 0, :].tolist() == [
+        True, True, True, True, True, False, False, True, True, True, True]
+    assert arr.data[0, 10, :].tolist() ==  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    assert arr.mask[0, 10, :].tolist() == [
+        True, True, True, True, True, True, True, True, True, True, True]
