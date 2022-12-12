@@ -22,24 +22,25 @@ class ImageInfo:
     Sourced from rios:
     https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py
     
-    Object contains the following fields
-        * **x_min**            Map X coord of left edge of left-most pixel
-        * **x_max**            Map X coord of right edge of right-most pixel
-        * **y_min**            Map Y coord of bottom edge of bottom pixel
-        * **y_max**            Map Y coord of top edge of top-most pixel
-        * **x_res**            Map coord size of each pixel, in X direction
-        * **y_res**            Map coord size of each pixel, in Y direction
-        * **nrows**            Number of rows in image
-        * **ncols**            Number of columns in image
-        * **transform**        Transformation params to map between pixel and map coords, in GDAL form
-        * **projection**       WKT string of projection
-        * **raster_count**     Number of rasters in file
-        * **lnames**           Names of the layers as a list.
-        * **layer_type**       "thematic" or "athematic", if it is set
-        * **data_type**        Data type for the first band (as a GDAL integer constant)
-        * **data_type_name**   Data type for the first band (as a human-readable string)
-        * **nodataval**        Value used as the no-data indicator (per band)
+    Object contains the following fields:
     
+    - **x_min**            Map X coord of left edge of left-most pixel
+    - **x_max**            Map X coord of right edge of right-most pixel
+    - **y_min**            Map Y coord of bottom edge of bottom pixel
+    - **y_max**            Map Y coord of top edge of top-most pixel
+    - **x_res**            Map coord size of each pixel, in X direction
+    - **y_res**            Map coord size of each pixel, in Y direction
+    - **nrows**            Number of rows in image
+    - **ncols**            Number of columns in image
+    - **transform**        Transformation params to map between pixel and map coords, in GDAL form
+    - **projection**       WKT string of projection
+    - **raster_count**     Number of rasters in file
+    - **lnames**           Names of the layers as a list.
+    - **layer_type**       "thematic" or "athematic", if it is set
+    - **data_type**        Data type for the first band (as a GDAL integer constant)
+    - **data_type_name**   Data type for the first band (as a human-readable string)
+    - **nodataval**        Value used as the no-data indicator (per band)
+
     The omit_per_band argument on the constructor is provided in order to speed up the
     access of very large VRT stacks. The information which is normally extracted
     from each band will, in that case, trigger a gdal.Open() for each band, which
@@ -107,6 +108,7 @@ class ArrayInfo:
     Contains information about the array read from the image around a point.
 
     The attributes are:
+    
     - data: the numpy masked array containing the pixel data
     - asset_id: the id of the Stac Item's asset from which the data was read
     - The pixel window read from the raster asset in pixel coordinates:
@@ -115,6 +117,7 @@ class ArrayInfo:
           the array in pixel coordinates
     - The bounding box of the array in image coordinates, defined using
       two points:
+      
       - upper left (ulx, uly)
       - lower right (lrx, lry)
     - The pixel size in the same units as the image coordinate reference system:

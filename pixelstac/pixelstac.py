@@ -1,8 +1,9 @@
 """
-pixstac.drill is the main interface. Most interaction with this package should
+``pixelstac.drill()`` is the main interface. Most interaction with this package should
 be through this interface.
 
 Assumptions:
+
 - Uses GDAL's /vsicurl/ file system handler for online resources that do
   not require authentication
 - The file server supports range requests
@@ -10,6 +11,7 @@ Assumptions:
   must be a single-band raster
 
 It depends on:
+
 - pystac-client for searching a STAC endpoint
 - osgeo.gdal for reading rasters
 - osgeo.osr for coordinate transformations
@@ -69,6 +71,7 @@ def drill(
         def user_func(array_info, item, pt):
 
     where:
+    
     - array_info is a list containing the data and meta data about the pixels
       extracted from each asset; each element is an instance of
       asset_reader.ArrayInfo
@@ -102,6 +105,7 @@ def drill(
             print(f"        My Stat    : {item_stats.get_stats("MY STAT")})
 
     A few things to note in this example:
+    
     - the std_stats argument passed to drill() is
       [pointstats.STATS_MEAN, pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
     - the user_stats argument defines the 'MY_STAT' statistic and its
@@ -121,12 +125,42 @@ def drill(
     TODO: ignore_val is the list of null values for each raster asset (or specify one
     value to be used for all raster assets). It should only be used if the
     null value of the raster is not set or to override it. It's used for:
-      - the mask value when 'removing' pixels from the raw arrays that
-        are outside the region of interest, e.g. if the ROI is a circle then
-        we remove pixels from the raw rectangular arrays
-      - excluding pixels within the raw arrays from the stats calculations,
-        those both within and outside the ROI
     
+    - the mask value when 'removing' pixels from the raw arrays that
+      are outside the region of interest, e.g. if the ROI is a circle then
+      we remove pixels from the raw rectangular arrays
+    - excluding pixels within the raw arrays from the stats calculations,
+      those both within and outside the ROI
+      
+      
+    Parameters
+    ----------
+    points : sequence of ``pointstats.Point`` objects
+        Points to drill the specified STAC endpoint/rasters for
+    images : sequence of strings
+        GDAL understood filenames to also drill in
+    stac_endpoint : string
+        A URL that represents a STAC endpoint
+    raster_assets : sequence of strings
+        Raster assets to use from the SATC endpoint
+    collections : sequence of strings
+        Collections to query provided by the STAC endpoint
+    item_properties : ?
+        Some sort of object to pass to stac-client?
+    nearest_n : integer
+        How many of the nearest matching records to use
+    std_stats : sequence of integers
+        Constants from the ``pointstats`` module (STATS_MEAN, STATS_STDEV etc)
+        defining which 'standard' statistics to extract
+    user_stats : function
+        A user defined function as specified above
+    ignore_val : value
+        A value to use for the ignore value for rasters. Should only be specified
+        when a raster does not have this already set. Either a single value (same 
+        for all rasters) or one value for each asset.
+    concurrent : bool
+        Whether to process the assets concurrently
+        
     """
     # TODO: Choose the n nearest-in-time items.
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
@@ -165,6 +199,20 @@ def assign_points_to_images(points, images, image_ids=None):
 
     A point will be added to those ItemPoints collection that it intersects,
     and a pointstats.ImageItem is also added to the point.
+
+    Parameters
+    ----------
+    points : sequence of ``pointstats.Point`` objects
+        Points to drill the image for
+    images : sequence of strings
+        GDAL understood filenames to drill
+    image_ids : sequence of strings
+        Id to use for each image. If not specified the image filename is used
+
+    Returns
+    -------
+    item_points : list of ``pointstats.ItemPoints`` objects
+        The ItemPoints for each image
 
     """
     item_points = []
@@ -205,6 +253,23 @@ def assign_points_to_stac_items(
     Return the list of pointstats.ItemPoints collections.
 
     TODO: permit user-defined properties for filtering the stac search.
+    
+    Parameters
+    ----------
+    
+    stac_client : pystac.Client object
+        Returned from calling pystac.Client.open(endpoint_url)
+    points : sequence of ``pointstats.Point`` objects
+        Points to drill the endpoint for
+    collections : sequence of strings
+        Collections to query provided by the STAC endpoint
+    raster_assets : sequence of strings
+        Raster assets to use from the SATC endpoint
+
+    Returns
+    -------
+    item_points : list of ``pointstats.ItemPoints`` objects
+        The ItemPoints for each image
 
     """
     item_points = {}
@@ -254,6 +319,17 @@ def calc_stats(item_points, std_stats=None, user_stats=None):
     Calculate the statistics for all points in the given ItemPoints object.
 
     This reads the rasters and calculates the stats.
+
+    Parameters
+    ----------
+    
+    item_points : list of ``pointstats.ItemPoints`` objects
+        The ItemPoints for each image
+    std_stats : sequence of integers
+        Constants from the ``pointstats`` module (STATS_MEAN, STATS_STDEV etc)
+        defining which 'standard' statistics to extract
+    user_stats : function
+        A user defined function as specified above
 
     """
     logging.info(

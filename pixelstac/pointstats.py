@@ -42,11 +42,13 @@ class Point:
     """
     A structure for an X-Y-Time point with a corresponding 
     osr.SpatialReference system. A point is characterised by:
+    
     - a location in space and time
     - a spatial buffer
     - a temporal window
     
     These attributes are set at construction time:
+    
     - x: the point's x-coordinate
     - y: the point's y-coordinate
     - t: the point's datetime.datetime time
@@ -162,10 +164,11 @@ class Point:
         Call add_data() first, for every required asset.
 
         std_stats is a list of standard stats to calculate for each point's
-        region of interest.
-        They are a list of STATS_ symbols defined in this module.
+        region of interest. 
+        They are a list of STATS symbols defined in this module.
 
         user_stats is a list of tuples. Each tuple defines:
+        
         - the name (a string) for the statistic
         - and the function that is called to calculate it
 
@@ -281,6 +284,7 @@ class Point:
 
         Do nothing, returning self.buffer, if the buffer distance and dst_srs
         are compatible; that is:
+        
         1. the buffer distance is metres and dst_srs is a
            projected reference system
         2. the buffer distance is in degrees and dst_srs is a
@@ -510,9 +514,10 @@ class ItemPoints:
 
         std_stats is a list of standard stats to calculate for each point's
         region of interest.
-        They are a list of STATS_ symbols defined in this module.
+        They are a list of STATS symbols defined in this module.
 
         user_stats is a list of tuples. Each tuple defines:
+        
         - the name (a string) for the statistic
         - and the function that is called to calculate it
 
@@ -548,6 +553,7 @@ class ItemStats:
     extracted from each asset for a single item about a Point.
 
     Has the following attributes:
+    
     - pt: the point associated with this ItemStats object
     - item: the pystac.item.Item or ImageItem
     - stats: a dictionary containing the raster statistics within the region
@@ -595,7 +601,7 @@ class ItemStats:
 
         std_stats is a list of standard stats to calculate for each point's
         region of interest.
-        They are a list of STATS_ symbols defined in this module.
+        They are a list of STATS symbols defined in this module.
 
         user_stats is a list of tuples. Each tuple defines:
         - the name (a string) for the statistic
