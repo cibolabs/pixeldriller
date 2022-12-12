@@ -10,6 +10,7 @@ from .fixtures import point_straddle_bounds_1, point_straddle_bounds_2
 from .fixtures import point_outside_bounds_1, point_outside_bounds_2
 from .fixtures import point_outside_bounds_3, point_one_item_circle
 from .fixtures import real_item, point_wgs84_buffer_degrees
+from .fixtures import point_one_item_circle_small, point_one_item_singular
 
 
 def test_asset_reader(real_item):
@@ -225,9 +226,12 @@ def test_read_roi_outofrange(
     assert arr.shape == (0,)
 
 
-def test_read_roi_circle(real_item, point_one_item_circle):
+def test_mask_roi_shape(
+    real_item, point_one_item_circle, point_one_item_circle_small,
+    point_one_item_singular):
     """
     Test reading of an array of data when the point's shape is a circle.
+    Tests asset_reader.read_roi() and mask_roi_shape().
 
     """
     # Sentinel-2 10 m pixels, 100 m square ROI, check the 4 pixels in top left.
@@ -236,9 +240,19 @@ def test_read_roi_circle(real_item, point_one_item_circle):
     arr = arr_info.data
     assert arr.shape == (1, 11, 11)
     # Check values of the first and last rows
-    assert arr.data[0, 0, :].tolist() ==  [0, 0, 0, 0, 0, 408, 425, 0, 0, 0, 0]
+    assert arr.data[0, 0, :].tolist() ==  [0, 0, 0, 417, 410, 408, 425, 404, 398, 0, 0]
     assert arr.mask[0, 0, :].tolist() == [
-        True, True, True, True, True, False, False, True, True, True, True]
-    assert arr.data[0, 10, :].tolist() ==  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        True, True, True, False, False, False, False, False, False, True, True]
+    assert arr.data[0, 10, :].tolist() ==  [0, 0, 0, 456, 493, 469, 444, 444, 0, 0, 0]
     assert arr.mask[0, 10, :].tolist() == [
-        True, True, True, True, True, True, True, True, True, True, True]
+        True, True, True, False, False, False, False, False, True, True, True]
+    # ROI is small relative to the pixel size.
+    arr_info = reader.read_roi(point_one_item_circle_small)
+    arr = arr_info.data
+    assert arr.data[0, 0, :].tolist() == [482, 470]
+    assert arr.mask[0, 0, :].tolist() == [False, False]
+    # ROI is a singular point.
+    arr_info = reader.read_roi(point_one_item_singular)
+    arr = arr_info.data
+    assert arr.data[0, 0, 0] == 482
+    assert arr.mask[0, 0, 0] == False

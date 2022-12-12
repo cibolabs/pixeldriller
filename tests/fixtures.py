@@ -144,6 +144,40 @@ def point_one_item_circle():
 
 
 @pytest.fixture
+def point_one_item_circle_small():
+    """
+    Create a point in WGS 84 that returns only one item from the
+    earth-search stac for the sentinel-s2-l2a-cogs collection.
+    It's region of interest is a circle with a radius small relative
+    to the pixel size, so that it intersects fewer than 5 pixels,
+    in this case it intersect 2 pixels.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 136.5
+    y = -36.5
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 3, ROI_SHP_CIRCLE)
+    return pt
+
+
+@pytest.fixture
+def point_one_item_singular():
+    """
+    Create a point in WGS 84 that returns only one item from the
+    earth-search stac for the sentinel-s2-l2a-cogs collection.
+    It's region of interest is a singular point, created by setting buffer=0.
+
+    """
+    sp_ref = create_sp_ref(4326)
+    x = 136.5
+    y = -36.5
+    date, t_delta = create_date(1)
+    pt = Point((x, y, date), sp_ref, t_delta, 0, ROI_SHP_CIRCLE)
+    return pt
+
+
+@pytest.fixture
 def point_intersects():
     """
     Create a point in WGS 84 that returns that is known to intersect

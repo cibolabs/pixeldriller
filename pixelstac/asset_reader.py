@@ -215,9 +215,9 @@ class AssetReader:
     def read_roi(self, pt, ignore_val=None):
         """
         Extract the smallest number of pixels required to cover the region of
-        interest. By doing so, the area covered by the returned pixels is slightly
-        larger than the region of interest defined by the point's location
-        and buffer.
+        interest. We use an 'all-touched' approach, whereby any pixel inside
+        or touched by the ROI's boundary is returned. Any pixels outside or
+        not touched by the ROI's boundary are masked using ignore_val.
         
         Return an ArrayInfo object.
 
@@ -233,20 +233,8 @@ class AssetReader:
         (i.e. only that portion of the image that is within the extents is returned).
 
         """
+        # ROI bounds in pixel coordinates.
         xoff, yoff, win_xsize, win_ysize = self.get_pix_window(pt)
-        # Reduce the window size if it is straddles the image extents.
-        # If the resulting window is less than or equal to 0, the ROI is outside of
-        # the image's extents.
-        if xoff < 0:
-            win_xsize = win_xsize + xoff
-            xoff = 0
-        elif xoff + win_xsize > self.info.ncols:
-            win_xsize = self.info.ncols - xoff
-        if yoff < 0:
-            win_ysize = win_ysize + yoff
-            yoff = 0
-        elif yoff + win_ysize >= self.info.nrows:
-            win_ysize = self.info.nrows - yoff
         # ROI bounds in image coordinates:
         ulx, uly = self.pix2wld(xoff, yoff) # Coords of the upper-left pixel's upper-left corner
         lrx, lry = self.pix2wld(xoff+win_xsize, yoff+win_ysize) # Coords of the upper-left pixel's upper-left corner
@@ -273,29 +261,42 @@ class AssetReader:
             m_arr, self.asset_id,
             xoff, yoff, win_xsize, win_ysize,
             ulx, uly, lrx, lry, self.info.x_res, self.info.y_res)
-        if arr_info.data.size > 0:
+        # Only mask pixels outside the ROI if there are
+        # sufficient pixels. The only non-square ROI supported is a circle.
+        # This handles the cases where:
+        # - the ROI is outside the image extents; size=0
+        # - the ROI is a singular point (pt.buffer=0); size=1
+        # - the pixel is much larger than the ROI and and the ROI is
+        #   contained within one pixel; size=1
+        # - the pixel is much larger than the ROI and the ROI crosses pixel
+        #   boundaries without intersecting pixel corners; size=4
+        # But the case where only 3 of the four pixels are intersected by a
+        # circular ROI remains unhandled; all four pixels are returned.
+        if arr_info.data.size > 4:
             self.mask_roi_shape(pt, arr_info, ignore_val=ignore_val)
         return arr_info
 
 
     def get_pix_window(self, pt):
         """
-        Return the region of interest for the point in the image's pixel
-        coordinate space as: (xoff, yoff, win_xsize, win_ysize).
+        Return the rectangular bouds of the region of interest in the image's
+        pixel coordinate space as: (xoff, yoff, win_xsize, win_ysize).
+        
+        If a pixel touches the image's bounds it is included.
     
         xoff, yoff is the grid location of the top-left pixel of the ROI.
         win_xsize and win_ysize are the number of columns and rows to read
         from the image.
     
         An xoff, yoff of 0, 0 corresponds to the top-left pixel of the image.
-        An xoff, yoff of (ncols-1, nrows-1) corresponds to the bottom-right 
-        pixel of the image. The caller should check to see that the ROI is
-        within the image bounds.
-    
-        The region of interest about the point in geo-coordinates
-        is unlikely to align with the pixel grid. This function increases the
-        size of the window to the smallest possible area that encloses the
-        region of interest.
+        An xoff, yoff of (ncols-1, nrows-1) corresponds to the bottom-right
+        pixel of the image.
+        
+        If the ROI is outside the image bounds, the returned window is clipped
+        to the image bounds.
+
+        If the returned win_xsize or win_ysize is 0, then the ROI is outside
+        of the image's extents.
     
         """
         a_sp_ref = osr.SpatialReference()
@@ -303,18 +304,45 @@ class AssetReader:
         # Transform the point and buffer into same CRS as the image.
         c_x, c_y = pt.transform(a_sp_ref)
         buffer = pt.change_buffer_units(a_sp_ref)
-        ul_geo_x = c_x - buffer
-        ul_geo_y = c_y + buffer
-        lr_geo_x = c_x + buffer
-        lr_geo_y = c_y - buffer
-        ul_px, ul_py = self.wld2pix(ul_geo_x, ul_geo_y)
-        lr_px, lr_py = self.wld2pix(lr_geo_x, lr_geo_y)
-        ul_px = math.floor(ul_px)
-        ul_py = math.floor(ul_py)
-        lr_px = math.ceil(lr_px)
-        lr_py = math.ceil(lr_py)
-        win_xsize = lr_px - ul_px
-        win_ysize = lr_py - ul_py
+        if buffer > 0:
+            ul_geo_x = c_x - buffer
+            ul_geo_y = c_y + buffer
+            lr_geo_x = c_x + buffer
+            lr_geo_y = c_y - buffer
+            ul_px, ul_py = self.wld2pix(ul_geo_x, ul_geo_y)
+            lr_px, lr_py = self.wld2pix(lr_geo_x, lr_geo_y)
+            ul_px = math.floor(ul_px)
+            ul_py = math.floor(ul_py)
+            lr_px = math.ceil(lr_px)
+            lr_py = math.ceil(lr_py)
+            win_xsize = lr_px - ul_px
+            win_ysize = lr_py - ul_py
+            # Reduce the window size if it is straddles the image extents.
+            # If the resulting window is less than or equal to 0, the ROI is outside of
+            # the image's extents.
+            if ul_px < 0:
+                win_xsize = win_xsize + ul_px
+                ul_px = 0
+            elif ul_px + win_xsize > self.info.ncols:
+                win_xsize = self.info.ncols - ul_px
+            if ul_py < 0:
+                win_ysize = win_ysize + ul_py
+                ul_py = 0
+            elif ul_py + win_ysize >= self.info.nrows:
+                win_ysize = self.info.nrows - ul_py
+        else:
+            # The ROI is a singular point. Extract the pixel, but not if
+            # the point is outside the image's extents.
+            c_px, c_py = self.wld2pix(c_x, c_y)
+            ul_px = math.floor(c_px)
+            ul_py = math.floor(c_py)
+            if ul_px >= 0 and ul_px <= self.info.ncols and \
+               ul_py >= 0 and ul_py <= self.info.nrows:
+                win_xsize = 1
+                win_ysize = 1
+            else:
+                win_xsize = 0
+                win_ysize = 0
         return (ul_px, ul_py, win_xsize, win_ysize)
 
 
@@ -331,28 +359,55 @@ class AssetReader:
 
         arr_info.data is updated in place, so the function returns nothing.
 
+        Currently only supports ROI_SHP_SQUARE and ROI_SHP_CIRCLE. No masking
+        is done in the case of squares. For circles, the size of the array
+        must be greater than four pixels. Raise an AssetReaderError if it is not.
+
         """
         if pt.shape==pointstats.ROI_SHP_SQUARE:
             # Do nothing. arr_info.data is already the correct shape.
             pass
         elif pt.shape==pointstats.ROI_SHP_CIRCLE:
+            if arr_info.data.size < 5:
+                raise AssetReaderError(
+                    "There must be at least 4 pixels in the array to mask it " \
+                    "using a circular ROI.")
+            # Include all pixels inside the circle's boundary and those
+            # that touch the circle's boundary.
+            # The circle's boundary touches a pixel if at least one corner of
+            # the pixel is inside the circle. A corner is outside the circle if
+            # it's distance to the circle's centre is greater than the circle's
+            # radius.
             a_sp_ref = osr.SpatialReference()
             a_sp_ref.ImportFromWkt(self.info.projection)
             # Circle centre and radius in the same CRS as the image.
             c_x, c_y = pt.transform(a_sp_ref)
             radius = pt.change_buffer_units(a_sp_ref)
-            # Create an mgrid containing the image coordinates of the centre of
-            # each pixel in the array. Then determine if the centres of each
-            # pixel are outside the circle and mask them.
-            ys, xs = numpy.mgrid[0.5:arr_info.win_ysize+0.5, 0.5:arr_info.win_xsize+0.5]
-            ys = arr_info.uly - ys * arr_info.y_res
-            xs = arr_info.ulx + xs * arr_info.x_res
-            outside = (ys-c_y)**2 + (xs-c_x)**2 > radius**2
+            def outside(lower, right):
+                # Return an array where True means the pixels's corner is
+                # outside the circle.
+                # For upper-left corners, use lower=0, right=0
+                # For upper-right corners, use lower=0, right=1, and so on.
+                ys, xs = numpy.mgrid[
+                    lower:arr_info.win_ysize + lower,
+                    right:arr_info.win_xsize + right]
+                ys = arr_info.uly - ys * arr_info.y_res
+                xs = arr_info.ulx + xs * arr_info.x_res
+                return (ys-c_y)**2 + (xs-c_x)**2 > radius**2
+            # Pixels are outside the circle where all corners are outside.
+            ul_outside = outside(0, 0)
+            ur_outside = outside(0, 1)
+            ll_outside = outside(1, 0)
+            lr_outside = outside(1, 1)
+            px_outside = numpy.all(
+                numpy.array([ul_outside, ur_outside, ll_outside, lr_outside]),
+                axis=0)
+            # Apply a mask per-band because the nodataval can vary by band.
             num_bands = arr_info.data.shape[0]
             for idx in range(num_bands):
                 nodata_val = ignore_val if ignore_val else self.info.nodataval[idx]
-                arr_info.data[idx][outside] = nodata_val
-                arr_info.data.mask[idx][outside] = True
+                arr_info.data[idx][px_outside] = nodata_val
+                arr_info.data.mask[idx][px_outside] = True
         else:
             raise AssetReaderError(f"Unknown ROI shape {pt.shape}")
     
