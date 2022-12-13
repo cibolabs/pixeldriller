@@ -17,24 +17,49 @@ from . import asset_reader
 # Symbols defining the statistics.
 ##############################################
 
+
 # The Set of standard statistics. See the STD_STATS_FUNCS dictionary at
 # the end of this module, which maps the statistic to a function.
 STATS_RAW = 'raw'
+"""
+Raw Data to be passsed to userFunc
+"""
 STATS_ARRAYINFO = 'arrayinfo'
+"""
+Information about the array
+"""
 STATS_MEAN = 'mean'
+""""
+Calculate the mean
+"""
 STATS_STDEV = 'stddev'
+"""
+Calculate the standard deviation
+"""
 # STATS_COUNT is the number of non-null pixels used in stats calcs.
 # STATS_COUNTNULL is the number of null pixels in an array.
 # They sum to the size of the array.
-STATS_COUNT = 'count' # number of non-null pixels used in stats calcs.
-STATS_COUNTNULL ='countnull' # number of null pixels in an array.
+STATS_COUNT = 'count'
+"""
+number of non-null pixels used in stats calcs.
+"""
+STATS_COUNTNULL ='countnull'
+"""
+number of null pixels in an array.
+"""
 
 ##############################################
 # Information about points.
 ##############################################
 # For defining the shape of a Point's region of interest.
 ROI_SHP_SQUARE = 'square'
+"""
+Define a square region of interest
+"""
 ROI_SHP_CIRCLE = 'circle'
+"""
+Define a circle region of interest
+"""
 
 class PointError(Exception): pass
 
@@ -42,24 +67,39 @@ class Point:
     """
     A structure for an X-Y-Time point with a corresponding 
     osr.SpatialReference system. A point is characterised by:
+    
     - a location in space and time
     - a spatial buffer
     - a temporal window
     
-    These attributes are set at construction time:
-    - x: the point's x-coordinate
-    - y: the point's y-coordinate
-    - t: the point's datetime.datetime time
-    - x_y: the point's (x, y) location
-    - sp_ref: the osr.SpatialReference of (x, y)
-    - wgs84_x: the point's x location in WGS84 coordinates
-    - wgs84_y: the point's y location in WGS84 coordinates
-    - start_date: the datetime.datetime start date of the temporal buffer
-    - end_date: the datetime.datetime end date of the temporal buffer
-    - buffer: the distance from the point that defines the region of interest
-    - shape: the shape of the region of interest
-    - buffer_degrees: True if the buffer distance is in degrees or False if
-      it is in metres
+    Attributes
+    ----------
+    x : float
+        the point's x-coordinate
+    y : float
+        the point's y-coordinate
+    t : datetime.datetime
+        the point's datetime.datetime time
+    x_y : tuple of float
+        the point's (x, y) location
+    sp_ref : osr.SpatialReference
+        the osr.SpatialReference of (x, y)
+    wgs84_x : float
+        the point's x location in WGS84 coordinates
+    wgs84_y : float
+        the point's y location in WGS84 coordinates
+    start_date : datetime.datetime
+        the datetime.datetime start date of the temporal buffer
+    end_date : datetime.datetime
+        the datetime.datetime end date of the temporal buffer
+    buffer : float
+        the distance from the point that defines the region of interest
+    shape : int
+        ROI_SHP_SQUARE or ROI_SHP_CIRCLE
+    item_stats : dictionary of ItemStats
+        Keyed on the item id
+    buffer_degrees : bool
+        True if the buffer distance is in degrees or False if it is in metres
 
     """
     def __init__(
@@ -113,6 +153,10 @@ class Point:
         It initialises an ItemStats object for each item and adds it
         to this Point's item_stats dictionary, which is keyed by the item ID.
 
+        Parameters
+        ----------
+        items : a sequence of pystac.Item or ImageItem objects
+
         """
         for item in items:
             if item.id not in self.item_stats:
@@ -133,6 +177,13 @@ class Point:
 
         This function must be called before calc_stats().
 
+        Parameters
+        ----------
+        item : pystac.Item or ImageItem object
+            The item to add to this point
+        arr_info : asset_reader.ArrayInfo
+            Info about the data
+
         """
         self.item_stats[item.id].add_data(arr_info)
         
@@ -140,9 +191,18 @@ class Point:
     def intersects(self, ds):
         """
         Return True if the point intersects the GDAL dataset. ds can be a
-        open gdal.Dataest or a filepath as a string.
+        open gdal.Dataset or a filepath as a string.
 
         The comparison is made using the image's coordinate reference system.
+
+        Parameters
+        ----------
+        ds : GDAL dataset object or filepath as a string
+            The file to check intersection with
+
+        Returns
+        -------
+        bool
 
         """
         iinfo = asset_reader.ImageInfo(ds)
@@ -162,15 +222,25 @@ class Point:
         Call add_data() first, for every required asset.
 
         std_stats is a list of standard stats to calculate for each point's
-        region of interest.
-        They are a list of STATS_ symbols defined in this module.
+        region of interest. 
+        They are a list of STATS symbols defined in this module.
 
         user_stats is a list of tuples. Each tuple defines:
+        
         - the name (a string) for the statistic
         - and the function that is called to calculate it
 
         The request to calculate the statistics is passed to the item's
         ItemStats.calc_stats() function.
+
+        Parameters
+        ----------
+        item : pystac.Item or ImageItem object
+            Obtain the data to use from this object
+        std_stats : sequence of STATS constants
+            Which 'standard' statistics to use
+        user_stats : list of (name, func) tuples
+            Where func is the user func to calculate a statistic
 
         """
         self.item_stats[item.id].calc_stats(
@@ -181,6 +251,10 @@ class Point:
         """
         Return a list of the IDs of the pystac.Item items associated with this point.
 
+        Returns
+        -------
+        list of ids
+
         """
         return list(self.item_stats.keys())
 
@@ -188,6 +262,19 @@ class Point:
     def get_stat(self, item_id, stat_name):
         """
         Get a the requested statistic for the item.
+
+        Parameters
+        ----------
+
+        item_id : string
+            Id of the item to return
+        stat_name : string
+            one of the STAT constants
+
+        Returns
+        -------
+        float
+            The value of the statistic
 
         """
         item_stats = self.get_item_stats(item_id)
@@ -198,6 +285,11 @@ class Point:
         """
         Return a dictionary with all stats for this point. The dictionary's
         keys are the item IDs, and its values are ItemStats objects.
+
+        Returns
+        -------
+        dictionary of ItemStats objects
+            Keyed on the item id
 
         """
         return self.item_stats
@@ -216,6 +308,17 @@ class Point:
         """
         Return the ItemStats object for this point that corresponds to the
         required Item ID.
+
+        Parameters
+        ----------
+
+        item_id : string
+            The Item ID
+
+        Returns
+        -------
+
+        ItemStats
 
         """
         return self.item_stats[item_id]
@@ -236,6 +339,22 @@ class Point:
 
         Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
         to guarantee x, y point ordering of the input and output points.
+
+        Parameters
+        ----------
+
+        dst_srs : osr.SpatialReference
+            The optional destination SRS
+        src_srs : osr.SpatialReference
+            The optional source SRS
+        x : float
+            The optional x coord
+        y : float
+            The optional y coord
+
+        Returns
+        -------
+        tuple with the new coords
 
         """
         x = self.x if x is None else x
@@ -259,6 +378,10 @@ class Point:
         Return the x, y coordinates of this Point in the WGS84 coordinate
         reference system, EPSG:4326.
 
+        Returns
+        -------
+        tuple of the new coords
+
         """
         dst_srs = osr.SpatialReference()
         dst_srs.ImportFromEPSG(4326)
@@ -281,10 +404,22 @@ class Point:
 
         Do nothing, returning self.buffer, if the buffer distance and dst_srs
         are compatible; that is:
+        
         1. the buffer distance is metres and dst_srs is a
            projected reference system
         2. the buffer distance is in degrees and dst_srs is a
            geographic reference system
+
+        Parameters
+        ----------
+
+        dst_srs : osr.SpatialReference
+            The new SRS
+
+        Returns
+        -------
+        float
+
 
         """
         if not self.buffer_degrees and dst_srs.IsGeographic():
@@ -343,6 +478,19 @@ class Point:
             - x, y is in src_srs
             - buffer's units are the same as the src_srs
 
+        Parameters
+        ----------
+        x : float
+        y : float
+        buffer : float
+        src_srs : osr.SpatialReference
+        dst_srs : osr.SpatialReference
+
+        Returns
+        -------
+        float
+
+
         """
         xn = buffer + x
         t_x, t_y = self.transform(dst_srs, src_srs=src_srs, x=x, y=y)
@@ -358,7 +506,12 @@ class ImageItem:
     Analogous to a pystac.Item object, which is to be passed to the
     ItemPoints constructor when drilling pixels from an image file.
 
-    An ImageItem has only two attributes: id and filepath.
+    Attributes
+    ----------
+    filepath : string
+        Path to the GDAL file
+    id : String
+        ID to use for this item. Is the same as filepath unless overridden.
 
     """
     def __init__(self, filepath, id=None):
@@ -386,6 +539,14 @@ class ItemPoints:
 
     The read_data() function is used to read the pixels from the associated
     rasters.
+
+    Attributes
+    ----------
+    item : pystac.Item object or an ImageItem
+        These points intersect this item
+    asset_ids : sequence of strings
+        the IDs of the pystac.Item's raster assets to read
+    points : list of Point objects
 
     """
     def __init__(self, item, asset_ids=None):
@@ -427,6 +588,11 @@ class ItemPoints:
         Then, on the next calc_stats() call, the stats for all previously read
         data will be recalculated in addition to the new stats for the new assets.
 
+        Parameters
+        ----------
+
+        asset_ids : list if ids
+
         """
         if isinstance(self.item, ImageItem):
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
@@ -441,6 +607,10 @@ class ItemPoints:
     def add_point(self, pt):
         """
         Append the Point to this object's points list.
+
+        Parameters
+        ----------
+        pt : Point object
 
         """
         self.points.append(pt)
@@ -465,6 +635,12 @@ class ItemPoints:
         None means to use the image band's no data value.
 
         The reading is done by asset_reader.AssetReader.read_data().
+
+        Parameters
+        ----------
+        ignore_val : number or None
+            Use the given number as the ignore value or all bands. If none,
+            use the images nodata value.
 
         """
         if isinstance(self.item, ImageItem):
@@ -498,6 +674,10 @@ class ItemPoints:
         """
         Get the list of pointstats.Point objects in this collection.
 
+        Returns
+        -------
+        list of Point objects
+
         """
         return self.points
 
@@ -510,14 +690,22 @@ class ItemPoints:
 
         std_stats is a list of standard stats to calculate for each point's
         region of interest.
-        They are a list of STATS_ symbols defined in this module.
+        They are a list of STATS symbols defined in this module.
 
         user_stats is a list of tuples. Each tuple defines:
+        
         - the name (a string) for the statistic
         - and the function that is called to calculate it
 
         The request to calculate the statistics is passed to each Point's
         calc_stats() function.
+
+        Parameters
+        ----------
+        std_stats : int
+            One of the STATS* constants
+        user_stats : list of (name, func) tuples
+            where func is the user functional to calculate a statistic
 
         """
         for pt in self.points:
@@ -525,7 +713,14 @@ class ItemPoints:
 
 
     def get_item(self):
-        """Return the pystac.Item or ImageItem."""
+        """
+        Return the pystac.Item or ImageItem.
+
+        Returns
+        -------
+        pystac.Item or ImageItem
+
+        """
         return self.item
 
 
@@ -547,15 +742,20 @@ class ItemStats:
     A data structure that holds the statistics of the pixel arrays
     extracted from each asset for a single item about a Point.
 
-    Has the following attributes:
-    - pt: the point associated with this ItemStats object
-    - item: the pystac.item.Item or ImageItem
-    - stats: a dictionary containing the raster statistics within the region
-      of interest of the associated point.
-      The dictionary's keys are defined by names of the std_stats and
-      user_stats passed to PointStats.calc_stats(). The dictionary's values are
-      a list of the return values of the corresponding stats functions. There
-      is one element in the list for each raster asset.
+    Attributes
+    ----------
+
+    pt : Point object
+        the point associated with this ItemStats object
+    item : pystac.item.Item or ImageItem
+        the item to hold the stats for
+    stats : dictionary
+        a dictionary containing the raster statistics within the region
+        of interest of the associated point.
+        The dictionary's keys are defined by names of the std_stats and
+        user_stats passed to PointStats.calc_stats(). The dictionary's values are
+        a list of the return values of the corresponding stats functions. There
+        is one element in the list for each raster asset.
     
     """
     def __init__(self, pt, item):
@@ -577,6 +777,10 @@ class ItemStats:
         arr_info.data is the numpy masked array of data, which contains the
         pixels for one of the assets of the item.
 
+        Parameters
+        ----------
+        arr_info : asset_reader.ArrayInfo
+
         """
         if STATS_RAW not in self.stats:
             self.stats[STATS_RAW] = []
@@ -595,7 +799,7 @@ class ItemStats:
 
         std_stats is a list of standard stats to calculate for each point's
         region of interest.
-        They are a list of STATS_ symbols defined in this module.
+        They are a list of STATS symbols defined in this module.
 
         user_stats is a list of tuples. Each tuple defines:
         - the name (a string) for the statistic
@@ -609,6 +813,13 @@ class ItemStats:
         - array_info is a list of ArrayInfo objects, one for each asset
         - item is the pystac.Item object
         - pt is the pointstats.Point object
+
+        Parameters
+        ----------
+        std_stats : int
+            One of the STATS* constants
+        user_stats : list of (name, func) tuples
+            where func is the user functional to calculate a statistic
         
         """
         if std_stats:
@@ -638,6 +849,11 @@ class ItemStats:
 
         calc_stats() must have been called first.
 
+        Parameters
+        ----------
+        stat_name : string
+            The name of the statistic to get
+
         """
         return self.stats[stat_name]
 
@@ -664,6 +880,13 @@ def check_std_arrays(item, asset_arrays):
     Raise a MultibandAssetError if at least one of the arrays in
     asset_arrays contains multiple bands.
 
+    Parameters
+    ----------
+    item : pystac.item.Item or ImageItem
+        Item the arrays belong to
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Arrays to check
+
     """
     errmsg = ""
     rast_counts = [arr.shape[0] for arr in asset_arrays]
@@ -682,6 +905,16 @@ def std_stat_mean(asset_arrays):
     Return a 1D array with the mean values for each masked array
     in the list of asset_arrays.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the mean on
+
+    Returns
+    -------
+    numpy array of float
+        The mean values - one for each input
+
     """
     # Calculate the stat for each array because their x and y sizes will
     # differ if their pixel sizes are different.
@@ -698,6 +931,16 @@ def std_stat_stdev(asset_arrays):
     If all values in an input array are masked, then return numpy.ma.masked
     for that array.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the stdev on
+
+    Returns
+    -------
+    numpy array of float
+        The stdev values - one for each input
+
     """
     # Calculate the stat for each array because their x and y sizes will
     # differ if their pixel sizes are different.
@@ -711,6 +954,16 @@ def std_stat_count(asset_arrays):
     Return a 1D array with the number of non-null pixels in each masked array
     in the list of asset_arrays.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the count
+
+    Returns
+    -------
+    numpy array of float
+        The count values - one for each input
+
     """
     counts = [arr.count() for arr in asset_arrays]
     return numpy.array(counts)
@@ -721,15 +974,27 @@ def std_stat_countnull(asset_arrays):
     Return a 1D array with the number of null pixels in each masked array
     in the list of asset_arrays.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the count
+
+    Returns
+    -------
+    numpy array of float
+        The count values - one for each input
+
     """
     counts = [arr.mask.sum() for arr in asset_arrays]
     return numpy.array(counts)
 
-# A mapping of the standard stats to their functions.
-# STATS_RAW is a special cased and handled in ItemStats.add_data().
 STD_STATS_FUNCS = {
     STATS_MEAN: std_stat_mean,
     STATS_STDEV: std_stat_stdev,
     STATS_COUNT: std_stat_count,
     STATS_COUNTNULL: std_stat_countnull
 }
+"""
+A mapping of the standard stats to their functions.
+STATS_RAW is a special cased and handled in ItemStats.add_data().
+"""
