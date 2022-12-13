@@ -17,24 +17,49 @@ from . import asset_reader
 # Symbols defining the statistics.
 ##############################################
 
+
 # The Set of standard statistics. See the STD_STATS_FUNCS dictionary at
 # the end of this module, which maps the statistic to a function.
 STATS_RAW = 'raw'
+"""
+Raw Data to be passsed to userFunc
+"""
 STATS_ARRAYINFO = 'arrayinfo'
+"""
+Information about the array
+"""
 STATS_MEAN = 'mean'
+""""
+Calculate the mean
+"""
 STATS_STDEV = 'stddev'
+"""
+Calculate the standard deviation
+"""
 # STATS_COUNT is the number of non-null pixels used in stats calcs.
 # STATS_COUNTNULL is the number of null pixels in an array.
 # They sum to the size of the array.
-STATS_COUNT = 'count' # number of non-null pixels used in stats calcs.
-STATS_COUNTNULL ='countnull' # number of null pixels in an array.
+STATS_COUNT = 'count'
+"""
+number of non-null pixels used in stats calcs.
+"""
+STATS_COUNTNULL ='countnull'
+"""
+number of null pixels in an array.
+"""
 
 ##############################################
 # Information about points.
 ##############################################
 # For defining the shape of a Point's region of interest.
 ROI_SHP_SQUARE = 'square'
+"""
+Define a square region of interest
+"""
 ROI_SHP_CIRCLE = 'circle'
+"""
+Define a circle region of interest
+"""
 
 class PointError(Exception): pass
 
@@ -47,21 +72,34 @@ class Point:
     - a spatial buffer
     - a temporal window
     
-    These attributes are set at construction time:
-    
-    - x: the point's x-coordinate
-    - y: the point's y-coordinate
-    - t: the point's datetime.datetime time
-    - x_y: the point's (x, y) location
-    - sp_ref: the osr.SpatialReference of (x, y)
-    - wgs84_x: the point's x location in WGS84 coordinates
-    - wgs84_y: the point's y location in WGS84 coordinates
-    - start_date: the datetime.datetime start date of the temporal buffer
-    - end_date: the datetime.datetime end date of the temporal buffer
-    - buffer: the distance from the point that defines the region of interest
-    - shape: the shape of the region of interest
-    - buffer_degrees: True if the buffer distance is in degrees or False if
-      it is in metres
+    Attributes
+    ----------
+    x : float
+        the point's x-coordinate
+    y : float
+        the point's y-coordinate
+    t : datetime.datetime
+        the point's datetime.datetime time
+    x_y : tuple of float
+        the point's (x, y) location
+    sp_ref : osr.SpatialReference
+        the osr.SpatialReference of (x, y)
+    wgs84_x : float
+        the point's x location in WGS84 coordinates
+    wgs84_y : float
+        the point's y location in WGS84 coordinates
+    start_date : datetime.datetime
+        the datetime.datetime start date of the temporal buffer
+    end_date : datetime.datetime
+        the datetime.datetime end date of the temporal buffer
+    buffer : float
+        the distance from the point that defines the region of interest
+    shape : int
+        ROI_SHP_SQUARE or ROI_SHP_CIRCLE
+    item_stats : dictionary of ItemStats
+        Keyed on the item id
+    buffer_degrees : bool
+        True if the buffer distance is in degrees or False if it is in metres
 
     """
     def __init__(
@@ -115,6 +153,10 @@ class Point:
         It initialises an ItemStats object for each item and adds it
         to this Point's item_stats dictionary, which is keyed by the item ID.
 
+        Parameters
+        ----------
+        items : a sequence of pystac.Item or ImageItem objects
+
         """
         for item in items:
             if item.id not in self.item_stats:
@@ -135,6 +177,13 @@ class Point:
 
         This function must be called before calc_stats().
 
+        Parameters
+        ----------
+        item : pystac.Item or ImageItem object
+            The item to add to this point
+        arr_info : asset_reader.ArrayInfo
+            Info about the data
+
         """
         self.item_stats[item.id].add_data(arr_info)
         
@@ -142,9 +191,18 @@ class Point:
     def intersects(self, ds):
         """
         Return True if the point intersects the GDAL dataset. ds can be a
-        open gdal.Dataest or a filepath as a string.
+        open gdal.Dataset or a filepath as a string.
 
         The comparison is made using the image's coordinate reference system.
+
+        Parameters
+        ----------
+        ds : GDAL dataset object or filepath as a string
+            The file to check intersection with
+
+        Returns
+        -------
+        bool
 
         """
         iinfo = asset_reader.ImageInfo(ds)
@@ -175,6 +233,15 @@ class Point:
         The request to calculate the statistics is passed to the item's
         ItemStats.calc_stats() function.
 
+        Parameters
+        ----------
+        item : pystac.Item or ImageItem object
+            Obtain the data to use from this object
+        std_stats : sequence of STATS constants
+            Which 'standard' statistics to use
+        user_stats : function
+            A user function to call to calculate other stats
+
         """
         self.item_stats[item.id].calc_stats(
             std_stats=std_stats, user_stats=user_stats)
@@ -184,6 +251,10 @@ class Point:
         """
         Return a list of the IDs of the pystac.Item items associated with this point.
 
+        Returns
+        -------
+        list of ids
+
         """
         return list(self.item_stats.keys())
 
@@ -191,6 +262,19 @@ class Point:
     def get_stat(self, item_id, stat_name):
         """
         Get a the requested statistic for the item.
+
+        Parameters
+        ----------
+
+        item_id : string
+            Id of the item to return
+        stat_name : string
+            one of the STAT constants
+
+        Returns
+        -------
+        float
+            The value of the statistic
 
         """
         item_stats = self.get_item_stats(item_id)
@@ -201,6 +285,11 @@ class Point:
         """
         Return a dictionary with all stats for this point. The dictionary's
         keys are the item IDs, and its values are ItemStats objects.
+
+        Returns
+        -------
+        dictionary if TemStats objects
+            Keyed on the item id
 
         """
         return self.item_stats
@@ -219,6 +308,17 @@ class Point:
         """
         Return the ItemStats object for this point that corresponds to the
         required Item ID.
+
+        Parameters
+        ----------
+
+        item_id : string
+            The Item ID
+
+        Returns
+        -------
+
+        ItemStats
 
         """
         return self.item_stats[item_id]
@@ -239,6 +339,22 @@ class Point:
 
         Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
         to guarantee x, y point ordering of the input and output points.
+
+        Parameters
+        ----------
+
+        dst_srs : osr.SpatialReference
+            The optional destination SRS
+        src_srs : osr.SpatialReference
+            The optional source SRS
+        x : float
+            The optional x coord
+        y : float
+            The optional y coord
+
+        Returns
+        -------
+        tuple with the new coords
 
         """
         x = self.x if x is None else x
@@ -261,6 +377,10 @@ class Point:
         """
         Return the x, y coordinates of this Point in the WGS84 coordinate
         reference system, EPSG:4326.
+
+        Returns
+        -------
+        tuple of the new coords
 
         """
         dst_srs = osr.SpatialReference()
@@ -289,6 +409,17 @@ class Point:
            projected reference system
         2. the buffer distance is in degrees and dst_srs is a
            geographic reference system
+
+        Parameters
+        ----------
+
+        dst_srs : osr.SpatialReference
+            The new SRS
+
+        Returns
+        -------
+        float
+
 
         """
         if not self.buffer_degrees and dst_srs.IsGeographic():
@@ -346,6 +477,19 @@ class Point:
         Assumptions:
             - x, y is in src_srs
             - buffer's units are the same as the src_srs
+
+        Parameters
+        ----------
+        x : float
+        y : float
+        buffer : float
+        src_srs : osr.SpatialReference
+        dst_srs : osr.SpatialReference
+
+        Returns
+        -------
+        float
+
 
         """
         xn = buffer + x

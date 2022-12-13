@@ -1,0 +1,5 @@
+sphinx
+numpydoc
+pydata-sphinx-theme
+pystac-client
+pixelldriller
