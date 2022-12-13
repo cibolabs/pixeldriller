@@ -17,6 +17,7 @@ extensions = ['sphinx.ext.autodoc', 'numpydoc']
 
 templates_path = ['_templates']
 exclude_patterns = []
+autodoc_mock_imports = ['numpy', 'osgeo']
 
 
 
