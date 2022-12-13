@@ -288,7 +288,7 @@ class Point:
 
         Returns
         -------
-        dictionary if TemStats objects
+        dictionary of ItemStats objects
             Keyed on the item id
 
         """

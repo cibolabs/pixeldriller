@@ -21,25 +21,6 @@ class ImageInfo:
 
     Sourced from rios:
     https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py
-    
-    Object contains the following fields:
-    
-    - **x_min**            Map X coord of left edge of left-most pixel
-    - **x_max**            Map X coord of right edge of right-most pixel
-    - **y_min**            Map Y coord of bottom edge of bottom pixel
-    - **y_max**            Map Y coord of top edge of top-most pixel
-    - **x_res**            Map coord size of each pixel, in X direction
-    - **y_res**            Map coord size of each pixel, in Y direction
-    - **nrows**            Number of rows in image
-    - **ncols**            Number of columns in image
-    - **transform**        Transformation params to map between pixel and map coords, in GDAL form
-    - **projection**       WKT string of projection
-    - **raster_count**     Number of rasters in file
-    - **lnames**           Names of the layers as a list.
-    - **layer_type**       "thematic" or "athematic", if it is set
-    - **data_type**        Data type for the first band (as a GDAL integer constant)
-    - **data_type_name**   Data type for the first band (as a human-readable string)
-    - **nodataval**        Value used as the no-data indicator (per band)
 
     The omit_per_band argument on the constructor is provided in order to speed up the
     access of very large VRT stacks. The information which is normally extracted
@@ -48,8 +29,51 @@ class ImageInfo:
     setting omit_per_band=True will omit that information, but will return as quickly
     as for a normal single file.
 
+    Attributes
+    ----------
+    x_min : float
+        Map X coord of left edge of left-most pixel
+    x_max : float
+        Map X coord of right edge of right-most pixel
+    y_min : float
+        Map Y coord of bottom edge of bottom pixel
+    y_max : float
+        Map Y coord of top edge of top-most pixel
+    x_res : float
+        Map coord size of each pixel, in X direction
+    y_res : float
+        Map coord size of each pixel, in Y direction
+    nrows : int
+        Number of rows in image
+    ncols : int
+        Number of columns in image
+    transform : list of floats
+        Transformation params to map between pixel and map coords, in GDAL form
+    projection : string
+        WKT string of projection
+    raster_count : int
+        Number of rasters in file
+    lnames : list of strings
+        Names of the layers as a list.
+    layer_type : string
+        "thematic" or "athematic", if it is set
+    data_type : int
+        Data type for the first band (as a GDAL integer constant)
+    data_type_name : string
+        Data type for the first band (as a human-readable string)
+    nodataval : list of floats
+        Value used as the no-data indicator (per band)
+
     """
     def __init__(self, ds, omit_per_band=False):
+        """
+        Parameters
+        ----------
+        ds : gdal.Dataset or string
+            If string, file will be opened
+        omit_per_band : bool
+            If True, won't calculate per band information
+        """
         opened=False
         if not isinstance(ds, gdal.Dataset):
             ds = gdal.Open(ds, gdal.GA_ReadOnly)
@@ -107,22 +131,21 @@ class ArrayInfo:
     """
     Contains information about the array read from the image around a point.
 
-    The attributes are:
+    Attributes
+    ----------
     
-    - data: the numpy masked array containing the pixel data
-    - asset_id: the id of the Stac Item's asset from which the data was read
-    - The pixel window read from the raster asset in pixel coordinates:
-        - xoff, yoff, win_xsize, win_ysize
-        - where xoff and yoff are the coordinates of the upper left pixel in
-          the array in pixel coordinates
-    - The bounding box of the array in image coordinates, defined using
-      two points:
-      
-      - upper left (ulx, uly)
-      - lower right (lrx, lry)
-    - The pixel size in the same units as the image coordinate reference system:
-        - x_res, y_res
-    - nodataval: list of no-data values for the array, one for each layer
+    data : numpy arary
+        the numpy masked array containing the pixel data
+    asset_id : string
+        the id of the Stac Item's asset from which the data was read
+    xoff, yoff, win_xsize, win_ysize : int
+        The pixel window read from the raster asset in pixel coordinates.
+        xoff and yoff are the coordinates of the upper left pixel in
+        the array in pixel coordinates
+    ulx, uly, lrx, lry : float
+        The bounding box of the array in image coordinates.
+    x_res, y_res : float
+        The pixel size in the same units as the image coordinate reference system
 
     """
     def __init__(
@@ -170,6 +193,19 @@ class AssetReader:
     a STAC asset or raster image. It also contains the algorithms
     used to read arrays of pixels around a list of points.
 
+    Attributes
+    ----------
+    item : pystac.Item or ImageItem object
+        Item to read from
+    asset_id : string
+        Asset ID. If None, then will be assumed that item is a ImageItem
+    filepath : string
+        The GDAL openable filepath
+    dataset : GDAL dataset
+        The GDAL dataset for filepath
+    info : ImageInfo
+        The ImageInfo for the filepath
+
     """
     def __init__(self, item, asset_id=None):
         """
@@ -178,6 +214,13 @@ class AssetReader:
         item is a pystac.Item or ImageItem object. If it is a pystac.Item
         object then you must supply the asset_id. If it is a pointstats.ImageItem
         object, then its id must be the path of the file to be read.
+
+        Parameters
+        ----------
+        item : pystac.Item or ImageItem object
+            Item to read from
+        asset_id : string
+            Asset ID. If None, then will be assumed that item is a ImageItem
 
         """
         self.item = item
@@ -200,6 +243,13 @@ class AssetReader:
 
         Once read, the ItemStats object (corresponding to this asset's Item ID)
         of every Point will contain the ArrayInfo object for data read.
+
+        Parameters
+        ----------
+        points : list of pointstats.Point objects
+            Points to read from
+        ignore_val : float
+            ignore value to use, if None then the image no data is used
 
         """
         # Do a naive read, reading a small chunk of the image for every point.
@@ -234,6 +284,18 @@ class AssetReader:
 
         If the ROI straddles the image extents, the ROI is clipped to the extents
         (i.e. only that portion of the image that is within the extents is returned).
+
+        Parameters
+        ----------
+
+        pt : pointstats.Point
+            Point to use
+        ignore_val : float
+            ignore value to use, if None then the image no data is used
+
+        Returns
+        -------
+        ArrayInfo
 
         """
         # ROI bounds in pixel coordinates.
@@ -300,7 +362,17 @@ class AssetReader:
 
         If the returned win_xsize or win_ysize is 0, then the ROI is outside
         of the image's extents.
-    
+
+        Parameters
+        ----------
+
+        pt : pointstats.Point
+            Point to use
+
+        Returns
+        -------
+        tuple of floats
+
         """
         a_sp_ref = osr.SpatialReference()
         a_sp_ref.ImportFromWkt(self.info.projection)
@@ -366,6 +438,16 @@ class AssetReader:
         is done in the case of squares. For circles, the size of the array
         must be greater than four pixels. Raise an AssetReaderError if it is not.
 
+        Parameters
+        ----------
+
+        pt : pointstats.Point
+            Point to use
+        arr_info : ArrayInfo
+            The data
+        ignore_val : float
+            ignore value to use, if None then the image no data is used
+
         """
         if pt.shape==pointstats.ROI_SHP_SQUARE:
             # Do nothing. arr_info.data is already the correct shape.
@@ -416,13 +498,36 @@ class AssetReader:
     
     
     def wld2pix(self, geox, geoy):
-        """converts a set of map coords to pixel coords"""
+        """
+        converts a set of map coords to pixel coords
+
+        Parameters
+        ----------
+        geox, geoy : float
+            The input coordinates
+
+        Returns
+        -------
+        tuple of (x, y)
+
+        """
         inv_transform = gdal.InvGeoTransform(self.info.transform)
         x, y = gdal.ApplyGeoTransform(inv_transform, geox, geoy)
         return (x, y)
 
     
     def pix2wld(self, x, y):
-        """converts a set of pixel coords to map coords"""
+        """
+        converts a set of pixel coords to map coords
+
+        Parameters
+        ----------
+        x, y : int
+            The input coordinates
+
+        Returns
+        -------
+        tuple of (geox, geoy)
+        """
         geo_x, geo_y = gdal.ApplyGeoTransform(self.info.transform, x, y)
         return (geo_x, geo_y)
