@@ -239,8 +239,8 @@ class Point:
             Obtain the data to use from this object
         std_stats : sequence of STATS constants
             Which 'standard' statistics to use
-        user_stats : function
-            A user function to call to calculate other stats
+        user_stats : list of (name, func) tuples
+            Where func is the user func to calculate a statistic
 
         """
         self.item_stats[item.id].calc_stats(
@@ -506,7 +506,12 @@ class ImageItem:
     Analogous to a pystac.Item object, which is to be passed to the
     ItemPoints constructor when drilling pixels from an image file.
 
-    An ImageItem has only two attributes: id and filepath.
+    Attributes
+    ----------
+    filepath : string
+        Path to the GDAL file
+    id : String
+        ID to use for this item. Is the same as filepath unless overridden.
 
     """
     def __init__(self, filepath, id=None):
@@ -534,6 +539,14 @@ class ItemPoints:
 
     The read_data() function is used to read the pixels from the associated
     rasters.
+
+    Attributes
+    ----------
+    item : pystac.Item object or an ImageItem
+        These points intersect this item
+    asset_ids : sequence of strings
+        the IDs of the pystac.Item's raster assets to read
+    points : list of Point objects
 
     """
     def __init__(self, item, asset_ids=None):
@@ -575,6 +588,11 @@ class ItemPoints:
         Then, on the next calc_stats() call, the stats for all previously read
         data will be recalculated in addition to the new stats for the new assets.
 
+        Parameters
+        ----------
+
+        asset_ids : list if ids
+
         """
         if isinstance(self.item, ImageItem):
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
@@ -589,6 +607,10 @@ class ItemPoints:
     def add_point(self, pt):
         """
         Append the Point to this object's points list.
+
+        Parameters
+        ----------
+        pt : Point object
 
         """
         self.points.append(pt)
@@ -613,6 +635,12 @@ class ItemPoints:
         None means to use the image band's no data value.
 
         The reading is done by asset_reader.AssetReader.read_data().
+
+        Parameters
+        ----------
+        ignore_val : number or None
+            Use the given number as the ignore value or all bands. If none,
+            use the images nodata value.
 
         """
         if isinstance(self.item, ImageItem):
@@ -646,6 +674,10 @@ class ItemPoints:
         """
         Get the list of pointstats.Point objects in this collection.
 
+        Returns
+        -------
+        list of Point objects
+
         """
         return self.points
 
@@ -668,13 +700,27 @@ class ItemPoints:
         The request to calculate the statistics is passed to each Point's
         calc_stats() function.
 
+        Parameters
+        ----------
+        std_stats : int
+            One of the STATS* constants
+        user_stats : list of (name, func) tuples
+            where func is the user functional to calculate a statistic
+
         """
         for pt in self.points:
             pt.calc_stats(self.item, std_stats=std_stats, user_stats=user_stats)
 
 
     def get_item(self):
-        """Return the pystac.Item or ImageItem."""
+        """
+        Return the pystac.Item or ImageItem.
+
+        Returns
+        -------
+        pystac.Item or ImageItem
+
+        """
         return self.item
 
 
@@ -696,16 +742,20 @@ class ItemStats:
     A data structure that holds the statistics of the pixel arrays
     extracted from each asset for a single item about a Point.
 
-    Has the following attributes:
-    
-    - pt: the point associated with this ItemStats object
-    - item: the pystac.item.Item or ImageItem
-    - stats: a dictionary containing the raster statistics within the region
-      of interest of the associated point.
-      The dictionary's keys are defined by names of the std_stats and
-      user_stats passed to PointStats.calc_stats(). The dictionary's values are
-      a list of the return values of the corresponding stats functions. There
-      is one element in the list for each raster asset.
+    Attributes
+    ----------
+
+    pt : Point object
+        the point associated with this ItemStats object
+    item : pystac.item.Item or ImageItem
+        the item to hold the stats for
+    stats : dictionary
+        a dictionary containing the raster statistics within the region
+        of interest of the associated point.
+        The dictionary's keys are defined by names of the std_stats and
+        user_stats passed to PointStats.calc_stats(). The dictionary's values are
+        a list of the return values of the corresponding stats functions. There
+        is one element in the list for each raster asset.
     
     """
     def __init__(self, pt, item):
@@ -726,6 +776,10 @@ class ItemStats:
 
         arr_info.data is the numpy masked array of data, which contains the
         pixels for one of the assets of the item.
+
+        Parameters
+        ----------
+        arr_info : asset_reader.ArrayInfo
 
         """
         if STATS_RAW not in self.stats:
@@ -759,6 +813,13 @@ class ItemStats:
         - array_info is a list of ArrayInfo objects, one for each asset
         - item is the pystac.Item object
         - pt is the pointstats.Point object
+
+        Parameters
+        ----------
+        std_stats : int
+            One of the STATS* constants
+        user_stats : list of (name, func) tuples
+            where func is the user functional to calculate a statistic
         
         """
         if std_stats:
@@ -788,6 +849,11 @@ class ItemStats:
 
         calc_stats() must have been called first.
 
+        Parameters
+        ----------
+        stat_name : string
+            The name of the statistic to get
+
         """
         return self.stats[stat_name]
 
@@ -814,6 +880,13 @@ def check_std_arrays(item, asset_arrays):
     Raise a MultibandAssetError if at least one of the arrays in
     asset_arrays contains multiple bands.
 
+    Parameters
+    ----------
+    item : pystac.item.Item or ImageItem
+        Item the arrays belong to
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Arrays to check
+
     """
     errmsg = ""
     rast_counts = [arr.shape[0] for arr in asset_arrays]
@@ -832,6 +905,16 @@ def std_stat_mean(asset_arrays):
     Return a 1D array with the mean values for each masked array
     in the list of asset_arrays.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the mean on
+
+    Returns
+    -------
+    numpy array of float
+        The mean values - one for each input
+
     """
     # Calculate the stat for each array because their x and y sizes will
     # differ if their pixel sizes are different.
@@ -848,6 +931,16 @@ def std_stat_stdev(asset_arrays):
     If all values in an input array are masked, then return numpy.ma.masked
     for that array.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the stdev on
+
+    Returns
+    -------
+    numpy array of float
+        The stdev values - one for each input
+
     """
     # Calculate the stat for each array because their x and y sizes will
     # differ if their pixel sizes are different.
@@ -861,6 +954,16 @@ def std_stat_count(asset_arrays):
     Return a 1D array with the number of non-null pixels in each masked array
     in the list of asset_arrays.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the count
+
+    Returns
+    -------
+    numpy array of float
+        The count values - one for each input
+
     """
     counts = [arr.count() for arr in asset_arrays]
     return numpy.array(counts)
@@ -871,15 +974,27 @@ def std_stat_countnull(asset_arrays):
     Return a 1D array with the number of null pixels in each masked array
     in the list of asset_arrays.
 
+    Parameters
+    ----------
+    asset_arrays : numpy array of shape (layers, ysize, xsize)
+        Array to find the count
+
+    Returns
+    -------
+    numpy array of float
+        The count values - one for each input
+
     """
     counts = [arr.mask.sum() for arr in asset_arrays]
     return numpy.array(counts)
 
-# A mapping of the standard stats to their functions.
-# STATS_RAW is a special cased and handled in ItemStats.add_data().
 STD_STATS_FUNCS = {
     STATS_MEAN: std_stat_mean,
     STATS_STDEV: std_stat_stdev,
     STATS_COUNT: std_stat_count,
     STATS_COUNTNULL: std_stat_countnull
 }
+"""
+A mapping of the standard stats to their functions.
+STATS_RAW is a special cased and handled in ItemStats.add_data().
+"""
