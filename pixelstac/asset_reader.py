@@ -166,6 +166,11 @@ class ArrayInfo:
         self.y_res = y_res
 
 
+    def isempty(self):
+        """Return True of the ArrayInfo's data array contains no data."""
+        return self.data.size == 0
+
+
     def __repr__(self):
         """
         Return a string representation of this object,
