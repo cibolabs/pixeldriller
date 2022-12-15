@@ -202,6 +202,7 @@ def test_read_roi_outofrange(
     arr = arr_info.data
     assert arr.shape == (1, 6, 6)
     assert arr[0, 0, 0] == 3852
+    assert not arr_info.isempty()
     # The next ROI straddles the lower right corner. Note that the area
     # within the image bounds contains null pixels.
     arr_info = reader.read_roi(point_straddle_bounds_2)
@@ -209,21 +210,25 @@ def test_read_roi_outofrange(
     assert arr.shape == (1, 5, 5)
     assert arr.size == 25 # number of pixel read from file
     assert arr.count() == 0 # number of valid (not-masked) pixels
+    assert not arr_info.isempty()
     # The next ROI is entirely outside the UL corner
     arr_info = reader.read_roi(point_outside_bounds_1)
     arr = arr_info.data
     assert arr.count() == 0
     assert arr.shape == (0,)
+    assert arr_info.isempty()
     # The next ROI is outside the eastern extents of the image.
     arr_info = reader.read_roi(point_outside_bounds_2)
     arr = arr_info.data
     assert arr.count() == 0
     assert arr.shape == (0,)
+    assert arr_info.isempty()
     # The next ROI is outside the LR corner
     arr_info = reader.read_roi(point_outside_bounds_3)
     arr = arr_info.data
     assert arr.count() == 0
     assert arr.shape == (0,)
+    assert arr_info.isempty()
 
 
 def test_mask_roi_shape(
