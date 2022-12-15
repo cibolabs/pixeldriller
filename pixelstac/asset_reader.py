@@ -166,6 +166,11 @@ class ArrayInfo:
         self.y_res = y_res
 
 
+    def isempty(self):
+        """Return True of the ArrayInfo's data array contains no data."""
+        return self.data.size == 0
+
+
     def __repr__(self):
         """
         Return a string representation of this object,
@@ -186,6 +191,15 @@ class ArrayInfo:
 
 
 class AssetReaderError(Exception): pass
+
+
+def get_asset_filepath(item, asset_id):
+    """
+    Get the filepath to the STAC item's asset.
+
+    """
+    return f"/vsicurl/{item.assets[asset_id].href}"
+
 
 class AssetReader:
     """
@@ -229,7 +243,8 @@ class AssetReader:
             # item is an instance of pointstats.ImageItem
             self.filepath = item.filepath
         else:
-            self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
+            #self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
+            self.filepath = get_asset_filepath(self.item, self.asset_id)
         self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
         self.info = ImageInfo(self.dataset)
 
