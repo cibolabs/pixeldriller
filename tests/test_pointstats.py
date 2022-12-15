@@ -133,7 +133,8 @@ def test_read_data(caplog, point_one_item, real_item):
     point_one_item.add_items([real_item])
     ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_one_item)
-    ip.read_data()
+    read_ok = ip.read_data()
+    assert read_ok
     item_stats = point_one_item.get_item_stats(real_item.id)
     raw_stats = item_stats.get_stats(pointstats.STATS_RAW)
     assert len(raw_stats) == 2
@@ -147,13 +148,14 @@ def test_read_data(caplog, point_one_item, real_item):
     point_one_item.reset() # scrub the stats.
     ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11', 'metadata'])
     ip.add_point(point_one_item)
-    ip.read_data()
+    read_ok = ip.read_data()
+    assert not read_ok
     assert "is not recognized as a supported dataset name" in caplog.text
     ip.calc_stats(std_stats=[pointstats.STATS_COUNT])
     item_stats = point_one_item.get_item_stats(real_item.id)
     raw_stats = item_stats.get_stats(pointstats.STATS_RAW)
     assert len(raw_stats) == 0
-    counts = item_stats.get_stats(pointstats.STATS_RAW)
+    counts = item_stats.get_stats(pointstats.STATS_COUNT)
     assert len(counts) == 0
 
 

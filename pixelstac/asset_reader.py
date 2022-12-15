@@ -187,6 +187,15 @@ class ArrayInfo:
 
 class AssetReaderError(Exception): pass
 
+
+def get_asset_filepath(item, asset_id):
+    """
+    Get the filepath to the STAC item's asset.
+
+    """
+    return f"/vsicurl/{item.assets[asset_id].href}"
+
+
 class AssetReader:
     """
     Encapsulates the GDAL Dataset object and metadata (an ImageInfo object) for
@@ -229,7 +238,8 @@ class AssetReader:
             # item is an instance of pointstats.ImageItem
             self.filepath = item.filepath
         else:
-            self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
+            #self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
+            self.filepath = get_asset_filepath(self.item, self.asset_id)
         self.dataset = gdal.Open(self.filepath, gdal.GA_ReadOnly)
         self.info = ImageInfo(self.dataset)
 

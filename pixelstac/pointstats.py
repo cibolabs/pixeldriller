@@ -657,7 +657,12 @@ class ItemPoints:
             Use the given number as the ignore value or all bands. If none,
             use the images nodata value.
 
+        Returns
+        -------
+        True if data is read or False if there's an error reading the data.
+
         """
+        read_ok = True
         if isinstance(self.item, ImageItem):
             # Read bands from an image
             reader = asset_reader.AssetReader(self.item)
@@ -666,7 +671,15 @@ class ItemPoints:
                     errmsg = "Passing a list of ignore_vals when reading from " \
                              "an image is unsupported"
                     raise ItemPointsError(errmsg)
-            reader.read_data(self.points, ignore_val=ignore_val)
+            try:
+                reader.read_data(self.points, ignore_val=ignore_val)
+            except RuntimeError:
+                err_msg = f"Failed to read data from {self.item.filepath}. "
+                err_msg += "The stack trace is:\n"
+                err_msg += traceback.format_exc()
+                logging.error(err_msg)
+                self.reset()
+                read_ok = False
         else:
             # Read assets from a Stac Item.
             if self.asset_ids is None:
@@ -688,11 +701,14 @@ class ItemPoints:
                     reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
                     reader.read_data(self.points, ignore_val=i_v)
             except RuntimeError:
-                err_msg = f"Failed to read data from {self.item.id}. "
+                fp = asset_reader.get_asset_filepath(self.item, asset_id)
+                err_msg = f"Failed to read data for item {self.item.id} from {fp}. "
                 err_msg += "The stack trace is:\n"
                 err_msg += traceback.format_exc()
                 logging.error(err_msg)
                 self.reset()
+                read_ok = False
+        return read_ok
 
     
     def get_points(self):
@@ -867,18 +883,20 @@ class ItemStats:
     def get_stats(self, stat_name):
         """
         Return the values for the requested statistic.
-
-        Return an empty list if stat_name is a standard statistic or
-        STATS_RAW or STATS_ARRAYINFO and
-        calc_stats() has not been called or read_data() failed.
-        
-        Return None if stat_name is a user statistic and
-        calc_stats() has not been called or read_data() failed.
         
         Parameters
         ----------
         stat_name : string
             The name of the statistic to get
+
+        Returns
+        -------
+        The return type for the requested statistic
+            Or return an empty list if stat_name is a standard statistic, or
+            stat_name is STATS_RAW or STATS_ARRAYINFO, and
+            calc_stats() was not called or read_data() failed.
+            Return None if stat_name is a user statistic and
+            calc_stats() was not called or read_data() failed.
 
         """
         ret_val = [] if stat_name in STATS_STD else None
