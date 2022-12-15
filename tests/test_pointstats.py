@@ -105,7 +105,9 @@ def test_item_stats(point_one_item, real_item):
     # PointStats creates a list of ItemStats objects.
     item_stats = pointstats.ItemStats(point_one_item, real_item)
     assert item_stats.item.id == "S2B_53HPV_20220728_0_L2A"
-    assert item_stats.stats == {}
+    assert item_stats.stats == {
+        pointstats.STATS_RAW: [],
+        pointstats.STATS_ARRAYINFO: []}
 
 
 def test_item_points(real_item):
@@ -123,7 +125,7 @@ def test_item_points(real_item):
     assert "do not set asset_ids when item is an ImageItem" in str(excinfo.value)
 
 
-def test_read_data(point_one_item, real_item):
+def test_read_data(caplog, point_one_item, real_item):
     """
     Test ItemPoints.read_data() and Point.add_data() function.
 
@@ -139,6 +141,20 @@ def test_read_data(point_one_item, real_item):
     assert raw_stats[1].shape == (1, 6, 6)
     assert raw_stats[0][0, 0, 0] == 406 # Top-left array element.
     assert raw_stats[1][0, 5, 5] == 135 # Bottom-right array element.
+    # The following fails because we give it the non-image, metadata, asset.
+    # read_data() fails with a message being written to the log, and
+    # the stats should return empty lists.
+    point_one_item.reset() # scrub the stats.
+    ip = pointstats.ItemPoints(real_item, asset_ids=['B02', 'B11', 'metadata'])
+    ip.add_point(point_one_item)
+    ip.read_data()
+    assert "is not recognized as a supported dataset name" in caplog.text
+    ip.calc_stats(std_stats=[pointstats.STATS_COUNT])
+    item_stats = point_one_item.get_item_stats(real_item.id)
+    raw_stats = item_stats.get_stats(pointstats.STATS_RAW)
+    assert len(raw_stats) == 0
+    counts = item_stats.get_stats(pointstats.STATS_RAW)
+    assert len(counts) == 0
 
 
 def test_calc_stats_image(point_one_item, real_image_path):

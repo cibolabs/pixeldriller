@@ -4,8 +4,10 @@ a pixelstac query.
 
 """
 
+import traceback
 import warnings
 import math
+import logging
 
 import numpy
 from osgeo import osr
@@ -46,6 +48,10 @@ number of non-null pixels used in stats calcs.
 STATS_COUNTNULL ='countnull'
 """
 number of null pixels in an array.
+"""
+STATS_STD=[STATS_MEAN, STATS_STDEV, STATS_COUNT, STATS_COUNT]
+"""
+List of standard statistics.
 """
 
 ##############################################
@@ -295,13 +301,22 @@ class Point:
         return self.item_stats
 
 
-    def reset(self):
+    def reset(self, item=None):
         """
         Remove all stats from the attached ItemStats objects.
 
+        By default, the stats for all items are removed, but you can
+        restrict it to just the given item.
+
+        The item itself remains attached to the point.
+
         """
-        for stats in self.item_stats.values():
+        if item is not None:
+            stats = self.item_stats[item.id]
             stats.reset()
+        else:
+            for stats in self.item_stats.values():
+                stats.reset()
 
 
     def get_item_stats(self, item_id):
@@ -665,9 +680,19 @@ class ItemPoints:
                 assert len(ignore_val) == len(self.asset_ids), errmsg
             else:
                 ignore_val = [ignore_val] * len(self.asset_ids)
-            for asset_id, i_v in zip(self.asset_ids, ignore_val):
-                reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
-                reader.read_data(self.points, ignore_val=i_v)
+            # GDAL will raise a RuntimeError if it can't open files,
+            # in which case we write to the error log and roll back
+            # all data read for the item because we can't guarantee a clean read.
+            try:
+                for asset_id, i_v in zip(self.asset_ids, ignore_val):
+                    reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
+                    reader.read_data(self.points, ignore_val=i_v)
+            except RuntimeError:
+                err_msg = f"Failed to read data from {self.item.id}. "
+                err_msg += "The stack trace is:\n"
+                err_msg += traceback.format_exc()
+                logging.error(err_msg)
+                self.reset()
 
     
     def get_points(self):
@@ -726,11 +751,11 @@ class ItemPoints:
 
     def reset(self):
         """
-        Remove the statistics for every point.
-
+        Remove this item's statistics from every point.
+        
         """
         for pt in self.points:
-            pt.reset()
+            pt.reset(item=self.item)
 
 
 ##############################################
@@ -762,7 +787,7 @@ class ItemStats:
         """Constructor."""
         self.pt = pt
         self.item = item
-        self.stats = {}
+        self.reset()
 
     
     def add_data(self, arr_info):
@@ -782,11 +807,7 @@ class ItemStats:
         arr_info : asset_reader.ArrayInfo
 
         """
-        if STATS_RAW not in self.stats:
-            self.stats[STATS_RAW] = []
         self.stats[STATS_RAW].append(arr_info.data)
-        if STATS_ARRAYINFO not in self.stats:
-            self.stats[STATS_ARRAYINFO] = []
         self.stats[STATS_ARRAYINFO].append(arr_info)
 
     
@@ -830,7 +851,7 @@ class ItemStats:
             warnings.filterwarnings(
                 'ignore', message='Warning: converting a masked element to nan.',
                 category=UserWarning)
-            # STATS_RAW is already populated.
+            # STATS_RAW is already populated, or it is an empty list.
             stats_list = [
                 s_s for s_s in std_stats if \
                 s_s not in [STATS_RAW, STATS_ARRAYINFO]]
@@ -847,23 +868,34 @@ class ItemStats:
         """
         Return the values for the requested statistic.
 
-        calc_stats() must have been called first.
-
+        Return an empty list if stat_name is a standard statistic or
+        STATS_RAW or STATS_ARRAYINFO and
+        calc_stats() has not been called or read_data() failed.
+        
+        Return None if stat_name is a user statistic and
+        calc_stats() has not been called or read_data() failed.
+        
         Parameters
         ----------
         stat_name : string
             The name of the statistic to get
 
         """
-        return self.stats[stat_name]
+        ret_val = [] if stat_name in STATS_STD else None
+        if stat_name in self.stats:
+            ret_val = self.stats[stat_name]
+        return ret_val
 
 
     def reset(self):
         """
-        Delete all previously calculated stats and raw arrays.
+        Delete all previously calculated stats and raw arrays for this item,
+        and reset the STATS_RAW and STATS_ARRAYINFO stats to empty lists.
 
         """
         self.stats = {}
+        self.stats[STATS_RAW] = []
+        self.stats[STATS_ARRAYINFO] = []
 
 
 ################################################
