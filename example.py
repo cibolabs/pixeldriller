@@ -9,7 +9,7 @@ in conjunction with the documentation for pixdrill.drill().
 import datetime
 from osgeo import osr
 
-from pixdrill import pixelstac
+from pixdrill import drill
 from pixdrill import pointstats
 
 
@@ -162,7 +162,7 @@ def run_example():
     aot_img = get_image_path("S2A_54HVE_20220730_0_L2A", "AOT")
     wvp_img = get_image_path("S2A_54HVE_20220730_0_L2A", "WVP")
     # Drill the rasters.
-    pixelstac.drill(
+    drill.drill(
         points, images=[aot_img, wvp_img],
         stac_endpoint=endpoint, raster_assets=['B02', 'B11'],
         collections=collections,

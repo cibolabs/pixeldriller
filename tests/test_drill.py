@@ -1,9 +1,9 @@
-"""Tests for pixelstac.py"""
+"""Tests for drill.py"""
 
 # TODO: add tests that handle geometry that cuts across the anti-meridian.
 # See section 3.1.9 in https://www.rfc-editor.org/rfc/rfc7946#section-3.1
 
-from pixdrill import pixelstac
+from pixdrill import drill
 from pixdrill import pointstats
 
 from .fixtures import point_albers, point_wgs84
@@ -13,9 +13,9 @@ from .fixtures import COLLECTIONS, STAC_ENDPOINT, get_stac_client
 
 
 def test_assign_points_to_stac_items(point_wgs84):
-    """Test pixelstac.stac_search."""
+    """Test drill.assign_points_to_stac_items."""
     # point_wgs84 intersects two items in the time range.
-    item_points_list = pixelstac.assign_points_to_stac_items(
+    item_points_list = drill.assign_points_to_stac_items(
         get_stac_client(), [point_wgs84], COLLECTIONS)
     # curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2A_54HVE_20220730_0_L2A | jq | less
     assert len(item_points_list) == 2
@@ -28,7 +28,7 @@ def test_assign_points_to_stac_items(point_wgs84):
 
 
 def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
-    """Test pixelstac.query."""
+    """Test drill.drill."""
     # The test is fairly simple, just see that the expected number of
     # PointStats and ItemStats instances were created. The other tests cover
     # the other functions that test_query calls.
@@ -38,7 +38,7 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     def user_range(array_info, item, pt):
         return [a_info.data.max() - a_info.data.min() for a_info in array_info]
     user_stats = [("USER_RANGE", user_range)]
-    pixelstac.drill(
+    drill.drill(
         [point_albers, point_wgs84, point_intersects], images=[real_image_path],
         stac_endpoint=STAC_ENDPOINT, raster_assets=['B02', 'B03'],
         collections=COLLECTIONS, std_stats=std_stats, user_stats=user_stats)
@@ -76,8 +76,8 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
 
 def test_assign_points_to_images(
     point_intersects, point_outside_bounds_1, real_image_path):
-    """Test pixelstac.assign_points_to_images."""
-    item_points = pixelstac.assign_points_to_images(
+    """Test drill.assign_points_to_images."""
+    item_points = drill.assign_points_to_images(
         [point_intersects, point_outside_bounds_1], [real_image_path])
     assert len(item_points) == 1
     ip = item_points[0]
@@ -91,7 +91,7 @@ def test_assign_points_to_images(
     # The same test, but this time explicitly set the image IDs.
     # Remove the previous items from the point first.
     ap.item_stats = {}
-    item_points = pixelstac.assign_points_to_images(
+    item_points = drill.assign_points_to_images(
         [point_intersects, point_outside_bounds_1], [real_image_path],
         image_ids=['real_image'])
     assert len(item_points) == 1

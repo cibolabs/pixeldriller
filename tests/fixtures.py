@@ -6,7 +6,7 @@ import pytest
 from osgeo import osr
 from pystac_client import Client
 
-from pixdrill import pixelstac
+from pixdrill import drill
 from pixdrill.pointstats import Point, ROI_SHP_SQUARE, ROI_SHP_CIRCLE
 
 # We use Element84's STAC endpoint and search the sentinel-s2-l2a-cogs
@@ -180,7 +180,7 @@ def point_one_item_singular():
 @pytest.fixture
 def point_intersects():
     """
-    Create a point in WGS 84 that returns that is known to intersect
+    Create a point in WGS 84 that is known to intersect
     the real_item below. It's the same as point_one_item above, but
     without the side-effect of having the real_item attached to it
     (see real_item below).
@@ -274,7 +274,7 @@ def point_outside_bounds_2():
 @pytest.fixture()
 def point_outside_bounds_3():
     """
-    A point whose ROI is entirely outside the maximum LR extents
+    A point whose ROI is entirely outside the maximum (lower-right) extents
     of the real_item defined below.
 
     """
@@ -291,7 +291,7 @@ def point_outside_bounds_3():
 @pytest.fixture
 def point_all_nulls():
     """
-    A point whose ROI contains a all null values when it intersects the
+    A point whose ROI contains all null values when it intersects the
     real_item defined below.
 
     """
@@ -321,11 +321,11 @@ def fake_item():
 @pytest.fixture
 def real_item(point_one_item):
     """
-    Return a real Item by calling pixelstac.stac_search using the
+    Return a real Item by calling drill.assign_points_to_stac_items using the
     earth-search endpoint on the sentinel-s2-l2a-cogs collection.
 
-    Of course, this assumes that pixelstac.stac_search is functioning
-    as expected - see test_pixelstac.test_stac_search.
+    Of course, this assumes that drill.assign_points_to_stac_items is functioning
+    as expected - see test_drill.test_assign_points_to_stac_items.
 
     A side-effect of calling assign_points_to_stac_items() to find this
     real_item is that the item is attached to point_one_item,
@@ -338,7 +338,7 @@ def real_item(point_one_item):
     # https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif
     # Note that we return a pystac.StacItem, so the raster_assets here have
     # no effect; they're only needed by assign_points_to_stac_items.
-    item_points = pixelstac.assign_points_to_stac_items(
+    item_points = drill.assign_points_to_stac_items(
         client, [point_one_item], COLLECTIONS)
     return item_points[0].get_item()
 
