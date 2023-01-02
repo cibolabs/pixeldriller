@@ -2,15 +2,15 @@
 
 """
 Work through this example, starting in the run_example() function,
-in conjunction with the documentation for pixelstac.drill().
+in conjunction with the documentation for pixdrill.drill().
 
 """
 
 import datetime
 from osgeo import osr
 
-from pixelstac import pixelstac
-from pixelstac import pointstats
+from pixdrill import pixelstac
+from pixdrill import pointstats
 
 
 def pt_1():

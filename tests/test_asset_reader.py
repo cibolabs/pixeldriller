@@ -4,7 +4,7 @@ import math
 
 from osgeo import gdal
 
-from pixelstac import asset_reader
+from pixdrill import asset_reader
 from .fixtures import point_one_item, point_partial_nulls, point_all_nulls
 from .fixtures import point_straddle_bounds_1, point_straddle_bounds_2
 from .fixtures import point_outside_bounds_1, point_outside_bounds_2

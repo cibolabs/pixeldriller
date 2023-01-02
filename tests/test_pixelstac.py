@@ -3,8 +3,8 @@
 # TODO: add tests that handle geometry that cuts across the anti-meridian.
 # See section 3.1.9 in https://www.rfc-editor.org/rfc/rfc7946#section-3.1
 
-from pixelstac import pixelstac
-from pixelstac import pointstats
+from pixdrill import pixelstac
+from pixdrill import pointstats
 
 from .fixtures import point_albers, point_wgs84
 from .fixtures import point_one_item, point_outside_bounds_1

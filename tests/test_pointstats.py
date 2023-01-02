@@ -4,7 +4,7 @@ import pytest
 import numpy
 from osgeo import osr
 
-from pixelstac import pointstats
+from pixdrill import pointstats
 from .fixtures import point_wgs84, point_wgs84_buffer_degrees
 from .fixtures import point_albers, point_albers_buffer_degrees
 from .fixtures import point_one_item, point_partial_nulls, point_all_nulls

@@ -1,6 +1,6 @@
-TAG=pixelstac:dev
+TAG=pixeldriller:dev
 PWD=$(shell pwd)
-WORKDIR=/root/pixelstac # working directing inside the container
+WORKDIR=/root/pixeldriller # working directing inside the container
 
 default: build-dev
 
