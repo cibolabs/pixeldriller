@@ -12,7 +12,7 @@ import logging
 import numpy
 from osgeo import osr
 
-from . import asset_reader
+from . import image_reader
 
 
 ##############################################
@@ -172,9 +172,9 @@ class Point:
     def add_data(self, item, arr_info):
         """
         Each point is associated with a region of interest.
-        arr_info is the asset_reader.ArrayInfo object created when reading pixel
+        arr_info is the image_reader.ArrayInfo object created when reading pixel
         data from one of the item's assets.
-        See asset_reader.AssetReader.read_roi().
+        See image_reader.AssetReader.read_roi().
 
         Calls add_data() on the item's ItemStats.add_data() function.
 
@@ -187,7 +187,7 @@ class Point:
         ----------
         item : pystac.Item or ImageItem object
             The item to add to this point
-        arr_info : asset_reader.ArrayInfo
+        arr_info : image_reader.ArrayInfo
             Info about the data
 
         """
@@ -211,7 +211,7 @@ class Point:
         bool
 
         """
-        iinfo = asset_reader.ImageInfo(ds)
+        iinfo = image_reader.ImageInfo(ds)
         img_srs = osr.SpatialReference()
         img_srs.ImportFromWkt(iinfo.projection)
         pt_x, pt_y = self.transform(img_srs)
@@ -649,7 +649,7 @@ class ItemPoints:
         A single value is used for all bands in the image.
         None means to use the image band's no data value.
 
-        The reading is done by asset_reader.AssetReader.read_data().
+        The reading is done by image_reader.AssetReader.read_data().
 
         Parameters
         ----------
@@ -665,7 +665,7 @@ class ItemPoints:
         read_ok = True
         if isinstance(self.item, ImageItem):
             # Read bands from an image
-            reader = asset_reader.AssetReader(self.item)
+            reader = image_reader.AssetReader(self.item)
             if ignore_val is not None:
                 if isinstance(ignore_val, list):
                     errmsg = "Passing a list of ignore_vals when reading from " \
@@ -698,10 +698,10 @@ class ItemPoints:
             # all data read for the item because we can't guarantee a clean read.
             try:
                 for asset_id, i_v in zip(self.asset_ids, ignore_val):
-                    reader = asset_reader.AssetReader(self.item, asset_id=asset_id)
+                    reader = image_reader.AssetReader(self.item, asset_id=asset_id)
                     reader.read_data(self.points, ignore_val=i_v)
             except RuntimeError:
-                fp = asset_reader.get_asset_filepath(self.item, asset_id)
+                fp = image_reader.get_asset_filepath(self.item, asset_id)
                 err_msg = f"Failed to read data for item {self.item.id} from {fp}. "
                 err_msg += "The stack trace is:\n"
                 err_msg += traceback.format_exc()
@@ -808,7 +808,7 @@ class ItemStats:
     
     def add_data(self, arr_info):
         """
-        Add the asset_reader.ArrayInfo object.
+        Add the image_reader.ArrayInfo object.
 
         Elements are added to two of the stats dictionary's entries::
 
@@ -820,7 +820,7 @@ class ItemStats:
 
         Parameters
         ----------
-        arr_info : asset_reader.ArrayInfo
+        arr_info : image_reader.ArrayInfo
 
         """
         self.stats[STATS_RAW].append(arr_info.data)
