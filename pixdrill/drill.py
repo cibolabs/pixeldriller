@@ -26,6 +26,7 @@ from osgeo import gdal
 from pystac_client import Client
 
 from . import drillpoints
+from . import drillstats
 
 class PixelStacError(Exception): pass
 
@@ -60,7 +61,7 @@ def drill(
     Familiarise yourself with the concepts of a Point's region of interest and
     temporal window by reading the drillpoints.Point documentation.
 
-    std_stats is a list of standard stats defined in the drillpoints module
+    std_stats is a list of standard stats defined in the drillstats module
     with the STATS_* attributes. To use the standard statistics,
     every raster to be read must be a single-band raster.
  
@@ -90,7 +91,7 @@ def drill(
 
     With the statistics calculated, you retrieve their values point-by-point.
     The Point class's get_stats() function returns a dictionary of
-    drillpoints.ItemStats objects, keyed by the STAC Item's ID. So, the
+    drillstats.ItemStats objects, keyed by the STAC Item's ID. So, the
     dictionary's length is matches the number of STAC Items that the
     Point intersects. The zonal statistics are retrieved using the ItemStats
     get_stats() function, passing it the statistic's name. For example::
@@ -98,22 +99,22 @@ def drill(
         item_stats_dict = pt.get_stats()
         for item_id, item_stats in item_stats_dict.items():
             print(f"    Item ID={item_id}") # The pystac.item.Item
-            print(f"        Raw arrays : {item_stats.get_stats(drillpoints.STATS_RAW)}")
-            print(f"        Mean values: {item_stats.get_stats(drillpoints.STATS_MEAN)}")
-            print(f"        Counts     : {item_stats.get_stats(drillpoints.STATS_COUNT)}")
-            print(f"        Null Counts: {item_stats.get_stats(drillpoints.STATS_COUNTNULL)}")
+            print(f"        Raw arrays : {item_stats.get_stats(drillstats.STATS_RAW)}")
+            print(f"        Mean values: {item_stats.get_stats(drillstats.STATS_MEAN)}")
+            print(f"        Counts     : {item_stats.get_stats(drillstats.STATS_COUNT)}")
+            print(f"        Null Counts: {item_stats.get_stats(drillstats.STATS_COUNTNULL)}")
             print(f"        My Stat    : {item_stats.get_stats("MY STAT")})
 
     A few things to note in this example:
     
     - the std_stats argument passed to drill() is
-      [drillpoints.STATS_MEAN, drillpoints.STATS_COUNT, drillpoints.STATS_COUNTNULL]
+      [drillstats.STATS_MEAN, drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
     - the user_stats argument defines the 'MY_STAT' statistic and its
       corresponding function name: [('MY_STAT', my_stat_function)]
     - the numpy masked arrays are retrievable from the ItemStats.get_stats()
-      function with drillpoints.STATS_RAW - these are always supplied
+      function with drillstats.STATS_RAW - these are always supplied
     - likewise, the ArrayInfo object is retrievable from the ItemStats.get_stats()
-      function with drillpoints.STATS_ARRAYINFO 
+      function with drillstats.STATS_ARRAYINFO 
 
     Additional implementation details.
 
@@ -150,7 +151,7 @@ def drill(
     nearest_n : integer
         How many of the nearest matching records to use
     std_stats : sequence of integers
-        Constants from the ``drillpoints`` module (STATS_MEAN, STATS_STDEV etc)
+        Constants from the ``drillstats`` module (STATS_MEAN, STATS_STDEV etc)
         defining which 'standard' statistics to extract
     user_stats : function
         A user defined function as specified above

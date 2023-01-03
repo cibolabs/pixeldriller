@@ -11,6 +11,7 @@ from osgeo import osr
 
 from pixdrill import drill
 from pixdrill import drillpoints
+from pixdrill import drillstats
 
 
 def pt_1():
@@ -154,8 +155,8 @@ def run_example():
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
     std_stats = [
-        drillpoints.STATS_MEAN,
-        drillpoints.STATS_COUNT, drillpoints.STATS_COUNTNULL]
+        drillstats.STATS_MEAN,
+        drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
     user_stats = [("USER_RANGE", user_range)]
     points = [pt_1(), pt_2(), pt_3(), pt_4()]
     # Direct-read these images that contain pt_2.
@@ -173,14 +174,14 @@ def run_example():
         print(f"with ID {pid}")
         for item_id, item_stats in pt.get_stats().items():
             print(f"    Item ID={item_id}") # The pystac.Item or ImageItem ID
-            array_info = item_stats.get_stats(drillpoints.STATS_ARRAYINFO)
+            array_info = item_stats.get_stats(drillstats.STATS_ARRAYINFO)
             # The asset_id for arrays extracted from Images is None.
             asset_ids = [a_info.asset_id for a_info in array_info]
             print(f"        Asset IDs  : {asset_ids}")
-#            print(f"        Raw arrays: {item_stats.get_stats(drillpoints.STATS_RAW)}")
-            print(f"        Mean values: {item_stats.get_stats(drillpoints.STATS_MEAN)}")
-            print(f"        Counts     : {item_stats.get_stats(drillpoints.STATS_COUNT)}")
-            print(f"        Null Counts: {item_stats.get_stats(drillpoints.STATS_COUNTNULL)}")
+#            print(f"        Raw arrays: {item_stats.get_stats(drillstats.STATS_RAW)}")
+            print(f"        Mean values: {item_stats.get_stats(drillstats.STATS_MEAN)}")
+            print(f"        Counts     : {item_stats.get_stats(drillstats.STATS_COUNT)}")
+            print(f"        Null Counts: {item_stats.get_stats(drillstats.STATS_COUNTNULL)}")
             print(f"        Ranges     : {item_stats.get_stats('USER_RANGE')}")
 
 if __name__ == '__main__':
