@@ -60,8 +60,9 @@ class Point:
         the distance from the point that defines the region of interest
     shape : int
         ROI_SHP_SQUARE or ROI_SHP_CIRCLE
-    item_stats : dictionary of drillstats.PointStats
-        Keyed on the item id
+    items : dictionary
+        The items associated with this point, keyed by the Item ID.
+    stats : drillstats.PointStats
     buffer_degrees : bool
         True if the buffer distance is in degrees or False if it is in metres
 
@@ -105,8 +106,9 @@ class Point:
         self.end_date = self.t + t_delta
         self.buffer = buffer
         self.shape = shape
-        self.item_stats = {}
         self.buffer_degrees = buffer_degrees
+        self.items = {} # TODO: Is this needed?
+        self.stats = drillstats.PointStats(self)
 
 
     def add_items(self, items):
@@ -122,14 +124,17 @@ class Point:
         items : a sequence of pystac.Item or ImageItem objects
 
         """
+        # TODO: Is this needed?
         for item in items:
-            if item.id not in self.item_stats:
-                self.item_stats[item.id] = drillstats.PointStats(self, item)
+            if item.id not in self.items:
+                self.items[item.id] = item
+#                self.item_stats[item.id] = drillstats.PointStats(self, item)
 
     
     def add_data(self, item, arr_info):
         """
-        Each point is associated with a region of interest.
+        Attach raster data to this Point.
+
         arr_info is the image_reader.ArrayInfo object created when reading pixel
         data from one of the item's assets.
         See image_reader.ImageReader.read_roi().
@@ -149,7 +154,9 @@ class Point:
             Info about the data
 
         """
-        self.item_stats[item.id].add_data(arr_info)
+        # TODO: This seems silly. We should just call pt.stats.add_data.
+        self.stats.add_data(item, arr_info)
+#        self.item_stats[item.id].add_data(arr_info)
         
 
     def intersects(self, ds):
@@ -207,94 +214,104 @@ class Point:
             Where func is the user func to calculate a statistic
 
         """
-        self.item_stats[item.id].calc_stats(
-            std_stats=std_stats, user_stats=user_stats)
+        # TODO: This seems silly. Can we just call pt.stats.calc_stats()?
+        self.stats.calc_stats(item.id, std_stats=std_stats, user_stats=user_stats)
+#        self.item_stats[item.id].calc_stats(
+#           std_stats=std_stats, user_stats=user_stats)
 
 
-    def get_item_ids(self):
-        """
-        Return a list of the IDs of the pystac.Item items associated with this point.
-
-        Returns
-        -------
-        list of ids
-
-        """
-        return list(self.item_stats.keys())
-
-
-    def get_stat(self, item_id, stat_name):
-        """
-        Get a the requested statistic for the item.
-
-        Parameters
-        ----------
-
-        item_id : string
-            Id of the item to return
-        stat_name : string
-            one of the STAT constants
-
-        Returns
-        -------
-        float
-            The value of the statistic
-
-        """
-        item_stats = self.get_item_stats(item_id)
-        return item_stats.get_stats(stat_name)
+#    def get_item_ids(self):
+#        """
+#        Return a list of the IDs of the pystac.Item items associated with this point.
+#
+#        Returns
+#        -------
+#        list of ids
+#
+#        """
+#        # TODO: Silly. Call point_stats.get_item_ids(); or pt.stats.keys()
+#        return list(self.item_stats.keys())
 
 
-    def get_stats(self):
-        """
-        Return a dictionary with all stats for this point. The dictionary's
-        keys are the item IDs, and its values are drillstats.PointStats objects.
-
-        Returns
-        -------
-        dictionary of PointStats objects
-            Keyed on the item id
-
-        """
-        return self.item_stats
-
-
-    def reset(self, item=None):
-        """
-        Remove all stats from the attached drillstats.PointStats objects.
-
-        By default, the stats for all items are removed, but you can
-        restrict it to just the given item.
-
-        The item itself remains attached to the point.
-
-        """
-        if item is not None:
-            stats = self.item_stats[item.id]
-            stats.reset()
-        else:
-            for stats in self.item_stats.values():
-                stats.reset()
+#    def get_stat(self, item_id, stat_name):
+#        """
+#        Get a the requested statistic for the item.
+#
+#        Parameters
+#        ----------
+#
+#        item_id : string
+#            Id of the item to return
+#        stat_name : string
+#            one of the STAT constants
+#
+#        Returns
+#        -------
+#        float
+#            The value of the statistic
+#
+#        """
+#        # TODO: Silly, just call pt.stats.get_stats(stat_name, item_id)
+##        item_stats = self.get_item_stats(item_id)
+#        return self.stats.get_stats(stat_name, item_id)
+##        return item_stats.get_stats(stat_name)
 
 
-    def get_item_stats(self, item_id):
-        """
-        Return the drillstats.PointStats object for this point that corresponds
-        to the required Item ID.
+#    def get_stats(self):
+#        """
+#        Return a dictionary with all stats for this point. The dictionary's
+#        keys are the item IDs, and its values are drillstats.PointStats objects.
+#
+#        Returns
+#        -------
+#        dictionary of PointStats objects
+#            Keyed on the item id
+#
+#        """
+#        # TODO: Silly. Suggest using pt.stats.item_stats.
+#        return self.stats.item_stats
 
-        Parameters
-        ----------
 
-        item_id : string
-            The Item ID
+#    def reset(self, item=None):
+#        """
+#        Remove all stats from the attached drillstats.PointStats objects.
+#
+#        By default, the stats for all items are removed, but you can
+#        restrict it to just the given item.
+#
+#        The item itself remains attached to the point.
+#
+#        """
+#        # TODO: Silly. Just call stats.reset() for each item.
+#        self.stats.reset(item)
+##        if item is not None:
+##            stats = self.stats.item_stats[item.id]
+##            stats.reset()
+##        else:
+##            for stats in self.item_stats.values():
+##                stats.reset()
 
-        Returns
-        -------
 
-        PointStats
-
-        """
-        return self.item_stats[item_id]
+#    def get_item_stats(self, item_id):
+#        """
+#        Return the drillstats.PointStats object for this point that corresponds
+#        to the required Item ID.
+#
+#        Parameters
+#        ----------
+#
+#        item_id : string
+#            The Item ID
+#
+#        Returns
+#        -------
+#
+#        PointStats
+#
+#        """
+#        # Silly, just call stats.item_stats[item_id], noting that the returned
+#        # object is a dictionary.
+#        return self.item_stats[item_id]
 
 
     def transform(self, dst_srs, src_srs=None, x=None, y=None):
@@ -607,7 +624,7 @@ class ItemPoints:
         ----------
         ignore_val : number or None
             Use the given number as the ignore value or all bands. If none,
-            use the images nodata value.
+            use the image's nodata value.
 
         Returns
         -------
@@ -717,10 +734,10 @@ class ItemPoints:
         return self.item
 
 
-    def reset(self):
+    def reset_stats(self):
         """
-        Remove this item's statistics from every point.
+        Reset the stats for this item for all points.
         
         """
         for pt in self.points:
-            pt.reset(item=self.item)
+            pt.stats.reset(self.item)

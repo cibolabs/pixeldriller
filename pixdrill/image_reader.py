@@ -277,6 +277,7 @@ class ImageReader:
         # number of points per image increases.
         for pt in points:
             arr_info = self.read_roi(pt, ignore_val=ignore_val)
+            # TODO: Can I just call pt.stats.add_data ?
             pt.add_data(self.item, arr_info)
 
 

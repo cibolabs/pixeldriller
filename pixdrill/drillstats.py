@@ -39,12 +39,16 @@ STATS_STD=[STATS_MEAN, STATS_STDEV, STATS_COUNT, STATS_COUNT]
 """
 List of standard statistics.
 """
+ITEM_KEY="ITEM"
+"""
+For internal use only, it is the symbol used as the key for storing the
+reference to the Item in PointStats.
+"""
 
 
 class PointStats:
     """
-    A data structure that holds the statistics of the pixel arrays
-    extracted from each image for a single item about a Point.
+    Holds the statistics of the pixel arrays for a Point for one or more Items.
 
     Attributes
     ----------
@@ -53,49 +57,68 @@ class PointStats:
         the point associated with this PointStats object
     item : pystac.item.Item or ImageItem
         the item to hold the stats for
-    stats : dictionary
+    item_stats : dictionary
         a dictionary containing the raster statistics within the region
-        of interest of the associated point.
-        The dictionary's keys are defined by names of the std_stats and
-        user_stats passed to PointStats.calc_stats(). The dictionary's values are
-        a list of the return values of the corresponding stats functions. There
-        is one element in the list for each raster asset.
+        of interest of the associated point. The key is the Item ID, and the
+        value is another dictionary. The second dictionary's keys are the names
+        of the std_stats and user_stats passed to PointStats.calc_stats().
+        Its values are a list of the return values of the corresponding stats
+        functions. If the item is a STAC Item, there may be multiple elements
+        in the list corresponding to the drilled raster assets.
     
     """
-    def __init__(self, pt, item):
+    def __init__(self, pt):
         """Constructor."""
         self.pt = pt
-        self.item = item
-        self.reset()
+#        self.item = item
+        self.item_stats = {}
+        # What are the implications for not setting the STATS_RAW and
+        # STATS_ARRAYINFO objects to empty lists?
+        # The problem occurs when a read_data() fails. Originally the arrays for
+        # the item would have been set to empty lists.
+#        self.reset()
 
     
-    def add_data(self, arr_info):
+    def add_data(self, item, arr_info):
         """
-        Add the image_reader.ArrayInfo object.
+        Add the image_reader.ArrayInfo object as read from a raster of Item's.
 
-        Elements are added to two of the stats dictionary's entries::
+        Elements are appended to the lists that store the Item's statistics::
 
-            stats["STATS_RAW"].append(arr_info.data)
-            stats["STATS_ARRAYINFO"].append(arr_info)
+            item_stats[item.id][STATS_RAW].append(arr_info.data)
+            item_stats[item.id][STATS_ARRAYINFO].append(arr_info)
 
-        arr_info.data is the numpy masked array of data, which contains the
+        where arr_info.data is the numpy masked array of data containing the
         pixels for one of the assets of the item.
+        
+        If item is a STAC Item, then add_data may be called multiple times.
+        Once for each raster asset that is drilled.
 
         Parameters
         ----------
         arr_info : image_reader.ArrayInfo
 
         """
-        self.stats[STATS_RAW].append(arr_info.data)
-        self.stats[STATS_ARRAYINFO].append(arr_info)
+        if item.id in self.item_stats:
+            stats = self.item_stats[item.id]
+        else:
+            stats = {
+                ITEM_KEY: item,
+                STATS_RAW: [],
+                STATS_ARRAYINFO: []}
+            self.item_stats[item.id] = stats
+        stats[STATS_RAW].append(arr_info.data)
+        stats[STATS_ARRAYINFO].append(arr_info)
 
     
-    def calc_stats(self, std_stats=None, user_stats=None):
+    def calc_stats(self, item_id, std_stats=None, user_stats=None):
         """
         Calculate the given list of standard and user-defined statistics
-        on each asset's array of data.
+        for the given item.
 
-        add_data() must be called first, for each raster asset.
+        One of two of this class's functions must have been called first:
+        #. add_data(), for each raster asset in the item
+        #. reset()
 
         std_stats is a list of standard stats to calculate for each point's
         region of interest.
@@ -116,35 +139,39 @@ class PointStats:
 
         Parameters
         ----------
+        item_id: str
+            The Item's ID, for which stats will be calculated.
         std_stats : int
-            A list of STATS_* constants defined in the drillstats module
+            A list of STATS_* constants defined in the drillstats module.
         user_stats : list of (name, func) tuples
-            where func is the user functional to calculate a statistic
+            where func is the user functional to calculate a statistic.
         
         """
+        stats = self.item_stats[item_id]
+        item = stats[ITEM_KEY]
         if std_stats:
             # Check that all arrays are single-band.
             # TODO: Permit std stats being calculated on multi-band images.
             # See https://github.com/cibolabs/pixelstac/issues/30.
-            check_std_arrays(self.item, self.stats[STATS_RAW])
+            check_std_arrays(item, stats[STATS_RAW])
             warnings.filterwarnings(
                 'ignore', message='Warning: converting a masked element to nan.',
                 category=UserWarning)
-            # STATS_RAW is already populated, or it is an empty list.
+            # Assume that STATS_RAW and STATS_ARRAYINFO are already populated
+            # or are empty lists.
             stats_list = [
                 s_s for s_s in std_stats if \
                 s_s not in [STATS_RAW, STATS_ARRAYINFO]]
             for stat_name in stats_list:
                 std_stat_func = STD_STATS_FUNCS[stat_name]
-                self.stats[stat_name] = std_stat_func(
-                    self.stats[STATS_RAW])
+                stats[stat_name] = std_stat_func(stats[STATS_RAW])
         if user_stats:
             for stat_name, stat_func in user_stats:
-                self.stats[stat_name] = stat_func(
-                    self.stats[STATS_ARRAYINFO], self.item, self.pt)
+                stats[stat_name] = stat_func(
+                    stats[STATS_ARRAYINFO], item, self.pt)
 
 
-    def get_stats(self, stat_name):
+    def get_stats(self, stat_name, item_id):
         """
         Return the values for the requested statistic.
         
@@ -164,20 +191,28 @@ class PointStats:
 
         """
         ret_val = [] if stat_name in STATS_STD else None
-        if stat_name in self.stats:
-            ret_val = self.stats[stat_name]
+        stats = self.item_stats[item_id]
+        if stat_name in stats:
+            ret_val = stats[stat_name]
         return ret_val
 
 
-    def reset(self):
+    def reset(self, item):
         """
-        Delete all previously calculated stats and raw arrays for this item,
-        and reset the STATS_RAW and STATS_ARRAYINFO stats to empty lists.
+        Delete all previously calculated stats and raw arrays for the given Item,
+        and reset the STATS_RAW and STATS_ARRAYINFO lists.
+
+        If the Item is not in self.item_stats, then add it. This is convenient
+        if a call to read_data() failed and add_data() was not called.
+        This allows the user to progress through failed reads, delaying the
+        checks until after all reads are done and stats calculated.
 
         """
-        self.stats = {}
-        self.stats[STATS_RAW] = []
-        self.stats[STATS_ARRAYINFO] = []
+        clean_stats = {
+            ITEM_KEY: item,
+            STATS_RAW: [],
+            STATS_ARRAYINFO: []}
+        self.item_stats[item.id] = clean_stats
 
 
 class MultibandAssetError(Exception):
