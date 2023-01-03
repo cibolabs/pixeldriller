@@ -1,5 +1,5 @@
 """
-For reading pixel data and metadata from raster assets.
+For reading pixel data and metadata from images.
 
 """
 
@@ -190,7 +190,7 @@ class ArrayInfo:
             f"{self.y_res=})" \
 
 
-class AssetReaderError(Exception): pass
+class ImageReaderError(Exception): pass
 
 
 def get_asset_filepath(item, asset_id):
@@ -201,10 +201,10 @@ def get_asset_filepath(item, asset_id):
     return f"/vsicurl/{item.assets[asset_id].href}"
 
 
-class AssetReader:
+class ImageReader:
     """
     Encapsulates the GDAL Dataset object and metadata (an ImageInfo object) for
-    a STAC asset or raster image. It also contains the algorithms
+    a STAC raster asset or raster image. It also contains the algorithms
     used to read arrays of pixels around a list of points.
 
     Attributes
@@ -223,7 +223,7 @@ class AssetReader:
     """
     def __init__(self, item, asset_id=None):
         """
-        Construct an AssetReader object.
+        Construct an ImageReader object.
 
         item is a pystac.Item or ImageItem object. If it is a pystac.Item
         object then you must supply the asset_id. If it is a drillpoints.ImageItem
@@ -451,7 +451,7 @@ class AssetReader:
 
         Currently only supports ROI_SHP_SQUARE and ROI_SHP_CIRCLE. No masking
         is done in the case of squares. For circles, the size of the array
-        must be greater than four pixels. Raise an AssetReaderError if it is not.
+        must be greater than four pixels. Raise an ImageReaderError if it is not.
 
         Parameters
         ----------
@@ -469,7 +469,7 @@ class AssetReader:
             pass
         elif pt.shape==drillpoints.ROI_SHP_CIRCLE:
             if arr_info.data.size < 5:
-                raise AssetReaderError(
+                raise ImageReaderError(
                     "There must be at least 4 pixels in the array to mask it " \
                     "using a circular ROI.")
             # Include all pixels inside the circle's boundary and those
@@ -509,7 +509,7 @@ class AssetReader:
                 arr_info.data[idx][px_outside] = nodata_val
                 arr_info.data.mask[idx][px_outside] = True
         else:
-            raise AssetReaderError(f"Unknown ROI shape {pt.shape}")
+            raise ImageReaderError(f"Unknown ROI shape {pt.shape}")
     
     
     def wld2pix(self, geox, geoy):

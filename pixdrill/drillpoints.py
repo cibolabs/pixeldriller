@@ -132,7 +132,7 @@ class Point:
         Each point is associated with a region of interest.
         arr_info is the image_reader.ArrayInfo object created when reading pixel
         data from one of the item's assets.
-        See image_reader.AssetReader.read_roi().
+        See image_reader.ImageReader.read_roi().
 
         Calls add_data() on the item's ItemStats.add_data() function.
 
@@ -601,7 +601,7 @@ class ItemPoints:
         A single value is used for all bands in the image.
         None means to use the image band's no data value.
 
-        The reading is done by image_reader.AssetReader.read_data().
+        The reading is done by image_reader.ImageReader.read_data().
 
         Parameters
         ----------
@@ -617,7 +617,7 @@ class ItemPoints:
         read_ok = True
         if isinstance(self.item, ImageItem):
             # Read bands from an image
-            reader = image_reader.AssetReader(self.item)
+            reader = image_reader.ImageReader(self.item)
             if ignore_val is not None:
                 if isinstance(ignore_val, list):
                     errmsg = "Passing a list of ignore_vals when reading from " \
@@ -650,7 +650,7 @@ class ItemPoints:
             # all data read for the item because we can't guarantee a clean read.
             try:
                 for asset_id, i_v in zip(self.asset_ids, ignore_val):
-                    reader = image_reader.AssetReader(self.item, asset_id=asset_id)
+                    reader = image_reader.ImageReader(self.item, asset_id=asset_id)
                     reader.read_data(self.points, ignore_val=i_v)
             except RuntimeError:
                 fp = image_reader.get_asset_filepath(self.item, asset_id)
