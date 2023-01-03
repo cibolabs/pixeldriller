@@ -60,7 +60,7 @@ class Point:
         the distance from the point that defines the region of interest
     shape : int
         ROI_SHP_SQUARE or ROI_SHP_CIRCLE
-    item_stats : dictionary of drillstats.ItemStats
+    item_stats : dictionary of drillstats.PointStats
         Keyed on the item id
     buffer_degrees : bool
         True if the buffer distance is in degrees or False if it is in metres
@@ -114,7 +114,7 @@ class Point:
         A point might intersect multiple STAC items. Use this function
         to link the point with the items it intersects.
 
-        It initialises an drillstats.ItemStats object for each item and adds it
+        It initialises an drillstats.PointStats object for each item and adds it
         to this Point's item_stats dictionary, which is keyed by the item ID.
 
         Parameters
@@ -124,7 +124,7 @@ class Point:
         """
         for item in items:
             if item.id not in self.item_stats:
-                self.item_stats[item.id] = drillstats.ItemStats(self, item)
+                self.item_stats[item.id] = drillstats.PointStats(self, item)
 
     
     def add_data(self, item, arr_info):
@@ -134,7 +134,7 @@ class Point:
         data from one of the item's assets.
         See image_reader.ImageReader.read_roi().
 
-        Calls add_data() on the item's ItemStats.add_data() function.
+        Calls add_data() on the item's PointStats.add_data() function.
 
         If data were read from multiple assets, then call this function multiple
         times, once for each asset.
@@ -195,7 +195,7 @@ class Point:
         - and the function that is called to calculate it
 
         The request to calculate the statistics is passed to the item's
-        ItemStats.calc_stats() function.
+        PointStats.calc_stats() function.
 
         Parameters
         ----------
@@ -248,11 +248,11 @@ class Point:
     def get_stats(self):
         """
         Return a dictionary with all stats for this point. The dictionary's
-        keys are the item IDs, and its values are drillstats.ItemStats objects.
+        keys are the item IDs, and its values are drillstats.PointStats objects.
 
         Returns
         -------
-        dictionary of ItemStats objects
+        dictionary of PointStats objects
             Keyed on the item id
 
         """
@@ -261,7 +261,7 @@ class Point:
 
     def reset(self, item=None):
         """
-        Remove all stats from the attached drillstats.ItemStats objects.
+        Remove all stats from the attached drillstats.PointStats objects.
 
         By default, the stats for all items are removed, but you can
         restrict it to just the given item.
@@ -279,7 +279,7 @@ class Point:
 
     def get_item_stats(self, item_id):
         """
-        Return the drillstats.ItemStats object for this point that corresponds
+        Return the drillstats.PointStats object for this point that corresponds
         to the required Item ID.
 
         Parameters
@@ -291,7 +291,7 @@ class Point:
         Returns
         -------
 
-        ItemStats
+        PointStats
 
         """
         return self.item_stats[item_id]
@@ -551,7 +551,7 @@ class ItemPoints:
         You may experience strange side effects if you don't call reset() on
         an ItemPoints object that previously had assets assigned.
         The underlying behaviour is that arrays for the new set of asset_ids
-        will be appended to the existing arrays for each point's ItemStats objects.
+        will be appended to the existing arrays for each point's PointStats objects.
         Then, on the next calc_stats() call, the stats for all previously read
         data will be recalculated in addition to the new stats for the new assets.
 

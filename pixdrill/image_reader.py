@@ -256,7 +256,7 @@ class ImageReader:
         The data is read using read_roi(), passing it the ignore_val.
         The data is attached to each point.
 
-        Once read, the ItemStats object (corresponding to this asset's Item ID)
+        Once read, the PointStats object (corresponding to this asset's Item ID)
         of every Point will contain the ArrayInfo object for data read.
 
         Parameters

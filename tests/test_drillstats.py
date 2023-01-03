@@ -13,7 +13,7 @@ from .fixtures import point_straddle_bounds_1, point_outside_bounds_1
 def test_item_stats(point_one_item, real_item):
     """Test construction of the ItemStats object."""
     # drillpoints creates a list of ItemStats objects.
-    item_stats = drillstats.ItemStats(point_one_item, real_item)
+    item_stats = drillstats.PointStats(point_one_item, real_item)
     assert item_stats.item.id == "S2B_53HPV_20220728_0_L2A"
     assert item_stats.stats == {
         drillstats.STATS_RAW: [],

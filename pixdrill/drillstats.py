@@ -41,16 +41,16 @@ List of standard statistics.
 """
 
 
-class ItemStats:
+class PointStats:
     """
     A data structure that holds the statistics of the pixel arrays
-    extracted from each asset for a single item about a Point.
+    extracted from each image for a single item about a Point.
 
     Attributes
     ----------
 
     pt : Point object
-        the point associated with this ItemStats object
+        the point associated with this PointStats object
     item : pystac.item.Item or ImageItem
         the item to hold the stats for
     stats : dictionary
@@ -307,5 +307,5 @@ STD_STATS_FUNCS = {
 }
 """
 A mapping of the standard stats to their functions.
-STATS_RAW is a special cased and handled in ItemStats.add_data().
+STATS_RAW is a special cased and handled in PointStats.add_data().
 """

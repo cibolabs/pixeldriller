@@ -91,9 +91,9 @@ def drill(
 
     With the statistics calculated, you retrieve their values point-by-point.
     The Point class's get_stats() function returns a dictionary of
-    drillstats.ItemStats objects, keyed by the STAC Item's ID. So, the
+    drillstats.PointStats objects, keyed by the STAC Item's ID. So, the
     dictionary's length is matches the number of STAC Items that the
-    Point intersects. The zonal statistics are retrieved using the ItemStats
+    Point intersects. The zonal statistics are retrieved using the PointStats
     get_stats() function, passing it the statistic's name. For example::
 
         item_stats_dict = pt.get_stats()
@@ -111,9 +111,9 @@ def drill(
       [drillstats.STATS_MEAN, drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
     - the user_stats argument defines the 'MY_STAT' statistic and its
       corresponding function name: [('MY_STAT', my_stat_function)]
-    - the numpy masked arrays are retrievable from the ItemStats.get_stats()
+    - the numpy masked arrays are retrievable from the PointStats.get_stats()
       function with drillstats.STATS_RAW - these are always supplied
-    - likewise, the ArrayInfo object is retrievable from the ItemStats.get_stats()
+    - likewise, the ArrayInfo object is retrievable from the PointStats.get_stats()
       function with drillstats.STATS_ARRAYINFO 
 
     Additional implementation details.
@@ -175,7 +175,7 @@ def drill(
         image_item_points = assign_points_to_images(points, images)
         item_points.extend(image_item_points)
     # Read the pixel data from the rasters and calculate the stats.
-    # On completion, each point will contain ItemStats objects, with stats
+    # On completion, each point will contain PointStats objects, with stats
     # stats for each item.
     logging.info(f"The {len(points)} points intersect {len(item_points)} items")
     if concurrent:
