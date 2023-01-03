@@ -7,7 +7,7 @@ from osgeo import osr
 from pystac_client import Client
 
 from pixdrill import drill
-from pixdrill.pointstats import Point, ROI_SHP_SQUARE, ROI_SHP_CIRCLE
+from pixdrill.drillpoints import Point, ROI_SHP_SQUARE, ROI_SHP_CIRCLE
 
 # We use Element84's STAC endpoint and search the sentinel-s2-l2a-cogs
 # collection in many tests.

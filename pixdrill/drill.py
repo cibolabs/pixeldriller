@@ -1,5 +1,5 @@
 """
-``pixelstac.drill()`` is the main interface. Most interaction with this package should
+``drill.drill()`` is the main interface. Most interaction with this package should
 be through this interface.
 
 Assumptions:
@@ -8,7 +8,7 @@ Assumptions:
   not require authentication
 - The file server supports range requests
 - If you want to calculate standard statistics then each STAC Item's asset
-  must be a single-band raster
+  must or raster image must contain only one band
 
 It depends on:
 
@@ -25,7 +25,7 @@ from concurrent import futures
 from osgeo import gdal
 from pystac_client import Client
 
-from . import pointstats
+from . import drillpoints
 
 class PixelStacError(Exception): pass
 
@@ -35,7 +35,7 @@ def drill(
     nearest_n=1, std_stats=None, user_stats=None, ignore_val=None,
     concurrent=False):
     """
-    Given a list of pointstats.Point objects, compute the zonal statistics for
+    Given a list of drillpoints.Point objects, compute the zonal statistics for
     the specified rasters.
     
     Rasters are specified in one of two ways. Firstly, use the images
@@ -58,9 +58,9 @@ def drill(
     See example.py for typical example usage.
 
     Familiarise yourself with the concepts of a Point's region of interest and
-    temporal window by reading the pointstats.Point documentation.
+    temporal window by reading the drillpoints.Point documentation.
 
-    std_stats is a list of standard stats defined in the pointstats module
+    std_stats is a list of standard stats defined in the drillpoints module
     with the STATS_* attributes. To use the standard statistics,
     every raster to be read must be a single-band raster.
  
@@ -77,7 +77,7 @@ def drill(
       asset_reader.ArrayInfo
     - item is the pystac.Item object (for STAC rasters) or ImageItem for 
       image. pystac.Item is part of the PySTAC package.
-    - pt is the pointstats.Point object from around which the pixels
+    - pt is the drillpoints.Point object from around which the pixels
       were extracted
 
     Each ArrayInfo instance has a data attribute that contains a 3D numpy
@@ -90,7 +90,7 @@ def drill(
 
     With the statistics calculated, you retrieve their values point-by-point.
     The Point class's get_stats() function returns a dictionary of
-    pointstats.ItemStats objects, keyed by the STAC Item's ID. So, the
+    drillpoints.ItemStats objects, keyed by the STAC Item's ID. So, the
     dictionary's length is matches the number of STAC Items that the
     Point intersects. The zonal statistics are retrieved using the ItemStats
     get_stats() function, passing it the statistic's name. For example::
@@ -98,22 +98,22 @@ def drill(
         item_stats_dict = pt.get_stats()
         for item_id, item_stats in item_stats_dict.items():
             print(f"    Item ID={item_id}") # The pystac.item.Item
-            print(f"        Raw arrays : {item_stats.get_stats(pointstats.STATS_RAW)}")
-            print(f"        Mean values: {item_stats.get_stats(pointstats.STATS_MEAN)}")
-            print(f"        Counts     : {item_stats.get_stats(pointstats.STATS_COUNT)}")
-            print(f"        Null Counts: {item_stats.get_stats(pointstats.STATS_COUNTNULL)}")
+            print(f"        Raw arrays : {item_stats.get_stats(drillpoints.STATS_RAW)}")
+            print(f"        Mean values: {item_stats.get_stats(drillpoints.STATS_MEAN)}")
+            print(f"        Counts     : {item_stats.get_stats(drillpoints.STATS_COUNT)}")
+            print(f"        Null Counts: {item_stats.get_stats(drillpoints.STATS_COUNTNULL)}")
             print(f"        My Stat    : {item_stats.get_stats("MY STAT")})
 
     A few things to note in this example:
     
     - the std_stats argument passed to drill() is
-      [pointstats.STATS_MEAN, pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
+      [drillpoints.STATS_MEAN, drillpoints.STATS_COUNT, drillpoints.STATS_COUNTNULL]
     - the user_stats argument defines the 'MY_STAT' statistic and its
       corresponding function name: [('MY_STAT', my_stat_function)]
     - the numpy masked arrays are retrievable from the ItemStats.get_stats()
-      function with pointstats.STATS_RAW - these are always supplied
+      function with drillpoints.STATS_RAW - these are always supplied
     - likewise, the ArrayInfo object is retrievable from the ItemStats.get_stats()
-      function with pointstats.STATS_ARRAYINFO 
+      function with drillpoints.STATS_ARRAYINFO 
 
     Additional implementation details.
 
@@ -135,7 +135,7 @@ def drill(
       
     Parameters
     ----------
-    points : sequence of ``pointstats.Point`` objects
+    points : sequence of ``drillpoints.Point`` objects
         Points to drill the specified STAC endpoint/rasters for
     images : sequence of strings
         GDAL understood filenames to also drill in
@@ -150,7 +150,7 @@ def drill(
     nearest_n : integer
         How many of the nearest matching records to use
     std_stats : sequence of integers
-        Constants from the ``pointstats`` module (STATS_MEAN, STATS_STDEV etc)
+        Constants from the ``drillpoints`` module (STATS_MEAN, STATS_STDEV etc)
         defining which 'standard' statistics to extract
     user_stats : function
         A user defined function as specified above
@@ -194,15 +194,15 @@ def drill(
 
 def assign_points_to_images(points, images, image_ids=None):
     """
-    Return a list of pointstats.ItemPoints collections, one for each image
+    Return a list of drillpoints.ItemPoints collections, one for each image
     in the images list.
 
     A point will be added to those ItemPoints collection that it intersects,
-    and a pointstats.ImageItem is also added to the point.
+    and a drillpoints.ImageItem is also added to the point.
 
     Parameters
     ----------
-    points : sequence of ``pointstats.Point`` objects
+    points : sequence of ``drillpoints.Point`` objects
         Points to drill the image for
     images : sequence of strings
         GDAL understood filenames to drill
@@ -211,7 +211,7 @@ def assign_points_to_images(points, images, image_ids=None):
 
     Returns
     -------
-    item_points : list of ``pointstats.ItemPoints`` objects
+    item_points : list of ``drillpoints.ItemPoints`` objects
         The ItemPoints for each image
 
     """
@@ -224,8 +224,8 @@ def assign_points_to_images(points, images, image_ids=None):
         raise PixelStacError(errmsg)
     for image ,image_id in zip(images, image_ids):
         # TODO: update the ImageItem constructor, and write a test.
-        image_item = pointstats.ImageItem(image, id=image_id)
-        ip = pointstats.ItemPoints(image_item)
+        image_item = drillpoints.ImageItem(image, id=image_id)
+        ip = drillpoints.ItemPoints(image_item)
         item_points.append(ip)
         ds = gdal.Open(image, gdal.GA_ReadOnly)
         for pt in points:
@@ -247,10 +247,10 @@ def assign_points_to_stac_items(
     
     If no collections are specified then search all collections in the endpoint.
 
-    Link each Point with its pystac.Items, and create a pointstats.ItemPoints
+    Link each Point with its pystac.Items, and create a drillpoints.ItemPoints
     collection for every item.
 
-    Return the list of pointstats.ItemPoints collections.
+    Return the list of drillpoints.ItemPoints collections.
 
     TODO: permit user-defined properties for filtering the stac search.
     
@@ -259,7 +259,7 @@ def assign_points_to_stac_items(
     
     stac_client : pystac.Client object
         Returned from calling pystac.Client.open(endpoint_url)
-    points : sequence of ``pointstats.Point`` objects
+    points : sequence of ``drillpoints.Point`` objects
         Points to drill the endpoint for
     collections : sequence of strings
         Collections to query provided by the STAC endpoint
@@ -268,7 +268,7 @@ def assign_points_to_stac_items(
 
     Returns
     -------
-    item_points : list of ``pointstats.ItemPoints`` objects
+    item_points : list of ``drillpoints.ItemPoints`` objects
         The ItemPoints for each image
 
     """
@@ -308,7 +308,7 @@ def assign_points_to_stac_items(
         # Group all points for each item together in an ItemPoints collection.
         for item in items:
             if item.id not in item_points:
-                item_points[item.id] = pointstats.ItemPoints(
+                item_points[item.id] = drillpoints.ItemPoints(
                     item, asset_ids=raster_assets)
             item_points[item.id].add_point(pt)
     return list(item_points.values())
@@ -323,10 +323,10 @@ def calc_stats(item_points, std_stats=None, user_stats=None):
     Parameters
     ----------
     
-    item_points : list of ``pointstats.ItemPoints`` objects
+    item_points : list of ``drillpoints.ItemPoints`` objects
         The ItemPoints for each image
     std_stats : sequence of integers
-        Constants from the ``pointstats`` module (STATS_MEAN, STATS_STDEV etc)
+        Constants from the ``drillpoints`` module (STATS_MEAN, STATS_STDEV etc)
         defining which 'standard' statistics to extract
     user_stats : function
         A user defined function as specified above

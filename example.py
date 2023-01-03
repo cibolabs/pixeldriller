@@ -10,7 +10,7 @@ import datetime
 from osgeo import osr
 
 from pixdrill import drill
-from pixdrill import pointstats
+from pixdrill import drillpoints
 
 
 def pt_1():
@@ -21,8 +21,8 @@ def pt_1():
     date, t_delta = create_date(3)
     # Attach some other attributes
     other_atts = {"PointID": "abc123", "OwnerID": "xyz789"}
-    pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    pt = drillpoints.Point(
+        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
@@ -35,8 +35,8 @@ def pt_2():
     date, t_delta = create_date(3)
     # Attach some other attributes
     other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
-    pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    pt = drillpoints.Point(
+        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
@@ -53,8 +53,8 @@ def pt_3():
     date, t_delta = create_date(1)
     # Attach some other attributes
     other_atts = {"PointID": "p-nulls", "OwnerID": "uvw000"}
-    pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    pt = drillpoints.Point(
+        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
@@ -73,8 +73,8 @@ def pt_4():
     date, t_delta = create_date(1)
     # Attach some other attributes
     other_atts = {"PointID": "straddle-extent", "OwnerID": "rst432"}
-    pt = pointstats.Point(
-        (x, y, date), sp_ref, t_delta, 50, pointstats.ROI_SHP_SQUARE)
+    pt = drillpoints.Point(
+        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
@@ -111,7 +111,7 @@ def user_range(array_info, item, pt):
     Example of a function for a customised statistics.
 
     array_info is a list of asset_reader.ArrayInfo objects,
-    item is the pystac.Item object, and pt is the pointstats.Point object
+    item is the pystac.Item object, and pt is the drillpoints.Point object
     that intesects the item.
 
     The numpy.ma.masked_array objects are stored in ArrayInfo.data.
@@ -154,8 +154,8 @@ def run_example():
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
     std_stats = [
-        pointstats.STATS_MEAN,
-        pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
+        drillpoints.STATS_MEAN,
+        drillpoints.STATS_COUNT, drillpoints.STATS_COUNTNULL]
     user_stats = [("USER_RANGE", user_range)]
     points = [pt_1(), pt_2(), pt_3(), pt_4()]
     # Direct-read these images that contain pt_2.
@@ -173,14 +173,14 @@ def run_example():
         print(f"with ID {pid}")
         for item_id, item_stats in pt.get_stats().items():
             print(f"    Item ID={item_id}") # The pystac.Item or ImageItem ID
-            array_info = item_stats.get_stats(pointstats.STATS_ARRAYINFO)
+            array_info = item_stats.get_stats(drillpoints.STATS_ARRAYINFO)
             # The asset_id for arrays extracted from Images is None.
             asset_ids = [a_info.asset_id for a_info in array_info]
             print(f"        Asset IDs  : {asset_ids}")
-#            print(f"        Raw arrays: {item_stats.get_stats(pointstats.STATS_RAW)}")
-            print(f"        Mean values: {item_stats.get_stats(pointstats.STATS_MEAN)}")
-            print(f"        Counts     : {item_stats.get_stats(pointstats.STATS_COUNT)}")
-            print(f"        Null Counts: {item_stats.get_stats(pointstats.STATS_COUNTNULL)}")
+#            print(f"        Raw arrays: {item_stats.get_stats(drillpoints.STATS_RAW)}")
+            print(f"        Mean values: {item_stats.get_stats(drillpoints.STATS_MEAN)}")
+            print(f"        Counts     : {item_stats.get_stats(drillpoints.STATS_COUNT)}")
+            print(f"        Null Counts: {item_stats.get_stats(drillpoints.STATS_COUNTNULL)}")
             print(f"        Ranges     : {item_stats.get_stats('USER_RANGE')}")
 
 if __name__ == '__main__':

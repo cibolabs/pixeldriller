@@ -4,7 +4,7 @@
 # See section 3.1.9 in https://www.rfc-editor.org/rfc/rfc7946#section-3.1
 
 from pixdrill import drill
-from pixdrill import pointstats
+from pixdrill import drillpoints
 
 from .fixtures import point_albers, point_wgs84
 from .fixtures import point_one_item, point_outside_bounds_1
@@ -33,8 +33,8 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     # PointStats and ItemStats instances were created. The other tests cover
     # the other functions that test_query calls.
     std_stats = [
-        pointstats.STATS_MEAN,
-        pointstats.STATS_COUNT, pointstats.STATS_COUNTNULL]
+        drillpoints.STATS_MEAN,
+        drillpoints.STATS_COUNT, drillpoints.STATS_COUNTNULL]
     def user_range(array_info, item, pt):
         return [a_info.data.max() - a_info.data.min() for a_info in array_info]
     user_stats = [("USER_RANGE", user_range)]
@@ -52,7 +52,7 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     # ItemStats object attached to point_albers.
     item_stats_dict = point_albers.get_stats()
     item_stats_obj = list(item_stats_dict.values())[0]
-    assert len(item_stats_obj.get_stats(pointstats.STATS_MEAN)) == 2
+    assert len(item_stats_obj.get_stats(drillpoints.STATS_MEAN)) == 2
     assert len(item_stats_obj.get_stats("USER_RANGE")) == 2
     
     # point_intersects intersects one item in the STAC catalogue and the
@@ -65,12 +65,12 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     # Check that the mean and range stats have been set for the stac Item
     # and that the length is 2, one for each of B02 and B03.
     item_stats_obj = point_intersects.get_item_stats(stac_id)
-    assert len(item_stats_obj.get_stats(pointstats.STATS_MEAN)) == 2
+    assert len(item_stats_obj.get_stats(drillpoints.STATS_MEAN)) == 2
     assert len(item_stats_obj.get_stats("USER_RANGE")) == 2
     # Check that the mean and range stats have been set for the ImageItem
     # and that the length is 1, because the Image is a single-band raster.
     item_stats_obj = point_intersects.get_item_stats(real_image_path)
-    assert len(item_stats_obj.get_stats(pointstats.STATS_MEAN)) == 1
+    assert len(item_stats_obj.get_stats(drillpoints.STATS_MEAN)) == 1
     assert len(item_stats_obj.get_stats("USER_RANGE")) == 1
 
 
