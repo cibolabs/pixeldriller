@@ -28,7 +28,6 @@ from pystac_client import Client
 from . import drillpoints
 from . import drillstats
 
-class PixelStacError(Exception): pass
 
 def drill(
     points, images=None,
@@ -360,3 +359,5 @@ class ImageItem:
             self.id = id
         else:
             self.id = filepath
+
+class PixelStacError(Exception): pass

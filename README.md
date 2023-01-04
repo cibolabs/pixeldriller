@@ -92,3 +92,18 @@ To examine the code covered by the tests, from the project's root directory, run
 python3 -m coverage run --source=pixdrill -m pytest -s tests
 python3 -m coverage report
 ```
+
+## Building the docs
+
+```
+$ cd pixeldriller
+$ python3 -m venv .doc_venv
+$ source .doc_venv/bin/activate
+(.doc_venv) $ pip install -r doc/requirements.txt
+(.doc_venv) $ cd doc
+(.doc_venv) $ make clean
+(.doc_venv) $ make html
+# To view:
+(.doc_venv) $ python3 -m http.server --directory build/html
+(.doc_venv) $ 
+```

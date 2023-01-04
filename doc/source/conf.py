@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'pixeldriller'
+project = 'Pixel Driller'
 copyright = '2022, Tony Gill'
 author = 'Tony Gill'
 
@@ -18,6 +18,7 @@ extensions = ['sphinx.ext.autodoc', 'numpydoc']
 templates_path = ['_templates']
 exclude_patterns = []
 autodoc_mock_imports = ['numpy', 'osgeo']
+autodoc_member_order = 'bysource'
 
 
 

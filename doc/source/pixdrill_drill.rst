@@ -1,8 +1,8 @@
 :tocdepth: 2
 
-asset_reader
-============
-.. automodule:: pixelstac.asset_reader
+drill
+=========
+.. automodule:: pixdrill.drill
    :members:
    :undoc-members:
 

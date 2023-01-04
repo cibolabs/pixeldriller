@@ -182,22 +182,22 @@ class PointStats:
         The requested statistics.
             The return type varies depending on the parameters:
             - the value returned from the statistic's function
-              if both item_id and stat_name are given
+            if both item_id and stat_name are given
             - a dictionary, keyed by the statistic names if only item_id is given;
-              the values are those returned from the statistic's function
+            the values are those returned from the statistic's function
             - a dictionary, keyed by item ID if only stat_name is given;
-              the values are those returned from the statistics' functions
+            the values are those returned from the statistics' functions
             - this object's self.item_stats dictionary if both parameters are None;
-              this dictionary is keyed by the item_id, and each value is
-              another dictionary, keyed by the statistic name
+            this dictionary is keyed by the item_id, and each value is
+            another dictionary, keyed by the statistic name
             If one or both of the item_id or stat_name are not present in this
             object's statistics, then the stats returned in the above data
             structures will be one of:
             - an empty list if stat_name is a standard statistic or
-              STATS_RAW or STATS_ARRAYINFO and
-              calc_stats() was not called or read_data() failed.
+            STATS_RAW or STATS_ARRAYINFO and
+            calc_stats() was not called or read_data() failed.
             - None if stat_name is a user statistic and
-              calc_stats() was not called or read_data() failed.
+            calc_stats() was not called or read_data() failed.
 
         """
         if item_id and stat_name:

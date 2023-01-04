@@ -1,8 +1,8 @@
 :tocdepth: 2
 
-pointstats
+drillstats
 ==========
-.. automodule:: pixelstac.pointstats
+.. automodule:: pixdrill.drillstats
    :members:
    :undoc-members:
 
