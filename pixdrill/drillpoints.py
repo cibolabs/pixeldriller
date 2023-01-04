@@ -1,7 +1,6 @@
 """
 Contains the Point and ItemPoints classes which are used to create and hold
-the points for an Item. Also contains the ImageItem class that defines a
-non-STAC image to be drilled.
+the points for an Item.
 
 """
 
@@ -11,6 +10,7 @@ import logging
 
 from osgeo import osr
 
+from . import drill
 from . import drillstats
 from . import image_reader
 
@@ -122,7 +122,7 @@ class Point:
 
         Parameters
         ----------
-        items : a sequence of pystac.Item or ImageItem objects
+        items : a sequence of pystac.Item or drill.ImageItem objects
 
         """
         for item in items:
@@ -343,44 +343,44 @@ class Point:
         return new_buff
 
 
-class ImageItem:
-    """
-    Analogous to a pystac.Item object, which is to be passed to the
-    ItemPoints constructor when drilling pixels from an image file.
-
-    Attributes
-    ----------
-    filepath : string
-        Path to the GDAL file
-    id : String
-        ID to use for this item. Is the same as filepath unless overridden.
-
-    """
-    def __init__(self, filepath, id=None):
-        """
-        Construct the ImageItem. If id is None, then set the id attribute
-        to filepath.
-
-        """
-        self.filepath = filepath
-        if id:
-            self.id = id
-        else:
-            self.id = filepath
+#class ImageItem:
+#    """
+#    Analogous to a pystac.Item object, which is to be passed to the
+#    ItemPoints constructor when drilling pixels from an image file.
+#
+#    Attributes
+#    ----------
+#    filepath : string
+#        Path to the GDAL file
+#    id : String
+#        ID to use for this item. Is the same as filepath unless overridden.
+#
+#    """
+#    def __init__(self, filepath, id=None):
+#        """
+#        Construct the ImageItem. If id is None, then set the id attribute
+#        to filepath.
+#
+#        """
+#        self.filepath = filepath
+#        if id:
+#            self.id = id
+#        else:
+#            self.id = filepath
 
 
 class ItemPointsError(Exception): pass
 
 class ItemPoints:
     """
-    A collection of points that Intersect a pystac.Item or an ImageItem.
+    A collection of points that Intersect a pystac.Item or a drill.ImageItem.
 
     The read_data() function is used to read the pixels from the associated
     rasters.
 
     Attributes
     ----------
-    item : pystac.Item object or an ImageItem
+    item : pystac.Item object or a drill.ImageItem
         These points intersect this item
     asset_ids : sequence of strings
         the IDs of the pystac.Item's raster assets to read
@@ -390,14 +390,14 @@ class ItemPoints:
     def __init__(self, item, asset_ids=None):
         """
         Construct an ItemPoints object, setting the following attributes:
-        - item: the pystac.Item object or an ImageItem
+        - item: the pystac.Item object or a drill.ImageItem
         - asset_ids: the IDs of the pystac.Item's raster assets to read; leave
-          this as None if item is an instance of ImageItem or you want
+          this as None if item is an instance of drill.ImageItem or you want
           to set the assets later using set_asset_ids().
         - points: to an empty list
 
         """
-        if isinstance(item, ImageItem) and asset_ids is not None:
+        if isinstance(item, drill.ImageItem) and asset_ids is not None:
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
             raise ItemPointsError(errmsg)
         self.item = item
@@ -408,7 +408,7 @@ class ItemPoints:
     def set_asset_ids(self, asset_ids):
         """
         Set which asset IDs to read data from on the next call to read_data().
-        This function is not relevant when self.item is an ImageItem.
+        This function is not relevant when self.item is a drill.ImageItem.
         But if self.item is a pystac.Item, then you must set the asset_ids
         using this function or in the constructor.
 
@@ -432,7 +432,7 @@ class ItemPoints:
         asset_ids : list of ids
 
         """
-        if isinstance(self.item, ImageItem):
+        if isinstance(self.item, drill.ImageItem):
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
             raise ItemPointsError(errmsg)
         elif not asset_ids:
@@ -486,7 +486,7 @@ class ItemPoints:
 
         """
         read_ok = True
-        if isinstance(self.item, ImageItem):
+        if isinstance(self.item, drill.ImageItem):
             # Read bands from an image
             reader = image_reader.ImageReader(self.item)
             if ignore_val is not None:
@@ -576,11 +576,11 @@ class ItemPoints:
 
     def get_item(self):
         """
-        Return the pystac.Item or ImageItem.
+        Return the pystac.Item or drill.ImageItem.
 
         Returns
         -------
-        pystac.Item or ImageItem
+        pystac.Item or drill.ImageItem
 
         """
         return self.item

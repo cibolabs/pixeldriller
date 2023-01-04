@@ -55,7 +55,7 @@ class PointStats:
 
     pt : Point object
         the point associated with this PointStats object
-    item : pystac.item.Item or ImageItem
+    item : pystac.item.Item or drill.ImageItem
         the item to hold the stats for
     item_stats : dictionary
         a dictionary containing the raster statistics within the region
@@ -90,7 +90,7 @@ class PointStats:
 
         Parameters
         ----------
-        item : drillpoints.ImageItem or pystac.Item
+        item : drill.ImageItem or pystac.Item
         arr_info : image_reader.ArrayInfo
 
         """
@@ -240,7 +240,7 @@ class PointStats:
 
         Parameters
         ----------
-        item : ImageItem or pystac.Item
+        item : drill.ImageItem or pystac.Item
 
         """
         if item is None:
@@ -270,7 +270,7 @@ def check_std_arrays(item, asset_arrays):
 
     Parameters
     ----------
-    item : pystac.item.Item or ImageItem
+    item : pystac.item.Item or drill.ImageItem
         Item the arrays belong to
     asset_arrays : numpy array of shape (layers, ysize, xsize)
         Arrays to check

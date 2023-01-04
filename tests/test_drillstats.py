@@ -3,6 +3,7 @@
 import numpy
 import pytest
 
+from pixdrill import drill
 from pixdrill import drillstats
 from pixdrill import drillpoints
 from .fixtures import point_one_item, real_item, real_image_path
@@ -31,7 +32,7 @@ def test_calc_stats_image(point_one_item, real_image_path):
     and also calculate stats.
 
     """
-    image_item = drillpoints.ImageItem(real_image_path, id='real_image')
+    image_item = drill.ImageItem(real_image_path, id='real_image')
     point_one_item.add_items([image_item])
     ip = drillpoints.ItemPoints(image_item)
     ip.add_point(point_one_item)

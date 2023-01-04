@@ -89,6 +89,6 @@ python3 -m pytest -s tests
 To examine the code covered by the tests, from the project's root directory, run:
 
 ```
-python3 -m coverage run --source=. -m pytest -s tests
+python3 -m coverage run --source=pixdrill -m pytest -s tests
 python3 -m coverage report
 ```

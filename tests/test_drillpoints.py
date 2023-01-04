@@ -4,6 +4,7 @@ import pytest
 import numpy
 from osgeo import osr
 
+from pixdrill import drill
 from pixdrill import drillstats
 from pixdrill import drillpoints
 from .fixtures import point_wgs84, point_wgs84_buffer_degrees
@@ -109,7 +110,7 @@ def test_item_points(real_item):
     assert ip.item.id == "S2B_53HPV_20220728_0_L2A"
     assert ip.asset_ids == ['B02', 'B11']
     with pytest.raises(drillpoints.ItemPointsError) as excinfo:
-        drillpoints.ItemPoints(drillpoints.ImageItem("fake_path"), asset_ids=['B02'])
+        drillpoints.ItemPoints(drill.ImageItem("fake_path"), asset_ids=['B02'])
     assert "do not set asset_ids when item is an ImageItem" in str(excinfo.value)
 
 

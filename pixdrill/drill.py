@@ -197,7 +197,7 @@ def assign_points_to_images(points, images, image_ids=None):
     in the images list.
 
     A point will be added to an ItemPoints collection if it intersects the Item.
-    A drillpoints.ImageItem is also added to the point.
+    An ImageItem is also added to the point.
 
     Parameters
     ----------
@@ -222,8 +222,7 @@ def assign_points_to_images(points, images, image_ids=None):
                   "number of images and each ID must be unique")
         raise PixelStacError(errmsg)
     for image ,image_id in zip(images, image_ids):
-        # TODO: update the ImageItem constructor, and write a test.
-        image_item = drillpoints.ImageItem(image, id=image_id)
+        image_item = ImageItem(image, id=image_id)
         ip = drillpoints.ItemPoints(image_item)
         item_points.append(ip)
         ds = gdal.Open(image, gdal.GA_ReadOnly)
@@ -335,3 +334,29 @@ def calc_stats(item_points, std_stats=None, user_stats=None):
     logging.info(msg, len(item_points.points), item_points.item.id)
     item_points.read_data()
     item_points.calc_stats(std_stats=std_stats, user_stats=user_stats)
+
+
+class ImageItem:
+    """
+    Analogous to a pystac.Item object, which is to be passed to the
+    ItemPoints constructor when drilling pixels from an image file.
+
+    Attributes
+    ----------
+    filepath : string
+        Path to the GDAL file
+    id : String
+        ID to use for this item. Is the same as filepath unless overridden.
+
+    """
+    def __init__(self, filepath, id=None):
+        """
+        Construct the ImageItem. If id is None, then set the id attribute
+        to filepath.
+
+        """
+        self.filepath = filepath
+        if id:
+            self.id = id
+        else:
+            self.id = filepath
