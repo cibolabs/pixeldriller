@@ -16,10 +16,12 @@ def test_point_stats(point_one_item, real_item):
     stats = drillstats.PointStats(point_one_item)#, real_item)
     assert stats.item_stats == {}
     # Add a clean set of stats for an item.
-    stats.reset(real_item)
+    stats.reset(item=real_item)
     assert "S2B_53HPV_20220728_0_L2A" in stats.item_stats
-    assert stats.get_stats(drillstats.STATS_RAW, real_item.id) == []
-    assert stats.get_stats(drillstats.STATS_ARRAYINFO, real_item.id) == []
+    assert stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_RAW) == []
+    assert stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_ARRAYINFO) == []
     assert stats.item_stats[real_item.id][drillstats.ITEM_KEY] == real_item
 
 
@@ -44,11 +46,11 @@ def test_calc_stats_image(point_one_item, real_image_path):
     user_stats = [("TEST_STAT_1", test_stat_1)]
     ip.calc_stats(std_stats=std_stats, user_stats=user_stats)
     raw_stats = point_one_item.stats.get_stats(
-        drillstats.STATS_RAW, image_item.id)
+        item_id=image_item.id, stat_name=drillstats.STATS_RAW )
     assert len(raw_stats) == 1
     assert raw_stats[0].shape == (1, 6, 6)
     stat_1 = point_one_item.stats.get_stats(
-        "TEST_STAT_1", image_item.id)
+        item_id=image_item.id, stat_name="TEST_STAT_1")
     assert stat_1 == 216 # each of the 36 elements in the raw array is 6.
 
 
@@ -80,19 +82,25 @@ def test_calc_stats(point_one_item, real_item):
     assert drillstats.STATS_STDEV in item_stats
     assert drillstats.STATS_COUNT in item_stats
     assert drillstats.STATS_COUNTNULL in item_stats
-    mean_vals = point_one_item.stats.get_stats(drillstats.STATS_MEAN, real_item.id)
-    counts = point_one_item.stats.get_stats(drillstats.STATS_COUNT, real_item.id)
-    null_counts = point_one_item.stats.get_stats(drillstats.STATS_COUNTNULL, real_item.id)
+    mean_vals = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
+    counts = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_COUNT)
+    null_counts = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_COUNTNULL)
     assert list(mean_vals.round(2)) == [441.41, 135.19]
     assert list(counts) == [121, 36]
     assert list(null_counts) == [0, 0]
     # User stats
-    test_stat_1 = point_one_item.stats.get_stats("TEST_STAT_1", real_item.id)
-    test_stat_2 = point_one_item.stats.get_stats("TEST_STAT_2", real_item.id)
+    test_stat_1 = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name="TEST_STAT_1")
+    test_stat_2 = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name="TEST_STAT_2")
     assert round(test_stat_1, 2) == 576.61
     assert test_stat_2 == [364, 75]
     # Test the Point.get_stat function.
-    stdev = point_one_item.stats.get_stats(drillstats.STATS_STDEV, real_item.id)
+    stdev = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_STDEV)
     assert list(stdev.round(2)) == [31.05, 24.92]
 
 
@@ -168,7 +176,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     ip.read_data()
     ip.calc_stats(std_stats=std_stats)
     mean_vals = point_partial_nulls.stats.get_stats(
-        drillstats.STATS_MEAN, real_item.id)
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [1473.43, 1019.69]
     # All nulls. Assumes the assets' no data values are set.
     point_all_nulls.add_items([real_item])
@@ -177,7 +185,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     ip.read_data()
     ip.calc_stats(std_stats=std_stats)
     mean_vals = point_all_nulls.stats.get_stats(
-        drillstats.STATS_MEAN, real_item.id)
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert numpy.isnan(mean_vals[0])
     assert numpy.isnan(mean_vals[1])
 
@@ -200,7 +208,7 @@ def test_user_nulls(point_all_nulls, real_item):
     ip.read_data(ignore_val=-9999)
     ip.calc_stats(std_stats=std_stats)
     mean_vals = point_all_nulls.stats.get_stats(
-        drillstats.STATS_MEAN, real_item.id)
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals) == [0, 0]
     
 
@@ -219,11 +227,11 @@ def test_handle_outofrange(
     ip.read_data()
     ip.calc_stats(std_stats=std_stats)
     raw_b02 = point_straddle_bounds_1.stats.get_stats(
-        drillstats.STATS_RAW, real_item.id)[0]
+        item_id=real_item.id, stat_name=drillstats.STATS_RAW)[0]
     assert raw_b02.shape == (1, 6, 6)
     assert raw_b02[0, 0, 0] == 3852
     mean_vals = point_straddle_bounds_1.stats.get_stats(
-        drillstats.STATS_MEAN, real_item.id)
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [3520.44, 2146.22]
     # Case: the ROI is entirely outside the image extents.
     point_outside_bounds_1.add_items([real_item])
@@ -232,10 +240,10 @@ def test_handle_outofrange(
     ip.read_data()
     ip.calc_stats(std_stats=std_stats)
     raw_b02 = point_outside_bounds_1.stats.get_stats(
-        drillstats.STATS_RAW, real_item.id)[0]
+        item_id=real_item.id, stat_name=drillstats.STATS_RAW)[0]
     assert raw_b02.shape == (0,)
     mean_b02 = point_outside_bounds_1.stats.get_stats(
-        drillstats.STATS_MEAN, real_item.id)[0]
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)[0]
     assert numpy.isnan(mean_b02)
 
 
@@ -249,23 +257,23 @@ def test_reset(point_one_item, real_item):
     std_stats = [drillstats.STATS_MEAN]
     ip.read_data()
     ip.calc_stats(std_stats=std_stats)
-#    i_stats = list(point_one_item.get_stats().values())[0]
     i_stats = point_one_item.stats.item_stats
     assert list(i_stats[real_item.id].keys()) == [
         drillstats.ITEM_KEY, drillstats.STATS_RAW, drillstats.STATS_ARRAYINFO, drillstats.STATS_MEAN]
-    assert len(point_one_item.stats.get_stats(drillstats.STATS_MEAN, real_item.id)) == 2
+    assert len(point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)) == 2
     # Now do another read/calc stats, appending B8A data to the ItemStats objects.
     # Note that stats for B02 and B11 are recalculated as well.
     std_stats.append(drillstats.STATS_COUNT)
     ip.set_asset_ids(['B8A'])
     ip.read_data()
     ip.calc_stats(std_stats=std_stats)
-    #i_stats = list(point_one_item.get_stats().values())[0]
     i_stats = point_one_item.stats.item_stats
     assert list(i_stats[real_item.id].keys()) == [
         drillstats.ITEM_KEY, drillstats.STATS_RAW, drillstats.STATS_ARRAYINFO,
         drillstats.STATS_MEAN, drillstats.STATS_COUNT]
-    assert len(point_one_item.stats.get_stats(drillstats.STATS_MEAN, real_item.id)) == 3
+    assert len(point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)) == 3
     # Now, reset the stats. This will wipe the ItemStats object from the point.
     # Then calculate stats on a different asset.
     ip.reset_stats()
@@ -273,9 +281,81 @@ def test_reset(point_one_item, real_item):
     ip.set_asset_ids(['SCL'])
     ip.read_data()
     ip.calc_stats(std_stats=std_stats)
-#    i_stats = list(point_one_item.get_stats().values())[0]
     i_stats = point_one_item.stats.item_stats
     assert list(i_stats[real_item.id].keys()) == [
         drillstats.ITEM_KEY, drillstats.STATS_RAW,
         drillstats.STATS_ARRAYINFO, drillstats.STATS_COUNT]
-    assert len(point_one_item.stats.get_stats(drillstats.STATS_COUNT, real_item.id)) == 1
+    assert len(point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_COUNT)) == 1
+
+
+def test_get_stats(point_one_item, real_item):
+    """Test drillstats.get_stats."""
+    # Need test for each of the return variants, with and without the
+    # statistic existing in the stats dictionary.
+    # Test construction, where no stats are set yet.
+    point_stats = drillstats.PointStats(point_one_item)
+    stats = point_stats.get_stats()
+    assert stats == {}
+    stats = point_stats.get_stats(item_id=real_item.id)
+    assert stats == {}
+    stats = point_stats.get_stats(stat_name=drillstats.STATS_MEAN)
+    assert stats == {}
+    stats = point_stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
+    assert stats == []
+    stats = point_stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
+    assert stats is None
+    # Test state after calling read_data(). It will populate STATS_RAW and STATS_ARRAYINFO.
+    point_one_item.add_items([real_item])
+    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02'])
+    ip.add_point(point_one_item)
+    ip.read_data()
+    stats = point_one_item.stats.get_stats()
+    assert real_item.id in stats
+    stats = point_one_item.stats.get_stats(item_id=real_item.id)
+    assert drillstats.STATS_RAW in stats
+    assert drillstats.STATS_ARRAYINFO in stats
+    stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_RAW)
+    assert real_item.id in stats
+    assert stats[real_item.id][0].shape == (1, 11, 11)
+    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_RAW)
+    assert stats[0].shape == (1, 11, 11)
+    # Request stats that have not yet been calculated.
+    stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_MEAN)
+    assert stats == {real_item.id: []}
+    stats = point_one_item.stats.get_stats(stat_name="USER_STAT")
+    assert stats == {real_item.id: None}
+    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
+    assert stats == []
+    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
+    assert stats is None
+    # Call calc_stats
+    def user_stat(array_info, item, pt):
+        val = array_info[0].data.sum()
+        return val
+    ip.calc_stats(std_stats=[drillstats.STATS_MEAN], user_stats=[("USER_STAT", user_stat)])
+    stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_MEAN)
+    assert len(stats) == 1
+    id, stat = list(stats.items())[0]
+    assert id == real_item.id
+    assert round(stat[0], 2) == 441.41
+    stats = point_one_item.stats.get_stats(item_id=real_item.id)
+    assert drillstats.STATS_MEAN in stats
+    assert round(stats[drillstats.STATS_MEAN][0], 2) == 441.41
+    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
+    assert round(stats[0], 2) == 441.41
+    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
+    assert stats == 53411
+    # Request rubbish
+    stats = point_one_item.stats.get_stats(item_id="No such item")
+    assert stats == {}
+    stats = point_one_item.stats.get_stats(stat_name="No such stat")
+    assert stats == {real_item.id: None}
+    stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_COUNT)
+    assert stats == {real_item.id: []}
+    stats = point_one_item.stats.get_stats(item_id="No such item", stat_name="No such stat")
+    assert stats is None
+    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name="No such stat")
+    assert stats is None
+    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_COUNT)
+    assert stats == []

@@ -70,13 +70,7 @@ class PointStats:
     def __init__(self, pt):
         """Constructor."""
         self.pt = pt
-#        self.item = item
         self.item_stats = {}
-        # What are the implications for not setting the STATS_RAW and
-        # STATS_ARRAYINFO objects to empty lists?
-        # The problem occurs when a read_data() fails. Originally the arrays for
-        # the item would have been set to empty lists.
-#        self.reset()
 
     
     def add_data(self, item, arr_info):
@@ -171,48 +165,96 @@ class PointStats:
                     stats[STATS_ARRAYINFO], item, self.pt)
 
 
-    def get_stats(self, stat_name, item_id):
+    def get_stats(self, item_id=None, stat_name=None):
         """
         Return the values for the requested statistic.
         
         Parameters
         ----------
+        item_id : string
+            The ID of the Item to retrieve the statistics for.
         stat_name : string
-            The name of the statistic to get
+            The name of the statistic to get.
 
         Returns
         -------
-        The return type for the requested statistic
-            Or return an empty list if stat_name is a standard statistic, or
-            stat_name is STATS_RAW or STATS_ARRAYINFO, and
-            calc_stats() was not called or read_data() failed.
-            Return None if stat_name is a user statistic and
-            calc_stats() was not called or read_data() failed.
+        The requested statistics.
+            The return type varies depending on the parameters:
+            - the value returned from the statistic's function
+              if both item_id and stat_name are given
+            - a dictionary, keyed by the statistic names if only item_id is given;
+              the values are those returned from the statistic's function
+            - a dictionary, keyed by item ID if only stat_name is given;
+              the values are those returned from the statistics' functions
+            - this object's self.item_stats dictionary if both parameters are None;
+              this dictionary is keyed by the item_id, and each value is
+              another dictionary, keyed by the statistic name
+            If one or both of the item_id or stat_name are not present in this
+            object's statistics, then the stats returned in the above data
+            structures will be one of:
+            - an empty list if stat_name is a standard statistic or
+              STATS_RAW or STATS_ARRAYINFO and
+              calc_stats() was not called or read_data() failed.
+            - None if stat_name is a user statistic and
+              calc_stats() was not called or read_data() failed.
 
         """
-        ret_val = [] if stat_name in STATS_STD else None
-        stats = self.item_stats[item_id]
-        if stat_name in stats:
-            ret_val = stats[stat_name]
+        if item_id and stat_name:
+            # Return the stats for item_id and statistic.
+            ret_val = [] if stat_name in STATS_STD else None
+            if item_id in self.item_stats:
+                stats = self.item_stats[item_id]
+                if stat_name in stats:
+                    ret_val = stats[stat_name]
+        elif item_id and not stat_name:
+            # Return stats for the item.
+            ret_val = {}
+            if item_id in self.item_stats:
+                ret_val = self.item_stats[item_id]
+        elif stat_name and not item_id:
+            # Return the given stat for all items.
+            ret_val = {}
+            for item_id, stats in self.item_stats.items():
+                if stat_name in stats:
+                    ret_val[item_id] = stats[stat_name]
+                else:
+                    ret_val[item_id] = [] if stat_name in STATS_STD else None
+        else:
+            # Return all stats.
+            ret_val = self.item_stats
         return ret_val
 
 
-    def reset(self, item):
+    def reset(self, item=None):
         """
-        Delete all previously calculated stats and raw arrays for the given Item,
+        Delete all previously calculated stats and raw arrays,
         and reset the STATS_RAW and STATS_ARRAYINFO lists.
 
-        If the Item is not in self.item_stats, then add it. This is convenient
-        if a call to read_data() failed and add_data() was not called.
-        This allows the user to progress through failed reads, delaying the
-        checks until after all reads are done and stats calculated.
+        If the Item is supplied, then reset the stats for that Item only.
+
+        If the supplied Item is not in self.item_stats, then add it.
+        This is convenient if a call to read_data() failed and add_data()
+        was not called. This allows the user to progress through failed reads,
+        delaying the checks until after all reads are done and stats calculated.
+
+        Parameters
+        ----------
+        item : ImageItem or pystac.Item
 
         """
-        clean_stats = {
-            ITEM_KEY: item,
-            STATS_RAW: [],
-            STATS_ARRAYINFO: []}
-        self.item_stats[item.id] = clean_stats
+        if item is None:
+            for item_id, stats in self.item_stats.items():
+                clean_stats = {
+                    ITEM_KEY: stats[ITEM_KEY],
+                    STATS_RAW: [],
+                    STATS_ARRAYINFO: []}
+                stats[item_id] = clean_stats
+        else:
+            clean_stats = {
+                ITEM_KEY: item,
+                STATS_RAW: [],
+                STATS_ARRAYINFO: []}
+            self.item_stats[item.id] = clean_stats
 
 
 class MultibandAssetError(Exception):

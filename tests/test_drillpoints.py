@@ -24,7 +24,7 @@ def test_point(point_albers):
     assert point_albers.buffer == 50
     assert point_albers.shape == drillpoints.ROI_SHP_SQUARE
     assert getattr(point_albers, "other_atts") == {"PointID": "def456", "OwnerID": "uvw000"}
-    assert point_albers.item_stats == {}
+    assert point_albers.stats.item_stats == {}
     # Also tests Point.to_wgs84()
     assert round(point_albers.wgs84_x, 1) == 132.0
     assert round(point_albers.wgs84_y, 1) == -10.7
@@ -123,8 +123,9 @@ def test_read_data(caplog, point_one_item, real_item):
     ip.add_point(point_one_item)
     read_ok = ip.read_data()
     assert read_ok
-    item_stats = point_one_item.get_item_stats(real_item.id)
-    raw_stats = item_stats.get_stats(drillstats.STATS_RAW)
+    #item_stats = point_one_item.get_item_stats(real_item.id)
+    raw_stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_RAW) 
     assert len(raw_stats) == 2
     assert raw_stats[0].shape == (1, 11, 11)
     assert raw_stats[1].shape == (1, 6, 6)
@@ -133,15 +134,16 @@ def test_read_data(caplog, point_one_item, real_item):
     # The following fails because we give it the non-image, metadata, asset.
     # read_data() fails with a message being written to the log, and
     # the stats should return empty lists.
-    point_one_item.reset() # scrub the stats.
+    point_one_item.stats.reset() # scrub the stats.
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11', 'metadata'])
     ip.add_point(point_one_item)
     read_ok = ip.read_data()
     assert not read_ok
     assert "is not recognized as a supported dataset name" in caplog.text
     ip.calc_stats(std_stats=[drillstats.STATS_COUNT])
-    item_stats = point_one_item.get_item_stats(real_item.id)
-    raw_stats = item_stats.get_stats(drillstats.STATS_RAW)
+    raw_stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_RAW)
     assert len(raw_stats) == 0
-    counts = item_stats.get_stats(drillstats.STATS_COUNT)
+    counts = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_COUNT)
     assert len(counts) == 0

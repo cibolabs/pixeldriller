@@ -39,32 +39,34 @@ class Point:
     Attributes
     ----------
     x : float
-        the point's x-coordinate
+        The point's x-coordinate.
     y : float
-        the point's y-coordinate
+        The point's y-coordinate.
     t : datetime.datetime
-        the point's datetime.datetime time
+        The point's datetime.datetime time.
     x_y : tuple of float
-        the point's (x, y) location
+        The point's (x, y) location.
     sp_ref : osr.SpatialReference
-        the osr.SpatialReference of (x, y)
+        The osr.SpatialReference of (x, y).
     wgs84_x : float
-        the point's x location in WGS84 coordinates
+        The point's x location in WGS84 coordinates.
     wgs84_y : float
-        the point's y location in WGS84 coordinates
+        The point's y location in WGS84 coordinates.
     start_date : datetime.datetime
-        the datetime.datetime start date of the temporal buffer
+        The datetime.datetime start date of the temporal buffer.
     end_date : datetime.datetime
-        the datetime.datetime end date of the temporal buffer
+        The datetime.datetime end date of the temporal buffer.
     buffer : float
-        the distance from the point that defines the region of interest
+        The distance from the point that defines the region of interest.
     shape : int
         ROI_SHP_SQUARE or ROI_SHP_CIRCLE
+    buffer_degrees : bool
+        True if the buffer distance is in degrees or False if it is in metres.
+    stats : drillstats.PointStats
+        Holds the drilled data and statistics.
     items : dictionary
         The items associated with this point, keyed by the Item ID.
-    stats : drillstats.PointStats
-    buffer_degrees : bool
-        True if the buffer distance is in degrees or False if it is in metres
+        See get_item_ids().
 
     """
     def __init__(
@@ -107,7 +109,7 @@ class Point:
         self.buffer = buffer
         self.shape = shape
         self.buffer_degrees = buffer_degrees
-        self.items = {} # TODO: Is this needed?
+        self.items = {}
         self.stats = drillstats.PointStats(self)
 
 
@@ -116,19 +118,16 @@ class Point:
         A point might intersect multiple STAC items. Use this function
         to link the point with the items it intersects.
 
-        It initialises an drillstats.PointStats object for each item and adds it
-        to this Point's item_stats dictionary, which is keyed by the item ID.
+        See also get_item_ids().
 
         Parameters
         ----------
         items : a sequence of pystac.Item or ImageItem objects
 
         """
-        # TODO: Is this needed?
         for item in items:
             if item.id not in self.items:
                 self.items[item.id] = item
-#                self.item_stats[item.id] = drillstats.PointStats(self, item)
 
     
     def add_data(self, item, arr_info):
@@ -220,17 +219,16 @@ class Point:
 #           std_stats=std_stats, user_stats=user_stats)
 
 
-#    def get_item_ids(self):
-#        """
-#        Return a list of the IDs of the pystac.Item items associated with this point.
-#
-#        Returns
-#        -------
-#        list of ids
-#
-#        """
-#        # TODO: Silly. Call point_stats.get_item_ids(); or pt.stats.keys()
-#        return list(self.item_stats.keys())
+    def get_item_ids(self):
+        """
+        Return a list of the IDs of the pystac.Item items associated with this point.
+
+        Returns
+        -------
+        list of ids
+
+        """
+        return list(self.items.keys())
 
 
 #    def get_stat(self, item_id, stat_name):
@@ -562,7 +560,7 @@ class ItemPoints:
         setting the asset IDs for the first time or
         reusing the pystac.Item objects to calculate statistics for an
         entirely new set of raster assets. In the latter case,
-        you would call this function after calling reset() and before calling
+        you would call this function after calling reset_stats() and before calling
         read_data() and calc_stats().
 
         You may experience strange side effects if you don't call reset() on
@@ -647,7 +645,7 @@ class ItemPoints:
                 err_msg += "The stack trace is:\n"
                 err_msg += traceback.format_exc()
                 logging.error(err_msg)
-                self.reset()
+                self.reset_stats()
                 read_ok = False
         else:
             # Read assets from a Stac Item.
@@ -675,7 +673,7 @@ class ItemPoints:
                 err_msg += "The stack trace is:\n"
                 err_msg += traceback.format_exc()
                 logging.error(err_msg)
-                self.reset()
+                self.reset_stats()
                 read_ok = False
         return read_ok
 
@@ -740,4 +738,4 @@ class ItemPoints:
         
         """
         for pt in self.points:
-            pt.stats.reset(self.item)
+            pt.stats.reset(item=self.item)

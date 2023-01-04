@@ -47,32 +47,32 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     # the point intersects.
     # These points do not intersect the image given by real_image_path. They
     # only Intersect Items in the STAC Catalogue.
-    assert len(point_albers.get_stats()) == 3
-    assert len(point_wgs84.get_stats()) == 2
+    assert len(point_albers.stats.item_stats) == 3
+    assert len(point_wgs84.stats.item_stats) == 2
     # Check that the mean and range stats have been set for the first
     # ItemStats object attached to point_albers.
-    item_stats_dict = point_albers.get_stats()
-    item_stats_obj = list(item_stats_dict.values())[0]
-    assert len(item_stats_obj.get_stats(drillstats.STATS_MEAN)) == 2
-    assert len(item_stats_obj.get_stats("USER_RANGE")) == 2
-    
-    # point_intersects intersects one item in the STAC catalogue and the
-    # image given by real_image_path.
-    assert len(point_intersects.get_stats()) == 2
+    item_stats = point_albers.stats.item_stats
+    stats = list(item_stats.values())[0]
+    assert len(stats[drillstats.STATS_MEAN]) == 2
+    assert len(stats["USER_RANGE"]) == 2
+#    # point_intersects intersects one item in the STAC catalogue and the
+#    # image given by real_image_path.
+    assert len(point_intersects.stats.item_stats) == 2
     stac_id = 'S2B_53HPV_20220728_0_L2A'
     item_ids = point_intersects.get_item_ids()
     assert stac_id in item_ids
     assert real_image_path in item_ids
     # Check that the mean and range stats have been set for the stac Item
     # and that the length is 2, one for each of B02 and B03.
-    item_stats_obj = point_intersects.get_item_stats(stac_id)
-    assert len(item_stats_obj.get_stats(drillstats.STATS_MEAN)) == 2
-    assert len(item_stats_obj.get_stats("USER_RANGE")) == 2
+    #item_stats = point_intersects.get_item_stats(stac_id)
+    stats = point_intersects.stats.item_stats[stac_id]
+    assert len(stats[drillstats.STATS_MEAN]) == 2
+    assert len(stats["USER_RANGE"]) == 2
     # Check that the mean and range stats have been set for the ImageItem
     # and that the length is 1, because the Image is a single-band raster.
-    item_stats_obj = point_intersects.get_item_stats(real_image_path)
-    assert len(item_stats_obj.get_stats(drillstats.STATS_MEAN)) == 1
-    assert len(item_stats_obj.get_stats("USER_RANGE")) == 1
+    stats = point_intersects.stats.item_stats[real_image_path]
+    assert len(stats[drillstats.STATS_MEAN]) == 1
+    assert len(stats["USER_RANGE"]) == 1
 
 
 def test_assign_points_to_images(
@@ -91,7 +91,7 @@ def test_assign_points_to_images(
     assert i_ids[0] == real_image_path
     # The same test, but this time explicitly set the image IDs.
     # Remove the previous items from the point first.
-    ap.item_stats = {}
+    ap.items = {}
     item_points = drill.assign_points_to_images(
         [point_intersects, point_outside_bounds_1], [real_image_path],
         image_ids=['real_image'])

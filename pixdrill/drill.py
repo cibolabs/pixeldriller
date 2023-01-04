@@ -90,31 +90,29 @@ def drill(
     The returned value is stored with the point without modification.
 
     With the statistics calculated, you retrieve their values point-by-point.
-    The Point class's get_stats() function returns a dictionary of
-    drillstats.PointStats objects, keyed by the STAC Item's ID. So, the
-    dictionary's length is matches the number of STAC Items that the
-    Point intersects. The zonal statistics are retrieved using the PointStats
-    get_stats() function, passing it the statistic's name. For example::
+    The Point's ``stats`` attribute is a ``PointStats`` object with a
+    ``get_stats()`` function. The function returns a dictionary, keyed by the
+    Item's ID. So, the dictionary's length matches the number of Items that
+    the Point intersects. For example::
 
-        item_stats_dict = pt.get_stats()
-        for item_id, item_stats in item_stats_dict.items():
-            print(f"    Item ID={item_id}") # The pystac.item.Item
-            print(f"        Raw arrays : {item_stats.get_stats(drillstats.STATS_RAW)}")
-            print(f"        Mean values: {item_stats.get_stats(drillstats.STATS_MEAN)}")
-            print(f"        Counts     : {item_stats.get_stats(drillstats.STATS_COUNT)}")
-            print(f"        Null Counts: {item_stats.get_stats(drillstats.STATS_COUNTNULL)}")
-            print(f"        My Stat    : {item_stats.get_stats("MY STAT")})
+        point_stats = pt.stats.get_stats()
+        for item_id, item_stats in point_stats.items():
+            print(f"    Item ID={item_id}")
+            print(f"        Raw arrays : {item_stats[drillstats.STATS_RAW]}")
+            print(f"        Mean values: {item_stats[drillstats.STATS_MEAN]}")
+            print(f"        Counts     : {item_stats[drillstats.STATS_COUNT]}")
+            print(f"        Null Counts: {item_stats[drillstats.STATS_COUNTNULL]}")
+            print(f"        My Stat    : {item_stats["MY STAT"]})
 
     A few things to note in this example:
     
-    - the std_stats argument passed to drill() is
+    - the std_stats argument passed to ``drill()`` would have been
       [drillstats.STATS_MEAN, drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
     - the user_stats argument defines the 'MY_STAT' statistic and its
       corresponding function name: [('MY_STAT', my_stat_function)]
-    - the numpy masked arrays are retrievable from the PointStats.get_stats()
-      function with drillstats.STATS_RAW - these are always supplied
-    - likewise, the ArrayInfo object is retrievable from the PointStats.get_stats()
-      function with drillstats.STATS_ARRAYINFO 
+    - retrieve the numpy masked arrays using the key ``drillstats.STATS_RAW``;
+      these are always supplied
+    - likewise, retrieve the ArrayInfo object using ``drillstats.STATS_ARRAYINFO``
 
     Additional implementation details.
 
@@ -198,22 +196,22 @@ def assign_points_to_images(points, images, image_ids=None):
     Return a list of drillpoints.ItemPoints collections, one for each image
     in the images list.
 
-    A point will be added to those ItemPoints collection that it intersects,
-    and a drillpoints.ImageItem is also added to the point.
+    A point will be added to an ItemPoints collection if it intersects the Item.
+    A drillpoints.ImageItem is also added to the point.
 
     Parameters
     ----------
-    points : sequence of ``drillpoints.Point`` objects
-        Points to drill the image for
-    images : sequence of strings
-        GDAL understood filenames to drill
-    image_ids : sequence of strings
-        Id to use for each image. If not specified the image filename is used
+    points : sequence of ``drillpoints.Point`` objects.
+        Points to drill the image for.
+    images : sequence of strings.
+        GDAL understood filenames to drill.
+    image_ids : sequence of strings.
+        ID to use for each image. If not specified the image filename is used.
 
     Returns
     -------
     item_points : list of ``drillpoints.ItemPoints`` objects
-        The ItemPoints for each image
+        The ItemPoints for each Item.
 
     """
     item_points = []
