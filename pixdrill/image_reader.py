@@ -1,5 +1,5 @@
 """
-For reading pixel data and metadata from raster assets.
+For reading pixel data and metadata from images.
 
 """
 
@@ -9,7 +9,7 @@ import numpy
 from osgeo import gdal
 from osgeo import osr
 
-from . import pointstats
+from . import drillpoints
 
 gdal.UseExceptions()
 
@@ -190,7 +190,7 @@ class ArrayInfo:
             f"{self.y_res=})" \
 
 
-class AssetReaderError(Exception): pass
+class ImageReaderError(Exception): pass
 
 
 def get_asset_filepath(item, asset_id):
@@ -201,10 +201,10 @@ def get_asset_filepath(item, asset_id):
     return f"/vsicurl/{item.assets[asset_id].href}"
 
 
-class AssetReader:
+class ImageReader:
     """
     Encapsulates the GDAL Dataset object and metadata (an ImageInfo object) for
-    a STAC asset or raster image. It also contains the algorithms
+    a STAC raster asset or raster image. It also contains the algorithms
     used to read arrays of pixels around a list of points.
 
     Attributes
@@ -223,10 +223,10 @@ class AssetReader:
     """
     def __init__(self, item, asset_id=None):
         """
-        Construct an AssetReader object.
+        Construct an ImageReader object.
 
         item is a pystac.Item or ImageItem object. If it is a pystac.Item
-        object then you must supply the asset_id. If it is a pointstats.ImageItem
+        object then you must supply the asset_id. If it is a drillpoints.ImageItem
         object, then its id must be the path of the file to be read.
 
         Parameters
@@ -240,7 +240,7 @@ class AssetReader:
         self.item = item
         self.asset_id = asset_id
         if self.asset_id is None:
-            # item is an instance of pointstats.ImageItem
+            # item is an instance of drillpoints.ImageItem
             self.filepath = item.filepath
         else:
             #self.filepath = f"/vsicurl/{item.assets[asset_id].href}"
@@ -256,12 +256,12 @@ class AssetReader:
         The data is read using read_roi(), passing it the ignore_val.
         The data is attached to each point.
 
-        Once read, the ItemStats object (corresponding to this asset's Item ID)
+        Once read, the PointStats object (corresponding to this asset's Item ID)
         of every Point will contain the ArrayInfo object for data read.
 
         Parameters
         ----------
-        points : list of pointstats.Point objects
+        points : list of drillpoints.Point objects
             Points to read from
         ignore_val : float
             ignore value to use, if None then the image no data is used
@@ -277,7 +277,7 @@ class AssetReader:
         # number of points per image increases.
         for pt in points:
             arr_info = self.read_roi(pt, ignore_val=ignore_val)
-            pt.add_data(self.item, arr_info)
+            pt.stats.add_data(self.item, arr_info)
 
 
     def read_roi(self, pt, ignore_val=None):
@@ -303,7 +303,7 @@ class AssetReader:
         Parameters
         ----------
 
-        pt : pointstats.Point
+        pt : drillpoints.Point
             Point to use
         ignore_val : float
             ignore value to use, if None then the image no data is used
@@ -381,7 +381,7 @@ class AssetReader:
         Parameters
         ----------
 
-        pt : pointstats.Point
+        pt : drillpoints.Point
             Point to use
 
         Returns
@@ -451,12 +451,12 @@ class AssetReader:
 
         Currently only supports ROI_SHP_SQUARE and ROI_SHP_CIRCLE. No masking
         is done in the case of squares. For circles, the size of the array
-        must be greater than four pixels. Raise an AssetReaderError if it is not.
+        must be greater than four pixels. Raise an ImageReaderError if it is not.
 
         Parameters
         ----------
 
-        pt : pointstats.Point
+        pt : drillpoints.Point
             Point to use
         arr_info : ArrayInfo
             The data
@@ -464,12 +464,12 @@ class AssetReader:
             ignore value to use, if None then the image no data is used
 
         """
-        if pt.shape==pointstats.ROI_SHP_SQUARE:
+        if pt.shape==drillpoints.ROI_SHP_SQUARE:
             # Do nothing. arr_info.data is already the correct shape.
             pass
-        elif pt.shape==pointstats.ROI_SHP_CIRCLE:
+        elif pt.shape==drillpoints.ROI_SHP_CIRCLE:
             if arr_info.data.size < 5:
-                raise AssetReaderError(
+                raise ImageReaderError(
                     "There must be at least 4 pixels in the array to mask it " \
                     "using a circular ROI.")
             # Include all pixels inside the circle's boundary and those
@@ -509,7 +509,7 @@ class AssetReader:
                 arr_info.data[idx][px_outside] = nodata_val
                 arr_info.data.mask[idx][px_outside] = True
         else:
-            raise AssetReaderError(f"Unknown ROI shape {pt.shape}")
+            raise ImageReaderError(f"Unknown ROI shape {pt.shape}")
     
     
     def wld2pix(self, geox, geoy):

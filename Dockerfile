@@ -11,19 +11,11 @@ RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y curl python3-pip git python3-gdal gdal-bin \
     python3-pytest python3-coverage python3-dateutil python3-requests
-#                python3-dev python3-requests python3-pip curl python3-psycopg2 \
-#                python3-dev python3-requests python3-pip curl \
-#                wget git g++ cmake libhdf5-dev libgdal-dev unzip
 RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # pypi packages
 # pystac-client, monitor updates and test regularly
 RUN pip install pystac-client==0.4.0
-
-# Needed?
-#ENV PATH=${SW_VOLUME}/bin:${SW_VOLUME}/local/bin:${PATH}
-#ENV PYTHONPATH=${SW_VOLUME}/local/lib/python3.10/dist-packages:${SW_VOLUME}/lib/python3.10/site-packages
-#ENV LD_LIBRARY_PATH=${SW_VOLUME}/lib
 
 ENV PYTHONUNBUFFERED=1
 
@@ -39,4 +31,4 @@ ENV GDAL_HTTP_MAX_RETRY=10
 ENV GDAL_HTTP_MAX_RETRY=3
 ENV CPL_ZIP_ENCODING=UTF-8
 
-WORKDIR /root/pixelstac
+WORKDIR /root/pixeldriller
