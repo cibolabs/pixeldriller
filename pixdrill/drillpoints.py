@@ -343,32 +343,6 @@ class Point:
         return new_buff
 
 
-#class ImageItem:
-#    """
-#    Analogous to a pystac.Item object, which is to be passed to the
-#    ItemPoints constructor when drilling pixels from an image file.
-#
-#    Attributes
-#    ----------
-#    filepath : string
-#        Path to the GDAL file
-#    id : String
-#        ID to use for this item. Is the same as filepath unless overridden.
-#
-#    """
-#    def __init__(self, filepath, id=None):
-#        """
-#        Construct the ImageItem. If id is None, then set the id attribute
-#        to filepath.
-#
-#        """
-#        self.filepath = filepath
-#        if id:
-#            self.id = id
-#        else:
-#            self.id = filepath
-
-
 class ItemPointsError(Exception): pass
 
 class ItemPoints:
