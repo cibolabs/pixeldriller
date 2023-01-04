@@ -130,34 +130,6 @@ class Point:
                 self.items[item.id] = item
 
     
-    def add_data(self, item, arr_info):
-        """
-        Attach raster data to this Point.
-
-        arr_info is the image_reader.ArrayInfo object created when reading pixel
-        data from one of the item's assets.
-        See image_reader.ImageReader.read_roi().
-
-        Calls add_data() on the item's PointStats.add_data() function.
-
-        If data were read from multiple assets, then call this function multiple
-        times, once for each asset.
-
-        This function must be called before calc_stats().
-
-        Parameters
-        ----------
-        item : pystac.Item or ImageItem object
-            The item to add to this point
-        arr_info : image_reader.ArrayInfo
-            Info about the data
-
-        """
-        # TODO: This seems silly. We should just call pt.stats.add_data.
-        self.stats.add_data(item, arr_info)
-#        self.item_stats[item.id].add_data(arr_info)
-        
-
     def intersects(self, ds):
         """
         Return True if the point intersects the GDAL dataset. ds can be a
@@ -184,41 +156,6 @@ class Point:
         return in_bounds
 
  
-    def calc_stats(self, item, std_stats=None, user_stats=None):
-        """
-        Calculate the stats for the pixels about the point for all data that
-        has been stored for the given pystac.Item.
-
-        Call add_data() first, for every required asset.
-
-        std_stats is a list of standard stats to calculate for each point's
-        region of interest. 
-        They are a list of STATS symbols defined in this module.
-
-        user_stats is a list of tuples. Each tuple defines:
-        
-        - the name (a string) for the statistic
-        - and the function that is called to calculate it
-
-        The request to calculate the statistics is passed to the item's
-        PointStats.calc_stats() function.
-
-        Parameters
-        ----------
-        item : pystac.Item or ImageItem object
-            Obtain the data to use from this object
-        std_stats : sequence of STATS constants
-            Which 'standard' statistics to use
-        user_stats : list of (name, func) tuples
-            Where func is the user func to calculate a statistic
-
-        """
-        # TODO: This seems silly. Can we just call pt.stats.calc_stats()?
-        self.stats.calc_stats(item.id, std_stats=std_stats, user_stats=user_stats)
-#        self.item_stats[item.id].calc_stats(
-#           std_stats=std_stats, user_stats=user_stats)
-
-
     def get_item_ids(self):
         """
         Return a list of the IDs of the pystac.Item items associated with this point.
@@ -229,87 +166,6 @@ class Point:
 
         """
         return list(self.items.keys())
-
-
-#    def get_stat(self, item_id, stat_name):
-#        """
-#        Get a the requested statistic for the item.
-#
-#        Parameters
-#        ----------
-#
-#        item_id : string
-#            Id of the item to return
-#        stat_name : string
-#            one of the STAT constants
-#
-#        Returns
-#        -------
-#        float
-#            The value of the statistic
-#
-#        """
-#        # TODO: Silly, just call pt.stats.get_stats(stat_name, item_id)
-##        item_stats = self.get_item_stats(item_id)
-#        return self.stats.get_stats(stat_name, item_id)
-##        return item_stats.get_stats(stat_name)
-
-
-#    def get_stats(self):
-#        """
-#        Return a dictionary with all stats for this point. The dictionary's
-#        keys are the item IDs, and its values are drillstats.PointStats objects.
-#
-#        Returns
-#        -------
-#        dictionary of PointStats objects
-#            Keyed on the item id
-#
-#        """
-#        # TODO: Silly. Suggest using pt.stats.item_stats.
-#        return self.stats.item_stats
-
-
-#    def reset(self, item=None):
-#        """
-#        Remove all stats from the attached drillstats.PointStats objects.
-#
-#        By default, the stats for all items are removed, but you can
-#        restrict it to just the given item.
-#
-#        The item itself remains attached to the point.
-#
-#        """
-#        # TODO: Silly. Just call stats.reset() for each item.
-#        self.stats.reset(item)
-##        if item is not None:
-##            stats = self.stats.item_stats[item.id]
-##            stats.reset()
-##        else:
-##            for stats in self.item_stats.values():
-##                stats.reset()
-
-
-#    def get_item_stats(self, item_id):
-#        """
-#        Return the drillstats.PointStats object for this point that corresponds
-#        to the required Item ID.
-#
-#        Parameters
-#        ----------
-#
-#        item_id : string
-#            The Item ID
-#
-#        Returns
-#        -------
-#
-#        PointStats
-#
-#        """
-#        # Silly, just call stats.item_stats[item_id], noting that the returned
-#        # object is a dictionary.
-#        return self.item_stats[item_id]
 
 
     def transform(self, dst_srs, src_srs=None, x=None, y=None):
@@ -560,11 +416,11 @@ class ItemPoints:
         setting the asset IDs for the first time or
         reusing the pystac.Item objects to calculate statistics for an
         entirely new set of raster assets. In the latter case,
-        you would call this function after calling reset_stats() and before calling
-        read_data() and calc_stats().
+        you would call this function after calling reset_stats() and before
+        calling read_data() and calc_stats().
 
-        You may experience strange side effects if you don't call reset() on
-        an ItemPoints object that previously had assets assigned.
+        You may experience strange side effects if you don't call reset_stats()
+        on an ItemPoints object that previously had assets assigned.
         The underlying behaviour is that arrays for the new set of asset_ids
         will be appended to the existing arrays for each point's PointStats objects.
         Then, on the next calc_stats() call, the stats for all previously read
@@ -573,7 +429,7 @@ class ItemPoints:
         Parameters
         ----------
 
-        asset_ids : list if ids
+        asset_ids : list of ids
 
         """
         if isinstance(self.item, ImageItem):
@@ -705,9 +561,6 @@ class ItemPoints:
         - the name (a string) for the statistic
         - and the function that is called to calculate it
 
-        The request to calculate the statistics is passed to each Point's
-        calc_stats() function.
-
         Parameters
         ----------
         std_stats : int
@@ -717,7 +570,8 @@ class ItemPoints:
 
         """
         for pt in self.points:
-            pt.calc_stats(self.item, std_stats=std_stats, user_stats=user_stats)
+            pt.stats.calc_stats(
+                self.item.id, std_stats=std_stats, user_stats=user_stats)
 
 
     def get_item(self):

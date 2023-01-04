@@ -331,8 +331,7 @@ def calc_stats(item_points, std_stats=None, user_stats=None):
         A user defined function as specified above
 
     """
-    logging.info(
-          f"calculating stats for {len(item_points.points)} points " \
-          f"in item {item_points.item.id}")
+    msg = "Calculating stats for %i points in item %s."
+    logging.info(msg, len(item_points.points), item_points.item.id)
     item_points.read_data()
     item_points.calc_stats(std_stats=std_stats, user_stats=user_stats)

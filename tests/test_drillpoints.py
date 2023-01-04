@@ -115,7 +115,7 @@ def test_item_points(real_item):
 
 def test_read_data(caplog, point_one_item, real_item):
     """
-    Test ItemPoints.read_data() and Point.add_data() function.
+    Test the ItemPoints.read_data() and PointStats.add_data() functions.
 
     """
     point_one_item.add_items([real_item])

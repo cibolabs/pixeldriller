@@ -75,7 +75,7 @@ class PointStats:
     
     def add_data(self, item, arr_info):
         """
-        Add the image_reader.ArrayInfo object as read from a raster of Item's.
+        Add the image_reader.ArrayInfo object as read from an Item's raster.
 
         Elements are appended to the lists that store the Item's statistics::
 
@@ -85,11 +85,12 @@ class PointStats:
         where arr_info.data is the numpy masked array of data containing the
         pixels for one of the assets of the item.
         
-        If item is a STAC Item, then add_data may be called multiple times.
-        Once for each raster asset that is drilled.
+        If item is a STAC Item, then add_data may be called multiple times,
+        once for each raster asset that is drilled.
 
         Parameters
         ----------
+        item : drillpoints.ImageItem or pystac.Item
         arr_info : image_reader.ArrayInfo
 
         """
