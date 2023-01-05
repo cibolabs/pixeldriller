@@ -254,14 +254,15 @@ def assign_points_to_stac_items(
     Parameters
     ----------
     
-    stac_client : pystac.Client object
-        Returned from calling pystac.Client.open(endpoint_url)
+    stac_client : str or pystac.Client object
+        The endpoint URL to the STAC catalogue (str) or the pystac.Client
+        object returned from calling pystac.Client.open(endpoint_url)
     points : sequence of ``drillpoints.Point`` objects
         Points to drill the endpoint for
     collections : sequence of strings
         Collections to query provided by the STAC endpoint
     raster_assets : sequence of strings
-        Raster assets to use from the SATC endpoint
+        Raster assets to use from the STAC endpoint
 
     Returns
     -------
@@ -269,6 +270,11 @@ def assign_points_to_stac_items(
         The ItemPoints for each image
 
     """
+    if isinstance(stac_client, str):
+        client = Client.open(stac_client)
+    else:
+        client = stac_client
+
     item_points = {}
     # TODO: it might be worth optimising the search by clumping points
     # instead of a naive one-point-at-a-time approach.
@@ -292,7 +298,7 @@ def assign_points_to_stac_items(
         # TODO: Do I need to split bounding boxes that cross the anti-meridian into two?
         # Or does the stac-client handle this case?
         # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
-        search = stac_client.search(
+        search = client.search(
             collections=collections,
             max_items=None, # no limit on number of items to return
             intersects=pt_json,
