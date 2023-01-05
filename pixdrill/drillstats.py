@@ -249,7 +249,7 @@ class PointStats:
                     ITEM_KEY: stats[ITEM_KEY],
                     STATS_RAW: [],
                     STATS_ARRAYINFO: []}
-                stats[item_id] = clean_stats
+                self.item_stats[item_id] = clean_stats
         else:
             clean_stats = {
                 ITEM_KEY: item,
