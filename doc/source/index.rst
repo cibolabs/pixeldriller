@@ -23,7 +23,7 @@ Pixel Driller
 It extracts pixels from images acquired over your field sites and runs statistics
 on them, which you want to use as model predictors.
 
-**What are the features?**
+**What are its features?**
 
 - Extract from images by specifying a file path or URL
 - Extract from images by searching a STAC catalogue
@@ -50,8 +50,7 @@ a typical usage pattern::
     points = []
     longitude = 140
     latitude = -36.5
-    sp_ref = osr.SpatialReference() # The point's coordinate reference system
-    sp_ref.ImportFromEPSG(4326) # WGS84
+    crs_code = 4326 # EPSG code for WGS84 coordinate reference system. See epsg.org.
     # Field survey on 28 July 2022, and you want to 
     # drill images in a STAC catalogue acquired up to 3 days either side of date
     date = datetime.datetime(2022, 7, 28)
@@ -59,7 +58,7 @@ a typical usage pattern::
     site_shape = drill_points.ROI_SHP_CIRCLE # Define the extraction shape
     site_radius = 50 # In metres
     pt_1 = drillpoints.Point(
-        longitude, latitude, date, sp_ref, t_delta, site_radius, site_shape)
+        longitude, latitude, date, crs_code, t_delta, site_radius, site_shape)
     points.append(pt_1)
     # Add additional points for each field site
     ...
@@ -87,7 +86,7 @@ a typical usage pattern::
         collections=collections,
         std_stats=std_stats, user_stats=user_stats)
     
-    # Retrieve the results using each Point's 'stats' attribute.
+    # Retrieve the results using each Point's 'stats' attribute (a dictionary).
     for pt in points:
         print(f"Stats for point: x={pt.x}, y={pt.y}")
         for item_id, item_stats in pt.stats.get_stats().items():

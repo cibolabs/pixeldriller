@@ -25,7 +25,9 @@ ROI_SHP_CIRCLE = 'circle'
 Define a circle region of interest
 """
 
+
 class PointError(Exception): pass
+
 
 class Point:
     """
@@ -111,7 +113,6 @@ class Point:
         self.buffer_degrees = buffer_degrees
         self.items = {}
         self.stats = drillstats.PointStats(self)
-
 
     def add_items(self, items):
         """
