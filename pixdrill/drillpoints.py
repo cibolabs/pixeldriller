@@ -114,23 +114,6 @@ class Point:
         self.items = {}
         self.stats = drillstats.PointStats(self)
 
-    def add_items(self, items):
-        """
-        A point might intersect multiple STAC items. Use this function
-        to link the point with the items it intersects.
-
-        See also get_item_ids().
-
-        Parameters
-        ----------
-        items : a sequence of pystac.Item or drill.ImageItem objects
-
-        """
-        for item in items:
-            if item.id not in self.items:
-                self.items[item.id] = item
-
-    
     def intersects(self, ds):
         """
         Return True if the point intersects the GDAL dataset. ds can be a
@@ -157,18 +140,6 @@ class Point:
         return in_bounds
 
  
-    def get_item_ids(self):
-        """
-        Return a list of the IDs of the pystac.Item items associated with this point.
-
-        Returns
-        -------
-        list of ids
-
-        """
-        return list(self.items.keys())
-
-
     def transform(self, dst_srs, src_srs=None, x=None, y=None):
         """
         Transform the point's x, y location to the destination

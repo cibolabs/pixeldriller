@@ -220,7 +220,7 @@ def assign_points_to_images(points, images, image_ids=None):
         errmsg = ("ERROR: the number of image IDs must be the same as the " +
                   "number of images and each ID must be unique")
         raise PixelStacError(errmsg)
-    for image ,image_id in zip(images, image_ids):
+    for image, image_id in zip(images, image_ids):
         image_item = ImageItem(image, id=image_id)
         ip = drillpoints.ItemPoints(image_item)
         item_points.append(ip)
@@ -228,7 +228,6 @@ def assign_points_to_images(points, images, image_ids=None):
         for pt in points:
             if pt.intersects(ds):
                 ip.add_point(pt)
-                pt.add_items([image_item])
     return item_points
 
 
@@ -306,8 +305,6 @@ def assign_points_to_stac_items(
             datetime=[pt.start_date, pt.end_date],
             query=properties)
         items = list(search.items())
-        # Tell the point which items it intersects.
-        pt.add_items(items)
         # Group all points for each item together in an ItemPoints collection.
         for item in items:
             if item.id not in item_points:

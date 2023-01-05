@@ -119,7 +119,6 @@ def test_read_data(caplog, point_one_item, real_item):
     Test the ItemPoints.read_data() and PointStats.add_data() functions.
 
     """
-    point_one_item.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_one_item)
     read_ok = ip.read_data()

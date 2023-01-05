@@ -33,7 +33,6 @@ def test_calc_stats_image(point_one_item, real_image_path):
 
     """
     image_item = drill.ImageItem(real_image_path, id='real_image')
-    point_one_item.add_items([image_item])
     ip = drillpoints.ItemPoints(image_item)
     ip.add_point(point_one_item)
     ip.read_data()
@@ -71,7 +70,6 @@ def test_calc_stats(point_one_item, real_item):
         return stat_2
     user_stats = [
         ("TEST_STAT_1", test_stat_1), ("TEST_STAT_2", test_stat_2)]
-    point_one_item.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_one_item)
     ip.read_data()
@@ -171,7 +169,6 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     """
     # Partials. Assumes the asets' no data values are set.
     std_stats = [drillstats.STATS_MEAN]
-    point_partial_nulls.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_partial_nulls)
     ip.read_data()
@@ -180,7 +177,6 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [1473.43, 1019.69]
     # All nulls. Assumes the assets' no data values are set.
-    point_all_nulls.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_all_nulls)
     ip.read_data()
@@ -200,7 +196,6 @@ def test_user_nulls(point_all_nulls, real_item):
     """
     # The test assumes that the asset's no-data value=0, thus giving a mean of 0.
     std_stats = [drillstats.STATS_MEAN]
-    point_all_nulls.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_all_nulls)
     with pytest.raises(AssertionError) as excinfo:
@@ -222,7 +217,6 @@ def test_handle_outofrange(
     """
     std_stats = [drillstats.STATS_MEAN]
     # Case: the ROI straddles the image extents.
-    point_straddle_bounds_1.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_straddle_bounds_1)
     ip.read_data()
@@ -235,7 +229,6 @@ def test_handle_outofrange(
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [3520.44, 2146.22]
     # Case: the ROI is entirely outside the image extents.
-    point_outside_bounds_1.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
     ip.add_point(point_outside_bounds_1)
     ip.read_data()
@@ -307,7 +300,6 @@ def test_get_stats(point_one_item, real_item):
     stats = point_stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
     assert stats is None
     # Test state after calling read_data(). It will populate STATS_RAW and STATS_ARRAYINFO.
-    point_one_item.add_items([real_item])
     ip = drillpoints.ItemPoints(real_item, asset_ids=['B02'])
     ip.add_point(point_one_item)
     ip.read_data()

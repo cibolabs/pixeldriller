@@ -385,5 +385,4 @@ STD_STATS_FUNCS = {
 }
 """
 A mapping of the standard stats to their functions.
-STATS_RAW is a special cased and handled in PointStats.add_data().
 """
