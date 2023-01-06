@@ -338,9 +338,9 @@ def real_item(point_one_item):
     # https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif
     # Note that we return a pystac.StacItem, so the raster_assets here have
     # no effect; they're only needed by assign_points_to_stac_items.
-    item_points = drill.assign_points_to_stac_items(
+    drillers = drill.create_stac_drillers(
         client, [point_one_item], COLLECTIONS)
-    return item_points[0].get_item()
+    return drillers[0].get_item()
 
 
 @pytest.fixture

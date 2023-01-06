@@ -26,7 +26,6 @@ from osgeo import gdal
 from pystac_client import Client
 
 from . import drillpoints
-from . import drillstats
 
 
 def drill(
@@ -162,40 +161,40 @@ def drill(
     """
     # TODO: Choose the n nearest-in-time items.
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
-    item_points = []
+    drillers = []
     if stac_endpoint:
         client = Client.open(stac_endpoint)
-        stac_item_points = assign_points_to_stac_items(
+        stac_drillers = create_stac_drillers(
             client, points, collections, raster_assets)
-        item_points.extend(stac_item_points)
+        drillers.extend(stac_drillers)
     if images:
-        image_item_points = assign_points_to_images(points, images)
-        item_points.extend(image_item_points)
+        image_drillers = create_image_drillers(points, images)
+        drillers.extend(image_drillers)
     # Read the pixel data from the rasters and calculate the stats.
     # On completion, each point will contain PointStats objects, with stats
     # stats for each item.
-    logging.info(f"The {len(points)} points intersect {len(item_points)} items")
+    logging.info(f"The {len(points)} points intersect {len(drillers)} items")
     if concurrent:
         logging.info("Running extract concurrently.")
         with futures.ThreadPoolExecutor() as executor:
             # TODO: raster_assets ought to be optional.
             tasks = [executor.submit(
                 calc_stats(
-                    ip, std_stats=std_stats, user_stats=user_stats)) \
-                    for ip in item_points]
+                    dr, std_stats=std_stats, user_stats=user_stats)) \
+                    for dr in drillers]
     else:
         logging.info("Running extract sequentially.")
-        for ip in item_points:
+        for dr in drillers:
             calc_stats(
-                ip, std_stats=std_stats, user_stats=user_stats)
+                dr, std_stats=std_stats, user_stats=user_stats)
 
 
-def assign_points_to_images(points, images, image_ids=None):
+def create_image_drillers(points, images, image_ids=None):
     """
-    Return a list of drillpoints.ItemPoints collections, one for each image
+    Return a list of drillpoints.DrillerPoints collections, one for each image
     in the images list.
 
-    A point will be added to an ItemPoints collection if it intersects the Item.
+    A point will be added to an ItemDriller if it intersects the Item.
     An ImageItem is also added to the point.
 
     Parameters
@@ -209,11 +208,11 @@ def assign_points_to_images(points, images, image_ids=None):
 
     Returns
     -------
-    item_points : list of ``drillpoints.ItemPoints`` objects
-        The ItemPoints for each Item.
+    drillers : list of ``drillpoints.ItemDriller`` objects
+        The ItemDriller for each Item.
 
     """
-    item_points = []
+    drillers = []
     if image_ids is None:
         image_ids = [None] * len(images)
     elif len(images) != len(set(image_ids)):
@@ -222,17 +221,16 @@ def assign_points_to_images(points, images, image_ids=None):
         raise PixelStacError(errmsg)
     for image, image_id in zip(images, image_ids):
         image_item = ImageItem(image, id=image_id)
-        ip = drillpoints.ItemPoints(image_item)
-        item_points.append(ip)
+        driller = drillpoints.ItemDriller(image_item)
+        drillers.append(driller)
         ds = gdal.Open(image, gdal.GA_ReadOnly)
         for pt in points:
             if pt.intersects(ds):
-                ip.add_point(pt)
-    return item_points
+                driller.add_point(pt)
+    return drillers
 
 
-def assign_points_to_stac_items(
-    stac_client, points, collections, raster_assets=None):
+def create_stac_drillers(stac_client, points, collections, raster_assets=None):
     """
     Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the list of points and are within the
@@ -243,10 +241,10 @@ def assign_points_to_stac_items(
     
     If no collections are specified then search all collections in the endpoint.
 
-    Link each Point with its pystac.Items, and create a drillpoints.ItemPoints
-    collection for every item.
+    Link each Point with its pystac.Items, and create a drillpoints.ItemDriller
+    for every item.
 
-    Return the list of drillpoints.ItemPoints collections.
+    Return the list of drillpoints.ItemDriller objects.
 
     TODO: permit user-defined properties for filtering the stac search.
     
@@ -265,8 +263,8 @@ def assign_points_to_stac_items(
 
     Returns
     -------
-    item_points : list of ``drillpoints.ItemPoints`` objects
-        The ItemPoints for each image
+    drillers : list of ``drillpoints.ItemDriller`` objects
+        The ItemDriller for each image
 
     """
     if isinstance(stac_client, str):
@@ -274,7 +272,7 @@ def assign_points_to_stac_items(
     else:
         client = stac_client
 
-    item_points = {}
+    drillers = {}
     # TODO: it might be worth optimising the search by clumping points
     # instead of a naive one-point-at-a-time approach.
     for pt in points:
@@ -305,43 +303,44 @@ def assign_points_to_stac_items(
             datetime=[pt.start_date, pt.end_date],
             query=properties)
         items = list(search.items())
-        # Group all points for each item together in an ItemPoints collection.
+        # Group all points for each item together in an ItemDriller.
         for item in items:
-            if item.id not in item_points:
-                item_points[item.id] = drillpoints.ItemPoints(
+            if item.id not in drillers:
+                drillers[item.id] = drillpoints.ItemDriller(
                     item, asset_ids=raster_assets)
-            item_points[item.id].add_point(pt)
-    return list(item_points.values())
+            drillers[item.id].add_point(pt)
+    return list(drillers.values())
 
 
-def calc_stats(item_points, std_stats=None, user_stats=None):
+def calc_stats(driller, std_stats=None, user_stats=None):
     """
-    Calculate the statistics for all points in the given ItemPoints object.
+    Calculate the statistics for all points in the ItemDriller objects.
 
     This reads the rasters and calculates the stats.
 
     Parameters
     ----------
-    
-    item_points : list of ``drillpoints.ItemPoints`` objects
-        The ItemPoints for each image
+
+    driller : a ``drillpoints.ItemDriller``.
+        The driller for the Item to be drilled.
     std_stats : sequence of integers
         Constants from the ``drillpoints`` module (STATS_MEAN, STATS_STDEV etc)
-        defining which 'standard' statistics to extract
+        defining which 'standard' statistics to extract.
     user_stats : function
-        A user defined function as specified above
+        A list of (stat_name, stat_function) tuples containing the user defined
+        function as specified above.
 
     """
     msg = "Calculating stats for %i points in item %s."
-    logging.info(msg, len(item_points.points), item_points.item.id)
-    item_points.read_data()
-    item_points.calc_stats(std_stats=std_stats, user_stats=user_stats)
+    logging.info(msg, len(driller.points), driller.item.id)
+    driller.read_data()
+    driller.calc_stats(std_stats=std_stats, user_stats=user_stats)
 
 
 class ImageItem:
     """
     Analogous to a pystac.Item object, which is to be passed to the
-    ItemPoints constructor when drilling pixels from an image file.
+    ItemDriller constructor when drilling pixels from an image file.
 
     Attributes
     ----------

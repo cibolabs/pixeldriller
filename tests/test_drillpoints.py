@@ -99,31 +99,30 @@ def test_point_intersects(point_one_item, point_outside_bounds_1, real_image_pat
     assert not point_outside_bounds_1.intersects(real_image_path)
 
 
-def test_item_points(real_item):
-    """Test the ItemPoints constructor."""
-    ip = drillpoints.ItemPoints(real_item)
-    with pytest.raises(drillpoints.ItemPointsError) as excinfo:
-        ip.read_data()
+def test_item_driller(real_item):
+    """Test the ItemDriller constructor."""
+    drlr = drillpoints.ItemDriller(real_item)
+    with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
+        drlr.read_data()
     assert "Cannot read data from pystac.Item objects without " in str(excinfo)
-    ip.set_asset_ids(['B02', 'B11'])
-    ip.read_data()
-    assert ip.item.id == "S2B_53HPV_20220728_0_L2A"
-    assert ip.asset_ids == ['B02', 'B11']
-    with pytest.raises(drillpoints.ItemPointsError) as excinfo:
-        drillpoints.ItemPoints(drill.ImageItem("fake_path"), asset_ids=['B02'])
+    drlr.set_asset_ids(['B02', 'B11'])
+    drlr.read_data()
+    assert drlr.item.id == "S2B_53HPV_20220728_0_L2A"
+    assert drlr.asset_ids == ['B02', 'B11']
+    with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
+        drillpoints.ItemDriller(drill.ImageItem("fake_path"), asset_ids=['B02'])
     assert "do not set asset_ids when item is an ImageItem" in str(excinfo.value)
 
 
 def test_read_data(caplog, point_one_item, real_item):
     """
-    Test the ItemPoints.read_data() and PointStats.add_data() functions.
+    Test the ItemDriller.read_data() and PointStats.add_data() functions.
 
     """
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_one_item)
-    read_ok = ip.read_data()
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_one_item)
+    read_ok = drlr.read_data()
     assert read_ok
-    #item_stats = point_one_item.get_item_stats(real_item.id)
     raw_stats = point_one_item.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_RAW) 
     assert len(raw_stats) == 2
@@ -135,12 +134,12 @@ def test_read_data(caplog, point_one_item, real_item):
     # read_data() fails with a message being written to the log, and
     # the stats should return empty lists.
     point_one_item.stats.reset() # scrub the stats.
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11', 'metadata'])
-    ip.add_point(point_one_item)
-    read_ok = ip.read_data()
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11', 'metadata'])
+    drlr.add_point(point_one_item)
+    read_ok = drlr.read_data()
     assert not read_ok
     assert "is not recognized as a supported dataset name" in caplog.text
-    ip.calc_stats(std_stats=[drillstats.STATS_COUNT])
+    drlr.calc_stats(std_stats=[drillstats.STATS_COUNT])
     raw_stats = point_one_item.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_RAW)
     assert len(raw_stats) == 0

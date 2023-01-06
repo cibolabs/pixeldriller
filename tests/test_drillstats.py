@@ -28,14 +28,14 @@ def test_point_stats(point_one_item, real_item):
 
 def test_calc_stats_image(point_one_item, real_image_path):
     """
-    Test reading data from a normal image, which is not a Stac Item,
+    Test reading data from a normal image (not a Stac Item)
     and also calculate stats.
 
     """
     image_item = drill.ImageItem(real_image_path, id='real_image')
-    ip = drillpoints.ItemPoints(image_item)
-    ip.add_point(point_one_item)
-    ip.read_data()
+    drlr = drillpoints.ItemDriller(image_item)
+    drlr.add_point(point_one_item)
+    drlr.read_data()
     std_stats = [drillstats.STATS_COUNT]
     # A user function, which is a nonsense calculation of the sum of the scl pixels.
     def test_stat_1(array_info, item, pt):
@@ -44,9 +44,9 @@ def test_calc_stats_image(point_one_item, real_image_path):
         stat_1 = array_info[0].data.sum()
         return stat_1
     user_stats = [("TEST_STAT_1", test_stat_1)]
-    ip.calc_stats(std_stats=std_stats, user_stats=user_stats)
+    drlr.calc_stats(std_stats=std_stats, user_stats=user_stats)
     raw_stats = point_one_item.stats.get_stats(
-        item_id=image_item.id, stat_name=drillstats.STATS_RAW )
+        item_id=image_item.id, stat_name=drillstats.STATS_RAW)
     assert len(raw_stats) == 1
     assert raw_stats[0].shape == (1, 6, 6)
     stat_1 = point_one_item.stats.get_stats(
@@ -70,10 +70,10 @@ def test_calc_stats(point_one_item, real_item):
         return stat_2
     user_stats = [
         ("TEST_STAT_1", test_stat_1), ("TEST_STAT_2", test_stat_2)]
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_one_item)
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats, user_stats=user_stats)
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_one_item)
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats, user_stats=user_stats)
     item_stats = point_one_item.stats.item_stats[real_item.id]
     # Standard stats
     assert drillstats.STATS_RAW in item_stats
@@ -169,18 +169,18 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     """
     # Partials. Assumes the asets' no data values are set.
     std_stats = [drillstats.STATS_MEAN]
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_partial_nulls)
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats)
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_partial_nulls)
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats)
     mean_vals = point_partial_nulls.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [1473.43, 1019.69]
     # All nulls. Assumes the assets' no data values are set.
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_all_nulls)
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats)
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_all_nulls)
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats)
     mean_vals = point_all_nulls.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert numpy.isnan(mean_vals[0])
@@ -196,13 +196,13 @@ def test_user_nulls(point_all_nulls, real_item):
     """
     # The test assumes that the asset's no-data value=0, thus giving a mean of 0.
     std_stats = [drillstats.STATS_MEAN]
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_all_nulls)
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_all_nulls)
     with pytest.raises(AssertionError) as excinfo:
-        ip.read_data(ignore_val=[-9999])
+        drlr.read_data(ignore_val=[-9999])
     assert "ignore_val list must be the same length as asset_ids" in str(excinfo.value)
-    ip.read_data(ignore_val=-9999)
-    ip.calc_stats(std_stats=std_stats)
+    drlr.read_data(ignore_val=-9999)
+    drlr.calc_stats(std_stats=std_stats)
     mean_vals = point_all_nulls.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals) == [0, 0]
@@ -217,10 +217,10 @@ def test_handle_outofrange(
     """
     std_stats = [drillstats.STATS_MEAN]
     # Case: the ROI straddles the image extents.
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_straddle_bounds_1)
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats)
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_straddle_bounds_1)
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats)
     raw_b02 = point_straddle_bounds_1.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_RAW)[0]
     assert raw_b02.shape == (1, 6, 6)
@@ -229,10 +229,10 @@ def test_handle_outofrange(
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [3520.44, 2146.22]
     # Case: the ROI is entirely outside the image extents.
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_outside_bounds_1)
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats)
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_outside_bounds_1)
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats)
     raw_b02 = point_outside_bounds_1.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_RAW)[0]
     assert raw_b02.shape == (0,)
@@ -246,11 +246,11 @@ def test_reset(point_one_item, real_item):
     Test resetting of stats and calculating a new set of stats.
 
     """
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_one_item)
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_one_item)
     std_stats = [drillstats.STATS_MEAN]
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats)
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats)
     i_stats = point_one_item.stats.item_stats
     assert list(i_stats[real_item.id].keys()) == [
         drillstats.ITEM_KEY, drillstats.STATS_RAW, drillstats.STATS_ARRAYINFO, drillstats.STATS_MEAN]
@@ -259,9 +259,9 @@ def test_reset(point_one_item, real_item):
     # Now do another read/calc stats, appending B8A data to the ItemStats objects.
     # Note that stats for B02 and B11 are recalculated as well.
     std_stats.append(drillstats.STATS_COUNT)
-    ip.set_asset_ids(['B8A'])
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats)
+    drlr.set_asset_ids(['B8A'])
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats)
     i_stats = point_one_item.stats.item_stats
     assert list(i_stats[real_item.id].keys()) == [
         drillstats.ITEM_KEY, drillstats.STATS_RAW, drillstats.STATS_ARRAYINFO,
@@ -270,11 +270,11 @@ def test_reset(point_one_item, real_item):
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)) == 3
     # Now, reset the stats. This will wipe the ItemStats object from the point.
     # Then calculate stats on a different asset.
-    ip.reset_stats()
+    drlr.reset_stats()
     std_stats = [drillstats.STATS_COUNT]
-    ip.set_asset_ids(['SCL'])
-    ip.read_data()
-    ip.calc_stats(std_stats=std_stats)
+    drlr.set_asset_ids(['SCL'])
+    drlr.read_data()
+    drlr.calc_stats(std_stats=std_stats)
     i_stats = point_one_item.stats.item_stats
     assert list(i_stats[real_item.id].keys()) == [
         drillstats.ITEM_KEY, drillstats.STATS_RAW,
@@ -300,9 +300,9 @@ def test_get_stats(point_one_item, real_item):
     stats = point_stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
     assert stats is None
     # Test state after calling read_data(). It will populate STATS_RAW and STATS_ARRAYINFO.
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02'])
-    ip.add_point(point_one_item)
-    ip.read_data()
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02'])
+    drlr.add_point(point_one_item)
+    drlr.read_data()
     stats = point_one_item.stats.get_stats()
     assert real_item.id in stats
     stats = point_one_item.stats.get_stats(item_id=real_item.id)
@@ -326,7 +326,7 @@ def test_get_stats(point_one_item, real_item):
     def user_stat(array_info, item, pt):
         val = array_info[0].data.sum()
         return val
-    ip.calc_stats(std_stats=[drillstats.STATS_MEAN], user_stats=[("USER_STAT", user_stat)])
+    drlr.calc_stats(std_stats=[drillstats.STATS_MEAN], user_stats=[("USER_STAT", user_stat)])
     stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_MEAN)
     assert len(stats) == 1
     id, stat = list(stats.items())[0]

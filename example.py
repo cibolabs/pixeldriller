@@ -195,16 +195,15 @@ def run_alternative():
     points = [pt_1(), pt_2(), pt_3(), pt_4()]
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
-    item_points_list = drill.assign_points_to_stac_items(
+    drillers = drill.create_stac_drillers(
         endpoint, points, collections)
     # Loop over each item, calculating the stats, reading the data and
     # calculating statistics on the continuous assets.
-    for ip in item_points_list:
-        ip.set_asset_ids(['B02', 'B11'])
-        ip.read_data()
+    for drlr in drillers:
+        drlr.set_asset_ids(['B02', 'B11'])
+        drlr.read_data()
         std_stats = [drillstats.STATS_MEAN, drillstats.STATS_STDEV]
-        ip.calc_stats(std_stats=std_stats)
-#        ip.reset_stats()
+        drlr.calc_stats(std_stats=std_stats)
     # Fetch the stats.
     for pt in points:
         stats_dict = pt.stats.get_stats()
@@ -230,12 +229,12 @@ def run_alternative():
         cat_count = numpy.isin(arr_data, cats).sum()
         return cat_count
 
-    for ip in item_points_list:
-        ip.set_asset_ids(['SCL'])
-        ip.read_data()
+    for drlr in drillers:
+        drlr.set_asset_ids(['SCL'])
+        drlr.read_data()
         std_stats = [drillstats.STATS_COUNT]
         user_stats = [("CAT_COUNT", cat_count)]
-        ip.calc_stats(std_stats=std_stats, user_stats=user_stats)
+        drlr.calc_stats(std_stats=std_stats, user_stats=user_stats)
     # Fetch the stats
     for pt in points:
         stats_dict = pt.stats.get_stats()

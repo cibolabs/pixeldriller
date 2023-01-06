@@ -1,5 +1,5 @@
 """
-Contains the Point and ItemPoints classes which are used to create and hold
+Contains the Point and ItemDriller classes which are used to create and hold
 the points for an Item.
 
 """
@@ -315,27 +315,24 @@ class Point:
         return new_buff
 
 
-class ItemPointsError(Exception): pass
+class ItemDrillerError(Exception): pass
 
-class ItemPoints:
+class ItemDriller:
     """
-    A collection of points that Intersect a pystac.Item or a drill.ImageItem.
-
-    The read_data() function is used to read the pixels from the associated
-    rasters.
+    Drills an Item, extracting pixels for a list of Points.
 
     Attributes
     ----------
     item : pystac.Item object or a drill.ImageItem
         These points intersect this item
+    points : list of Point objects
     asset_ids : sequence of strings
         the IDs of the pystac.Item's raster assets to read
-    points : list of Point objects
 
     """
     def __init__(self, item, asset_ids=None):
         """
-        Construct an ItemPoints object, setting the following attributes:
+        Construct an ItemDriller object, setting the following attributes:
         - item: the pystac.Item object or a drill.ImageItem
         - asset_ids: the IDs of the pystac.Item's raster assets to read; leave
           this as None if item is an instance of drill.ImageItem or you want
@@ -345,7 +342,7 @@ class ItemPoints:
         """
         if isinstance(item, drill.ImageItem) and asset_ids is not None:
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
-            raise ItemPointsError(errmsg)
+            raise ItemDrillerError(errmsg)
         self.item = item
         self.asset_ids = asset_ids
         self.points = []
@@ -366,7 +363,7 @@ class ItemPoints:
         calling read_data() and calc_stats().
 
         You may experience strange side effects if you don't call reset_stats()
-        on an ItemPoints object that previously had assets assigned.
+        on an ItemDriller object that previously had assets assigned.
         The underlying behaviour is that arrays for the new set of asset_ids
         will be appended to the existing arrays for each point's PointStats objects.
         Then, on the next calc_stats() call, the stats for all previously read
@@ -380,10 +377,10 @@ class ItemPoints:
         """
         if isinstance(self.item, drill.ImageItem):
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
-            raise ItemPointsError(errmsg)
+            raise ItemDrillerError(errmsg)
         elif not asset_ids:
             errmsg = "ERROR: must set asset_ids."
-            raise ItemPointsError(errmsg)
+            raise ItemDrillerError(errmsg)
         else:
             self.asset_ids = asset_ids
 
@@ -439,7 +436,7 @@ class ItemPoints:
                 if isinstance(ignore_val, list):
                     errmsg = "Passing a list of ignore_vals when reading from " \
                              "an image is unsupported"
-                    raise ItemPointsError(errmsg)
+                    raise ItemDrillerError(errmsg)
             try:
                 reader.read_data(self.points, ignore_val=ignore_val)
             except RuntimeError:
@@ -454,9 +451,9 @@ class ItemPoints:
             if self.asset_ids is None:
                 errmsg = ("ERROR: Cannot read data from pystac.Item objects " +
                           "without first setting the asset IDs. Asset IDs " +
-                          "are set in the ItemPoints constructor or by " +
-                          "calling ItemPoints.set_asset_ids()")
-                raise ItemPointsError(errmsg)
+                          "are set in the ItemDriller constructor or by " +
+                          "calling ItemDriller.set_asset_ids()")
+                raise ItemDrillerError(errmsg)
             if isinstance(ignore_val, list):
                 errmsg = "The ignore_val list must be the same length as asset_ids."
                 assert len(ignore_val) == len(self.asset_ids), errmsg

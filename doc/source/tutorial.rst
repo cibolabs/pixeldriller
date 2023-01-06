@@ -13,14 +13,14 @@ A complete example is provided in ``pixdrill/example.py``.
 The typical usage pattern
 ==============================
 
-#. Define the locations and dates of images to be drilled
-#. Choose which images to drill
-#. Specify the statistics to be calculated on the drilled pixels
+#. Specify the locations and acquisition windows of your field surveys
+#. Create Drillers for the items to be drilled
+#. Define the statistics to be calculated on the drilled pixels
 #. Extract the pixels and compute the statistics
 #. Fetch the results
 
-Define the locations and dates
-------------------------------
+Define the locations and windows of the field surveys
+-----------------------------------------------------
 
 Use the ``pixdrill.drillpoints.Point`` class to model the properties of
 the pixel extraction you want to do for each field site. The properties are the:
@@ -106,7 +106,7 @@ a `STAC Browser <https://radiantearth.github.io/stac-browser/>`__.
 
 .. _STAC: https://stacspec.org
 
-Specify the statistics
+Define the statistics
 ------------------------------
 
 A point will be found to intersect one or more of the images that you supply,
@@ -288,21 +288,18 @@ Example::
     # Create your points.
     points = create_points()
 
-    # Find the STAC items that each point intersects.
-    # item_points_list contains instances of drillpoints.ItemPoints, one for
-    # each STAC Item.
-    # ItemPoints stores a list of your points that Intersect an Item. It has
-    # functions to read the raster assets for every point and calculate the stats.
-    item_points_list = drill.assign_points_to_stac_items(
-        stac_endpoint, points, collections)
+    # Find the STAC Items that each point intersects. This is done in
+    # drill.create_stac_drillers(), which return a list of 
+    # drillpoints.ItemDriller objects, one for each STAC Item.
+    drillers = drill.create_stac_drillers(stac_endpoint, points, collections)
 
-    # Loop over each item, calculating the stats, reading the data and
+    # Loop over each driller, reading the data and
     # calculating statistics on the continuous assets.
-    for ip in item_points_list:
-        ip.set_asset_ids(['B02', 'B11'])
-        ip.read_data()
+    for drlr in drillers:
+        drlr.set_asset_ids(['B02', 'B11'])
+        drlr.read_data()
         std_stats = [drillstats.STATS_MEAN, drillstats.STATS_STD]
-        ip.calc_stats(std_stats=std_stats)
+        drlr.calc_stats(std_stats=std_stats)
     # Fetch the stats
     for pt in points:
         stats_dict = pt.stats.get_stats()
@@ -312,12 +309,12 @@ Example::
         pt.stats.reset()
 
     # Repeat, but this time for a categorical asset.
-    for ip in item_points_list:
-        ip.set_asset_ids(['SCL'])
-        ip.read_data()
+    for drlr in drillers:
+        drlr.set_asset_ids(['SCL'])
+        drlr.read_data()
         std_stats = [drillstats.STATS_COUNT]
         user_stats = [("MY_STAT_1", my_func_1), ("MY_STAT_2", my_func_2)]
-        ip.calc_stats(std_stats=std_stats, user_stats=user_stats)
+        drlr.calc_stats(std_stats=std_stats, user_stats=user_stats)
     # Fetch the stats
     for pt in points:
         stats_dict = pt.stats.get_stats()
