@@ -43,49 +43,53 @@ a typical usage pattern::
     from pixdrill import drillpoints
     from pixdrill import drillstats
 
-    # Prepare your points. Each represents a field site.
-    # Each field site was surveyed on a specific day and covers a
-    # region of interest. You may want to extract pixels from all images
-    # that were acquired close to the field survey's date.
+    # Step 1. Specify the field survey properties.
+    # Specify the locations of your field surveys.
+    # For STAC Items, you also specify the image acquisition period
+    # either side of the field survey date. Pixels are extracted
+    # from images that contain the point, and within the acquisition period
+    # for STAC Items.
     points = []
     longitude = 140
     latitude = -36.5
     crs_code = 4326 # EPSG code for WGS84 coordinate reference system. See epsg.org.
-    # Field survey on 28 July 2022, and you want to 
-    # drill images in a STAC catalogue acquired up to 3 days either side of date
-    date = datetime.datetime(2022, 7, 28)
-    t_delta = datetime.timedelta(days=3)
-    site_shape = drill_points.ROI_SHP_CIRCLE # Define the extraction shape
-    site_radius = 50 # In metres
+    date = datetime.datetime(2022, 7, 28)  # 28 July 2022
+    t_delta = datetime.timedelta(days=3)   # 3 days either side
+    site_shape = drill_points.ROI_SHP_CIRCLE  # Define the extraction shape
+    site_radius = 50  # In metres
     pt_1 = drillpoints.Point(
         longitude, latitude, date, crs_code, t_delta, site_radius, site_shape)
     points.append(pt_1)
     # Add additional points for each field site
     ...
 
-    # Specify paths to images to be drilled.
+    # Step 2. Choose the images and STAC Items to be drilled.
+    # Firstly, the image paths.
     img1 = "/path/to/img1.tif"
     img2 = "/path/to/img2.tif"
-
-    # Specify the STAC catalogue and raster assets of the STAC Items.
+    # Secondly, the STAC catalogue and raster assets of the STAC Items.
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
     assets = ['B02', 'B11']
-    
+
+    # Step 3. Define statistics.    
     # Select from standard, in-built statistics or define your own.
     # They are run on the pixels extracted from the images for all your
-    # field sites. See the tutorial for details.
+    # field sites. See the tutorial for how to specify and define the
+    # stats functions.
     std_stats = [drillstats.STATS_MEAN]
     user_stats = [('MY_RANGE', my_range_func)]
 
-    # Drill the given images and those found in the STAC catalogue,
-    # and calculate the stats.
+    Step 4. Extract pixels and compute stats.
+    # Drill the given images and those returned from a search of
+    # the STAC catalogue. Calculate the stats at the same time.
     drill.drill(
         points, images=[img1, img2],
         stac_endpoint=endpoint, raster_assets=assets,
         collections=collections,
         std_stats=std_stats, user_stats=user_stats)
     
+    # Step 5. Fetch results.
     # Retrieve the results using each Point's 'stats' attribute (a dictionary).
     for pt in points:
         print(f"Stats for point: x={pt.x}, y={pt.y}")

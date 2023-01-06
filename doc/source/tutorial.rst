@@ -13,14 +13,14 @@ A complete example is provided in ``pixdrill/example.py``.
 The typical usage pattern
 ==============================
 
-#. Specify the locations and acquisition windows of your field surveys
-#. Create Drillers for the items to be drilled
+#. Specify the field survey properties
+#. Choose the images to be drilled
 #. Define the statistics to be calculated on the drilled pixels
 #. Extract the pixels and compute the statistics
 #. Fetch the results
 
-Define the locations and windows of the field surveys
------------------------------------------------------
+Specify the field survey properties
+------------------------------------------------------
 
 Use the ``pixdrill.drillpoints.Point`` class to model the properties of
 the pixel extraction you want to do for each field site. The properties are the:
@@ -200,7 +200,8 @@ when ``item`` is a `pystac Item`_::
 Extract the pixels and calculate the stats
 ------------------------------------------
 
-This is done by ``drill.drill()``.
+This is done by calling ``drill.drill()``, as per the previous section's
+example.
 
 Fetch the results
 ------------------------------
@@ -283,32 +284,45 @@ This is achieved by reading the data, calculating the statistics, and
 fetching the results for the continuous assets separately to the
 categorical assets.
 
+The usage pattern is:
+
+#. Specify the locations and acquisition windows of your field surveys
+#. Find the STAC Items and create Driller objects for each one
+#. Define the assets and statistics to be calculated on the drilled pixels
+#. Extract the pixels and compute the statistics
+#. Fetch the results
+#. Reset the statistics
+#. Repeat steps 3-6 for a different set of assets
+
 Example::
 
-    # Create your points.
+    # Step 1. Create your points.
     points = create_points()
 
-    # Find the STAC Items that each point intersects. This is done in
-    # drill.create_stac_drillers(), which return a list of 
+    # Step 2. Find the STAC Items to drill.
+    # This is done by drill.create_stac_drillers(), which returns a list of 
     # drillpoints.ItemDriller objects, one for each STAC Item.
     drillers = drill.create_stac_drillers(stac_endpoint, points, collections)
 
-    # Loop over each driller, reading the data and
+    # Steps 3 and 4. Loop over each driller, reading the data and
     # calculating statistics on the continuous assets.
     for drlr in drillers:
         drlr.set_asset_ids(['B02', 'B11'])
         drlr.read_data()
         std_stats = [drillstats.STATS_MEAN, drillstats.STATS_STD]
         drlr.calc_stats(std_stats=std_stats)
-    # Fetch the stats
+    # Step 5. Fetch the stats
     for pt in points:
         stats_dict = pt.stats.get_stats()
         # do something
         ...
-        # then reset the stats, ready for the next extract
+        # Step 6. reset the stats, ready for the next extract
         pt.stats.reset()
+    # Note: another method for resetting the stats is:
+    # for drlr in drillers:
+    #     drlr.reset_stats()
 
-    # Repeat, but this time for a categorical asset.
+    # Repeat steps 3-6, but this time for a categorical asset.
     for drlr in drillers:
         drlr.set_asset_ids(['SCL'])
         drlr.read_data()
