@@ -4,7 +4,6 @@
 # See section 3.1.9 in https://www.rfc-editor.org/rfc/rfc7946#section-3.1
 
 from pixdrill import drill
-from pixdrill import drillpoints
 from pixdrill import drillstats
 
 from .fixtures import point_albers, point_wgs84
@@ -36,11 +35,13 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     std_stats = [
         drillstats.STATS_MEAN,
         drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
+
     def user_range(array_info, item, pt):
         return [a_info.data.max() - a_info.data.min() for a_info in array_info]
     user_stats = [("USER_RANGE", user_range)]
     drill.drill(
-        [point_albers, point_wgs84, point_intersects], images=[real_image_path],
+        [point_albers, point_wgs84, point_intersects],
+        images=[real_image_path],
         stac_endpoint=STAC_ENDPOINT, raster_assets=['B02', 'B03'],
         collections=COLLECTIONS, std_stats=std_stats, user_stats=user_stats)
     # Check that there are the same number of stats as there are Items that

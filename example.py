@@ -174,16 +174,18 @@ def run_typical():
         pid = getattr(pt, "other_atts")["PointID"]
         print(f"with ID {pid}")
         for item_id, item_stats in pt.stats.get_stats().items():
-            print(f"    Item ID={item_id}") # The pystac.Item or ImageItem ID
+            print(f"    Item ID={item_id}")  # The pystac.Item or ImageItem ID
             array_info = item_stats[drillstats.STATS_ARRAYINFO]
             # The asset_id for arrays extracted from Images is None.
             asset_ids = [a_info.asset_id for a_info in array_info]
             print(f"        Asset IDs  : {asset_ids}")
-#            print(f"        Raw arrays: {item_stats.get_stats(drillstats.STATS_RAW)}")
+#            print("        Raw arrays: "
+#                f"{item_stats.get_stats(drillstats.STATS_RAW)}")
             print(f"        Mean values: {item_stats[drillstats.STATS_MEAN]}")
             print(f"        Std dev    : {item_stats[drillstats.STATS_STDEV]}")
             print(f"        Counts     : {item_stats[drillstats.STATS_COUNT]}")
-            print(f"        Null Counts: {item_stats[drillstats.STATS_COUNTNULL]}")
+            print("        Null Counts: "
+                f"{item_stats[drillstats.STATS_COUNTNULL]}")
             print(f"        Ranges     : {item_stats['USER_RANGE']}")
 
 

@@ -1,6 +1,6 @@
 """
-``drill.drill()`` is the main interface. Most interaction with this package should
-be through this interface.
+``drill.drill()`` is the main interface. Most interaction with this package
+should be through this interface.
 
 Assumptions:
 
@@ -28,11 +28,10 @@ from pystac_client import Client
 from . import drillpoints
 
 
-def drill(
-    points, images=None,
-    stac_endpoint=None, raster_assets=None, collections=None, item_properties=None,
-    nearest_n=1, std_stats=None, user_stats=None, ignore_val=None,
-    concurrent=False):
+def drill(points, images=None,
+        stac_endpoint=None, raster_assets=None, collections=None,
+        item_properties=None, nearest_n=1, std_stats=None, user_stats=None,
+        ignore_val=None, concurrent=False):
     """
     Given a list of drillpoints.Point objects, compute the zonal statistics for
     the specified rasters.
@@ -41,12 +40,12 @@ def drill(
     argument to supply a list of paths to rasters. In this case a path may be
     any string understood by GDAL. All bands in each raster will be read.
     
-    The second method of specifying rasters is to search a STAC endpoint for them.
-    In this case, you must also supply a list of raster_assets, and optionally
-    a list of collection names in the STAC catalogue and a list of item properties
-    to filter the search by. stac_search() is called to find all STAC items
-    that intersect the survey points within their time-window; but only the
-    n nearest-in-time Items are used.
+    The second method of specifying rasters is to search a STAC endpoint for
+    them. In this case, you must also supply a list of raster_assets, and
+    optionally a list of collection names in the STAC catalogue and a list of
+    item properties to filter the search by. stac_search() is called to find
+    all STAC items that intersect the survey points within their time-window;
+    but only the n nearest-in-time Items are used.
 
     For each raster, the pixels are drilled and zonal statistics calculated
     using the list of standard stats and user stats.
@@ -99,18 +98,18 @@ def drill(
             print(f"        Raw arrays : {item_stats[drillstats.STATS_RAW]}")
             print(f"        Mean values: {item_stats[drillstats.STATS_MEAN]}")
             print(f"        Counts     : {item_stats[drillstats.STATS_COUNT]}")
-            print(f"        Null Counts: {item_stats[drillstats.STATS_COUNTNULL]}")
             print(f"        My Stat    : {item_stats["MY STAT"]})
 
     A few things to note in this example:
     
     - the std_stats argument passed to ``drill()`` would have been
-      [drillstats.STATS_MEAN, drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
+      [drillstats.STATS_MEAN, drillstats.STATS_COUNT]
     - the user_stats argument defines the 'MY_STAT' statistic and its
       corresponding function name: [('MY_STAT', my_stat_function)]
-    - retrieve the numpy masked arrays using the key ``drillstats.STATS_RAW``;
-      these are always supplied
-    - likewise, retrieve the ArrayInfo object using ``drillstats.STATS_ARRAYINFO``
+    - retrieve the numpy masked arrays using the key
+      ``drillstats.STATS_RAW``; these are always supplied
+    - likewise, retrieve the ArrayInfo object using
+      ``drillstats.STATS_ARRAYINFO``
 
     Additional implementation details.
 
@@ -119,9 +118,10 @@ def drill(
     TODO: properties are passed through to pystac_client.Client.search
     https://pystac-client.readthedocs.io/en/stable/api.html
 
-    TODO: ignore_val is the list of null values for each raster asset (or specify one
-    value to be used for all raster assets). It should only be used if the
-    null value of the raster is not set or to override it. It's used for:
+    TODO: ignore_val is the list of null values for each raster asset (or
+    specify one value to be used for all raster assets). It should only be used
+    if the null value of the raster is not set or to override it.
+    It's used for:
     
     - the mask value when 'removing' pixels from the raw arrays that
       are outside the region of interest, e.g. if the ROI is a circle then
@@ -152,9 +152,9 @@ def drill(
     user_stats : function
         A user defined function as specified above
     ignore_val : value
-        A value to use for the ignore value for rasters. Should only be specified
-        when a raster does not have this already set. Either a single value (same 
-        for all rasters) or one value for each asset.
+        A value to use for the ignore value for rasters. Should only be
+        specified when a raster does not have this already set. Either a single
+        value (same for all rasters) or one value for each asset.
     concurrent : bool
         Whether to process the assets concurrently
         
@@ -177,11 +177,10 @@ def drill(
     if concurrent:
         logging.info("Running extract concurrently.")
         with futures.ThreadPoolExecutor() as executor:
-            # TODO: raster_assets ought to be optional.
-            tasks = [executor.submit(
-                calc_stats(
-                    dr, std_stats=std_stats, user_stats=user_stats)) \
-                    for dr in drillers]
+            tasks = [
+                executor.submit(
+                    calc_stats(dr, std_stats=std_stats, user_stats=user_stats))
+                for dr in drillers]
     else:
         logging.info("Running extract sequentially.")
         for dr in drillers:
@@ -239,7 +238,8 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None):
     stac_client is the pystac.Client object returned from calling
     pystac.Client.open(endpoint_url).
     
-    If no collections are specified then search all collections in the endpoint.
+    If no collections are specified then search all collections in the
+    endpoint.
 
     Link each Point with its pystac.Items, and create a drillpoints.ItemDriller
     for every item.
@@ -278,7 +278,7 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None):
     for pt in points:
         pt_json = {
             "type": "Point",
-            "coordinates": [pt.wgs84_x, pt.wgs84_y] }
+            "coordinates": [pt.wgs84_x, pt.wgs84_y]}
         # TODO: permit user-defined properties. For example:
     # Properties can be determined by examining the 'properties' attribute
     # of an item in the collection.
@@ -292,14 +292,14 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None):
     #        f'sentinel:latitude_band={lat_band}',
     #        f'sentinel:grid_square={grid_sq}']
         properties = []
-        # TODO: Do I need to split bounding boxes that cross the anti-meridian into two?
-        # Or does the stac-client handle this case?
+        # TODO: Do bounding boxes that cross the anti-meridian need to be
+        # split in 2, or does the stac-client handle this case?
         # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
         search = client.search(
             collections=collections,
-            max_items=None, # no limit on number of items to return
+            max_items=None,  # no limit on number of items to return
             intersects=pt_json,
-            limit=500, # results per page
+            limit=500,  # results per page
             datetime=[pt.start_date, pt.end_date],
             query=properties)
         items = list(search.items())
@@ -362,4 +362,6 @@ class ImageItem:
         else:
             self.id = filepath
 
-class PixelStacError(Exception): pass
+
+class PixelStacError(Exception):
+    pass

@@ -26,7 +26,8 @@ Define a circle region of interest
 """
 
 
-class PointError(Exception): pass
+class PointError(Exception):
+    pass
 
 
 class Point:
@@ -71,8 +72,8 @@ class Point:
         See get_item_ids().
 
     """
-    def __init__(
-        self, point, sp_ref, t_delta, buffer, shape, buffer_degrees=False):
+    def __init__(self, point, sp_ref, t_delta, buffer, shape,
+            buffer_degrees=False):
         """
         Point constructor.
 
@@ -105,7 +106,8 @@ class Point:
         self.x_y = (self.x, self.y)
         self.sp_ref = sp_ref
         self.wgs84_x, self.wgs84_y = self.to_wgs84()
-        self.wgs84_x = -180 if math.isclose(self.wgs84_x, 180) else self.wgs84_x
+        self.wgs84_x = -180 if math.isclose(self.wgs84_x, 180) else \
+            self.wgs84_x
         self.start_date = self.t - t_delta
         self.end_date = self.t + t_delta
         self.buffer = buffer
@@ -139,7 +141,6 @@ class Point:
                      pt_y >= iinfo.y_min and pt_y <= iinfo.y_max)
         return in_bounds
 
- 
     def transform(self, dst_srs, src_srs=None, x=None, y=None):
         """
         Transform the point's x, y location to the destination
@@ -153,8 +154,9 @@ class Point:
         You may supply alternative x, y coordinates. If not supplied the 
         point's x, y coordinates are used.
 
-        Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping strategies
-        to guarantee x, y point ordering of the input and output points.
+        Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping
+        strategies to guarantee x, y point ordering of the input and
+        output points.
 
         Parameters
         ----------
@@ -188,7 +190,6 @@ class Point:
         dst_srs.SetAxisMappingStrategy(dst_map_strat)
         return (tr[0], tr[1])
 
-
     def to_wgs84(self):
         """
         Return the x, y coordinates of this Point in the WGS84 coordinate
@@ -202,7 +203,6 @@ class Point:
         dst_srs = osr.SpatialReference()
         dst_srs.ImportFromEPSG(4326)
         return self.transform(dst_srs)
-
 
     def change_buffer_units(self, dst_srs):
         """
@@ -236,7 +236,6 @@ class Point:
         -------
         float
 
-
         """
         if not self.buffer_degrees and dst_srs.IsGeographic():
             # Convert buffer units from metres to degrees
@@ -249,9 +248,9 @@ class Point:
                 # - EPSG 32601 - 32660 for the northern hemisphere, and
                 # - EPSG 32701 = 32770 for the southern hemisphere
                 if self.wgs84_y >= 0:
-                    epsg = 32600 + int(self.wgs84_x/6.0) + 31
+                    epsg = 32600 + int(self.wgs84_x / 6.0) + 31
                 else:
-                    epsg = 32700 + int(self.wgs84_x/6.0) + 31
+                    epsg = 32700 + int(self.wgs84_x / 6.0) + 31
                 p_sp_ref = osr.SpatialReference()
                 p_sp_ref.ImportFromEPSG(epsg)
                 px, py = self.transform(p_sp_ref)
@@ -259,7 +258,8 @@ class Point:
                     px, py, self.buffer, p_sp_ref, dst_srs)
             else:
                 # Dunno! Is self.sp_ref.IsLocal() ??
-                raise PointError("ERROR: unknown Spatial Reference type for sp_ref.")
+                raise PointError(
+                    "ERROR: unknown Spatial Reference type for sp_ref.")
         elif self.buffer_degrees and dst_srs.IsProjected():
             # Convert buffer units from degrees to metres
             if self.sp_ref.IsProjected():
@@ -274,15 +274,17 @@ class Point:
                     self.x, self.y, self.buffer, self.sp_ref, dst_srs)
             else:
                 # Dunno! Is self.sp_ref.IsLocal() ??
-                raise PointError("ERROR: unknown Spatial Reference type for sp_ref.")
+                raise PointError(
+                    "ERROR: unknown Spatial Reference type for sp_ref.")
         elif not (dst_srs.IsProjected() or dst_srs.IsGeographic()):
             # Dunno! What is dst_srs ??
-            raise PointError("ERROR: unknown Spatial Reference type for dst_srs.")
+            raise PointError(
+                "ERROR: unknown Spatial Reference type for dst_srs.")
         else:
-            # The buffer units and destination spatial reference system are compatible.
+            # The buffer units and destination spatial reference system
+            # are compatible.
             buffer = self.buffer
         return buffer
-
 
     def _transformed_buffer(self, x, y, buffer, src_srs, dst_srs):
         """
@@ -315,7 +317,9 @@ class Point:
         return new_buff
 
 
-class ItemDrillerError(Exception): pass
+class ItemDrillerError(Exception):
+    pass
+
 
 class ItemDriller:
     """
@@ -347,7 +351,6 @@ class ItemDriller:
         self.asset_ids = asset_ids
         self.points = []
 
-    
     def set_asset_ids(self, asset_ids):
         """
         Set which asset IDs to read data from on the next call to read_data().
@@ -365,9 +368,10 @@ class ItemDriller:
         You may experience strange side effects if you don't call reset_stats()
         on an ItemDriller object that previously had assets assigned.
         The underlying behaviour is that arrays for the new set of asset_ids
-        will be appended to the existing arrays for each point's PointStats objects.
-        Then, on the next calc_stats() call, the stats for all previously read
-        data will be recalculated in addition to the new stats for the new assets.
+        will be appended to the existing arrays for each point's PointStats
+        objects. Then, on the next calc_stats() call, the stats for all
+        previously read data will be recalculated in addition to the new stats
+        for the new assets.
 
         Parameters
         ----------
@@ -384,7 +388,6 @@ class ItemDriller:
         else:
             self.asset_ids = asset_ids
 
-
     def add_point(self, pt):
         """
         Append the Point to this object's points list.
@@ -396,7 +399,6 @@ class ItemDriller:
         """
         self.points.append(pt)
 
- 
     def read_data(self, ignore_val=None):
         """
         Read the pixels around every point for the given raster assets.
@@ -434,8 +436,8 @@ class ItemDriller:
             reader = image_reader.ImageReader(self.item)
             if ignore_val is not None:
                 if isinstance(ignore_val, list):
-                    errmsg = "Passing a list of ignore_vals when reading from " \
-                             "an image is unsupported"
+                    errmsg = "Passing a list of ignore_vals when reading " \
+                             "from an image is unsupported"
                     raise ItemDrillerError(errmsg)
             try:
                 reader.read_data(self.points, ignore_val=ignore_val)
@@ -455,27 +457,29 @@ class ItemDriller:
                           "calling ItemDriller.set_asset_ids()")
                 raise ItemDrillerError(errmsg)
             if isinstance(ignore_val, list):
-                errmsg = "The ignore_val list must be the same length as asset_ids."
+                errmsg = "The ignore_val list must be the same length as " \
+                         "asset_ids."
                 assert len(ignore_val) == len(self.asset_ids), errmsg
             else:
                 ignore_val = [ignore_val] * len(self.asset_ids)
             # GDAL will raise a RuntimeError if it can't open files,
             # in which case we write to the error log and roll back
-            # all data read for the item because we can't guarantee a clean read.
+            # all data read for the item because we can't guarantee a
+            # clean read.
             try:
                 for asset_id, i_v in zip(self.asset_ids, ignore_val):
-                    reader = image_reader.ImageReader(self.item, asset_id=asset_id)
+                    reader = image_reader.ImageReader(
+                        self.item, asset_id=asset_id)
                     reader.read_data(self.points, ignore_val=i_v)
             except RuntimeError:
                 fp = image_reader.get_asset_filepath(self.item, asset_id)
-                err_msg = f"Failed to read data for item {self.item.id} from {fp}. "
-                err_msg += "The stack trace is:\n"
+                err_msg = f"Failed to read data for item {self.item.id} from "
+                err_msg += f"{fp}. The stack trace is:\n"
                 err_msg += traceback.format_exc()
                 logging.error(err_msg)
                 self.reset_stats()
                 read_ok = False
         return read_ok
-
     
     def get_points(self):
         """
@@ -488,7 +492,6 @@ class ItemDriller:
         """
         return self.points
 
-    
     def calc_stats(self, std_stats=None, user_stats=None):
         """
         Calculate the statistics for every Point.
@@ -516,7 +519,6 @@ class ItemDriller:
             pt.stats.calc_stats(
                 self.item.id, std_stats=std_stats, user_stats=user_stats)
 
-
     def get_item(self):
         """
         Return the pystac.Item or drill.ImageItem.
@@ -527,7 +529,6 @@ class ItemDriller:
 
         """
         return self.item
-
 
     def reset_stats(self):
         """

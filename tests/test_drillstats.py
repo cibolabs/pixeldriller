@@ -14,7 +14,7 @@ from .fixtures import point_straddle_bounds_1, point_outside_bounds_1
 def test_point_stats(point_one_item, real_item):
     """Test construction of the PointStats object."""
     # drillpoints creates a list of ItemStats objects.
-    stats = drillstats.PointStats(point_one_item)#, real_item)
+    stats = drillstats.PointStats(point_one_item)
     assert stats.item_stats == {}
     # Add a clean set of stats for an item.
     stats.reset(item=real_item)
@@ -37,7 +37,8 @@ def test_calc_stats_image(point_one_item, real_image_path):
     drlr.add_point(point_one_item)
     drlr.read_data()
     std_stats = [drillstats.STATS_COUNT]
-    # A user function, which is a nonsense calculation of the sum of the scl pixels.
+    # A user function, which is nonsense: the sum of the scl pixels.
+
     def test_stat_1(array_info, item, pt):
         assert item.id == 'real_image'
         assert item.filepath == real_image_path
@@ -51,7 +52,7 @@ def test_calc_stats_image(point_one_item, real_image_path):
     assert raw_stats[0].shape == (1, 6, 6)
     stat_1 = point_one_item.stats.get_stats(
         item_id=image_item.id, stat_name="TEST_STAT_1")
-    assert stat_1 == 216 # each of the 36 elements in the raw array is 6.
+    assert stat_1 == 216  # each of the 36 elements in the raw array is 6.
 
 
 def test_calc_stats(point_one_item, real_item):
@@ -62,9 +63,11 @@ def test_calc_stats(point_one_item, real_item):
         drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
     # Create user functions. stat_1 is the sum of the mean of the two arrays.
     # stat_2 is a list with the min value of each array.
+
     def test_stat_1(array_info, item, pt):
         stat_1 = array_info[0].data.mean() + array_info[1].data.mean()
         return stat_1
+
     def test_stat_2(array_info, item, pt):
         stat_2 = [a_info.data.min() for a_info in array_info]
         return stat_2
@@ -105,24 +108,26 @@ def test_calc_stats(point_one_item, real_item):
 
 def test_check_std_arrays(fake_item):
     """Test that a Multiband array will raise an exception."""
-    a1 = numpy.ma.arange(10).reshape((1,2,5))
-    mba = numpy.ma.arange(20).reshape((2,2,5))
-    a3 = numpy.ma.arange(4,16).reshape((1,4,3))
+    a1 = numpy.ma.arange(10).reshape((1, 2, 5))
+    mba = numpy.ma.arange(20).reshape((2, 2, 5))
+    a3 = numpy.ma.arange(4, 16).reshape((1, 4, 3))
     with pytest.raises(drillstats.MultibandAssetError) as excinfo:
         drillstats.check_std_arrays(fake_item, [a1, mba, a3])
-    assert "Array at index 1 in asset_arrays contains 2 layers" in str(excinfo.value)
+    assert "Array at index 1 in asset_arrays contains 2 layers" in \
+        str(excinfo.value)
 
 
-@pytest.mark.filterwarnings("ignore:.*converting a masked element to nan.:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:.*converting a masked element to nan.:UserWarning")
 def test_std_stat_mean():
     """Test drillstats.std_stat_mean."""
     # All arrays are 3D.
     # All arrays must only contain one layer, so a.shape[0]=1.
     # Different lengths in the other dimensions are permitted.
     # Arrays must be masked arrays.
-    a1 = numpy.ma.arange(10).reshape((1,2,5))
-    a2 = numpy.ma.arange(3,12).reshape((1,3,3))
-    a3 = numpy.ma.arange(4,16).reshape((1,4,3))
+    a1 = numpy.ma.arange(10).reshape((1, 2, 5))
+    a2 = numpy.ma.arange(3, 12).reshape((1, 3, 3))
+    a3 = numpy.ma.arange(4, 16).reshape((1, 4, 3))
     mean_vals = drillstats.std_stat_mean([a1, a2, a3])
     assert list(mean_vals) == [4.5, 7.0, 9.5]
     # Test use of a mask. Mask the nine out of a1.
@@ -138,9 +143,9 @@ def test_std_stat_mean():
 
 def test_std_stat_count():
     """Test drillstats.std_stat_count."""
-    a1 = numpy.arange(10).reshape((1,2,5))
+    a1 = numpy.arange(10).reshape((1, 2, 5))
     m_a1 = numpy.ma.masked_array(a1, mask=a1==0)
-    m_a2 = numpy.ma.arange(4,20).reshape((1,4,4))
+    m_a2 = numpy.ma.arange(4, 20).reshape((1, 4, 4))
     m_a3 = numpy.ma.masked_array([], mask=True)
     counts = drillstats.std_stat_count([m_a1, m_a2, m_a3])
     assert list(counts) == [9, 16, 0]
@@ -148,9 +153,9 @@ def test_std_stat_count():
 
 def test_std_stat_countnull():
     """Test drillstats.std_stat_countnull."""
-    a1 = numpy.arange(10).reshape((1,2,5))
+    a1 = numpy.arange(10).reshape((1, 2, 5))
     m_a1 = numpy.ma.masked_array(a1, mask=a1<3)
-    m_a2 = numpy.ma.arange(4,20).reshape((1,4,4))
+    m_a2 = numpy.ma.arange(4, 20).reshape((1, 4, 4))
     m_a3 = numpy.ma.masked_array([], mask=True)
     counts = drillstats.std_stat_countnull([m_a1, m_a2, m_a3])
     assert list(counts) == [3, 0, 0]
@@ -194,13 +199,15 @@ def test_user_nulls(point_all_nulls, real_item):
     value if it is set.
 
     """
-    # The test assumes that the asset's no-data value=0, thus giving a mean of 0.
+    # The test assumes that the asset's no-data value=0,
+    # thus giving a mean of 0.
     std_stats = [drillstats.STATS_MEAN]
     drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
     drlr.add_point(point_all_nulls)
     with pytest.raises(AssertionError) as excinfo:
         drlr.read_data(ignore_val=[-9999])
-    assert "ignore_val list must be the same length as asset_ids" in str(excinfo.value)
+    assert "ignore_val list must be the same length as asset_ids" in \
+        str(excinfo.value)
     drlr.read_data(ignore_val=-9999)
     drlr.calc_stats(std_stats=std_stats)
     mean_vals = point_all_nulls.stats.get_stats(
@@ -253,7 +260,8 @@ def test_reset(point_one_item, real_item):
     drlr.calc_stats(std_stats=std_stats)
     i_stats = point_one_item.stats.item_stats
     assert list(i_stats[real_item.id].keys()) == [
-        drillstats.ITEM_KEY, drillstats.STATS_RAW, drillstats.STATS_ARRAYINFO, drillstats.STATS_MEAN]
+        drillstats.ITEM_KEY, drillstats.STATS_RAW,
+        drillstats.STATS_ARRAYINFO, drillstats.STATS_MEAN]
     assert len(point_one_item.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)) == 2
     # Now do another read/calc stats, appending B8A data to the ItemStats objects.
@@ -295,7 +303,8 @@ def test_get_stats(point_one_item, real_item):
     assert stats == {}
     stats = point_stats.get_stats(stat_name=drillstats.STATS_MEAN)
     assert stats == {}
-    stats = point_stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
+    stats = point_stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert stats == []
     stats = point_stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
     assert stats is None
@@ -311,22 +320,27 @@ def test_get_stats(point_one_item, real_item):
     stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_RAW)
     assert real_item.id in stats
     assert stats[real_item.id][0].shape == (1, 11, 11)
-    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_RAW)
+    stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_RAW)
     assert stats[0].shape == (1, 11, 11)
     # Request stats that have not yet been calculated.
     stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_MEAN)
     assert stats == {real_item.id: []}
     stats = point_one_item.stats.get_stats(stat_name="USER_STAT")
     assert stats == {real_item.id: None}
-    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
+    stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert stats == []
-    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
+    stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name="USER_STAT")
     assert stats is None
     # Call calc_stats
+
     def user_stat(array_info, item, pt):
         val = array_info[0].data.sum()
         return val
-    drlr.calc_stats(std_stats=[drillstats.STATS_MEAN], user_stats=[("USER_STAT", user_stat)])
+    drlr.calc_stats(std_stats=[drillstats.STATS_MEAN],
+    user_stats=[("USER_STAT", user_stat)])
     stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_MEAN)
     assert len(stats) == 1
     id, stat = list(stats.items())[0]
@@ -335,9 +349,11 @@ def test_get_stats(point_one_item, real_item):
     stats = point_one_item.stats.get_stats(item_id=real_item.id)
     assert drillstats.STATS_MEAN in stats
     assert round(stats[drillstats.STATS_MEAN][0], 2) == 441.41
-    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
+    stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert round(stats[0], 2) == 441.41
-    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
+    stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name="USER_STAT")
     assert stats == 53411
     # Request rubbish
     stats = point_one_item.stats.get_stats(item_id="No such item")
@@ -346,9 +362,12 @@ def test_get_stats(point_one_item, real_item):
     assert stats == {real_item.id: None}
     stats = point_one_item.stats.get_stats(stat_name=drillstats.STATS_COUNT)
     assert stats == {real_item.id: []}
-    stats = point_one_item.stats.get_stats(item_id="No such item", stat_name="No such stat")
+    stats = point_one_item.stats.get_stats(
+        item_id="No such item", stat_name="No such stat")
     assert stats is None
-    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name="No such stat")
+    stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name="No such stat")
     assert stats is None
-    stats = point_one_item.stats.get_stats(item_id=real_item.id, stat_name=drillstats.STATS_COUNT)
+    stats = point_one_item.stats.get_stats(
+        item_id=real_item.id, stat_name=drillstats.STATS_COUNT)
     assert stats == []

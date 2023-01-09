@@ -72,7 +72,6 @@ class PointStats:
         self.pt = pt
         self.item_stats = {}
 
-    
     def add_data(self, item, arr_info):
         """
         Add the image_reader.ArrayInfo object as read from an Item's raster.
@@ -105,7 +104,6 @@ class PointStats:
         stats[STATS_RAW].append(arr_info.data)
         stats[STATS_ARRAYINFO].append(arr_info)
 
-    
     def calc_stats(self, item_id, std_stats=None, user_stats=None):
         """
         Calculate the given list of standard and user-defined statistics
@@ -150,12 +148,12 @@ class PointStats:
             # See https://github.com/cibolabs/pixelstac/issues/30.
             check_std_arrays(item, stats[STATS_RAW])
             warnings.filterwarnings(
-                'ignore', message='Warning: converting a masked element to nan.',
-                category=UserWarning)
+                'ignore', category=UserWarning,
+                message='Warning: converting a masked element to nan.')
             # Assume that STATS_RAW and STATS_ARRAYINFO are already populated
             # or are empty lists.
             stats_list = [
-                s_s for s_s in std_stats if \
+                s_s for s_s in std_stats if
                 s_s not in [STATS_RAW, STATS_ARRAYINFO]]
             for stat_name in stats_list:
                 std_stat_func = STD_STATS_FUNCS[stat_name]
@@ -164,7 +162,6 @@ class PointStats:
             for stat_name, stat_func in user_stats:
                 stats[stat_name] = stat_func(
                     stats[STATS_ARRAYINFO], item, self.pt)
-
 
     def get_stats(self, item_id=None, stat_name=None):
         """
@@ -183,12 +180,12 @@ class PointStats:
             The return type varies depending on the parameters:
             - the value returned from the statistic's function
             if both item_id and stat_name are given
-            - a dictionary, keyed by the statistic names if only item_id is given;
-            the values are those returned from the statistic's function
+            - a dictionary, keyed by the statistic names if only item_id is
+            given; the values are those returned from the statistic's function
             - a dictionary, keyed by item ID if only stat_name is given;
             the values are those returned from the statistics' functions
-            - this object's self.item_stats dictionary if both parameters are None;
-            this dictionary is keyed by the item_id, and each value is
+            - this object's self.item_stats dictionary if both parameters are
+            None; this dictionary is keyed by the item_id, and each value is
             another dictionary, keyed by the statistic name
             If one or both of the item_id or stat_name are not present in this
             object's statistics, then the stats returned in the above data
@@ -225,7 +222,6 @@ class PointStats:
             ret_val = self.item_stats
         return ret_val
 
-
     def reset(self, item=None):
         """
         Delete all previously calculated stats and raw arrays,
@@ -236,7 +232,8 @@ class PointStats:
         If the supplied Item is not in self.item_stats, then add it.
         This is convenient if a call to read_data() failed and add_data()
         was not called. This allows the user to progress through failed reads,
-        delaying the checks until after all reads are done and stats calculated.
+        delaying the checks until after all reads are done and the stats
+        calculated.
 
         Parameters
         ----------
@@ -280,7 +277,8 @@ def check_std_arrays(item, asset_arrays):
     rast_counts = [arr.shape[0] for arr in asset_arrays]
     for idx, rcount in enumerate(rast_counts):
         if rcount > 1:
-            errmsg += f"Array at index {idx} in asset_arrays contains {rcount} layers.\n"
+            errmsg += f"Array at index {idx} in asset_arrays contains " \
+                      f"{rcount} layers.\n"
     if errmsg:
         errmsg = "ERROR: Cannot calculate the standard statistics " \
                  f"because one or more assets for item {item.id} " \
