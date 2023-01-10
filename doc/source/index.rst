@@ -10,7 +10,10 @@ Pixel Driller
    :maxdepth: 2
    :caption: Contents:
 
-**Should I use Pixel Driller?** Maybe, if you:
+Introduction
+------------
+
+Pixel Driller is for those who:
 
 - work in the field of remote sensing
 - take measurements of *something* on the ground, and
@@ -18,12 +21,24 @@ Pixel Driller
   from satellite or aerial images
 - are comfortable using Python
 
-**What does Pixel Driller do?**
 
-It extracts pixels from images acquired over your field sites and runs statistics
-on them, which you want to use as model predictors.
+What it does
+-----------------------------
 
-**What are its features?**
+Pixel Driller extracts pixels from images acquired over your field sites and
+runs statistics on them. You would use those statistics as predictors in your
+machine learning models.
+
+It handles the following use cases:
+
+- Given a STAC endpoint, set of X-Y-Time points, and a buffer, return the
+  n nearest-in-time zonal stats for all bands of the specified raster assets
+  about each point
+- Given a list of images, a set of X-Y points, and a buffer, return the
+  zonal stats for the bands in each image about each point
+
+Features
+----------
 
 - Extract from images by specifying a file path or URL
 - Extract from images by searching a STAC catalogue
@@ -31,7 +46,8 @@ on them, which you want to use as model predictors.
 - Specify the size and shape of the extraction area for each field site
 - Use in-built functions for calculating statistics or define your own
 
-**Example**
+Example
+---------
 
 ``pixdrill.drill.drill()`` is the main interface. However, several data structures
 and functions must be created before using it. The following example is
@@ -120,6 +136,42 @@ single-band rasters.::
             Ranges     : [0]
 
 
+Download
+---------
+
+From `Github <https://github.com/cibolabs/pixeldriller/releases>`__.
+
+
+Installation
+-------------
+
+The package requires `pystac-client <https://pystac-client.readthedocs.io/>`__,
+`numpy <https://numpy.org/>`__ and `GDAL <https://gdal.org/>`__.
+
+All packages are available from the conda-forge archive.
+
+They may also be available from your platform's package manager.
+
+Alternatively the `GDAL python bindings <https://pypi.org/project/GDAL/>`__
+are available on `pypi <https://pypi.org/>`__. But libgdal must be installed
+first. You might use your platform's package manager to install GDAL and
+its bindings instead. For example, on Ubuntu:
+
+```
+> sudo apt-get install -y python3-gdal gdal-bin`
+```
+
+pystac-client and numpy are also available from `pypi <https://pypi.org/>`__,
+and are installed when installing Pixel Driller.
+
+TODO: Test pip command
+TODO: Is there a link to 'latest'?
+
+```
+> pip install https://github.com/cibolabs/pixeldriller/archive/refs/tags/v0.2.0.tar.gz
+```
+
+
 Guides
 =======
 
@@ -128,11 +180,6 @@ Guides
 
    tutorial
    developer_guide
-
-Installation
-============
-
-To install, do...
 
 Python Module Reference
 =======================

@@ -9,13 +9,40 @@ pixelstac is for the following use cases:
   zonal stats for the bands in each image about each point
 
 Good starting points are:
+- readthedocs (TODO: Insert link).
 - example.py
-- the docstring from pixelstac.drill()
+- the docstring in pixelstac.drill()
+
+
+## Assumptions
+
+- GDAL is available on the system
+- in order to open the STAC assets for the Items returned from pixelstac.query():
+  - assets have a http, https, or ftp URL (as their href attribute)
+  - no authentication is required to access them
+  - the GDAL on the system was been built against libcurl
+  - GDAL's CPL_VSIL_CURL_ALLOWED_EXTENSIONS environment variable is set and
+    contains the filename extensions of the assets, e.g.
+    `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff,.vrt,.jp2"` 
+  - see [GDAL /vsicurl driver](https://gdal.org/user/virtual_file_systems.html#vsicurl-http-https-ftp-files-random-access)
+  - For exampe, you should be able to read tif files if the following command
+    returns information about the file,
+    `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif" gdalinfo /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif`
+- All assets of all items returned from pixelstac.query() have the same
+  coordinate reference system so that the buffer value used to define the
+  ROI is applied consistently across all assets
+- The coordinate reference system of the assets being read define north as up.
+
+## Known limitations
+
+- Has only been tested with single-band assets and images
+- Calculation of 'standard' statistics is not supported for multi-band
+  assets and images
+
 
 ## Development
 
 The enclosed Dockerfile creates the environment that is used for development.
-Development occurs on an AWS EC2 instance in the us-west-2 region.
 
 Example:
 
@@ -47,30 +74,6 @@ Stats for point: x=140, y=-36.5
         Mean values: [3945.52066116 3690.01652893]
 ```
 
-## Assumptions
-
-- GDAL is available on the system
-- in order to open the STAC assets for the Items returned from pixelstac.query():
-  - assets have a http, https, or ftp URL (as their href attribute)
-  - no authentication is required to access them
-  - the GDAL on the system was been built against libcurl
-  - GDAL's CPL_VSIL_CURL_ALLOWED_EXTENSIONS environment variable is set and
-    contains the filename extensions of the assets, e.g.
-    `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff,.vrt,.jp2"` 
-  - see [GDAL /vsicurl driver](https://gdal.org/user/virtual_file_systems.html#vsicurl-http-https-ftp-files-random-access)
-  - For exampe, you should be able to read tif files if the following command
-    returns information about the file,
-    `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif" gdalinfo /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif`
-- All assets of all items returned from pixelstac.query() have the same
-  coordinate reference system so that the buffer value used to define the
-  ROI is applied consistently across all assets
-- The coordinate reference system of the assets being read define north as up.
-
-## Known limitations
-
-- Has only been tested with single-band assets and images
-- Calculation of 'standard' statistics is not supported for multi-band
-  assets and images
 
 ## Tests and coverage
 
@@ -97,6 +100,7 @@ python3 -m coverage report
 
 ```
 $ cd pixeldriller
+# sudo apt-get install graphviz
 $ python3 -m venv .doc_venv
 $ source .doc_venv/bin/activate
 (.doc_venv) $ pip install -r doc/requirements.txt

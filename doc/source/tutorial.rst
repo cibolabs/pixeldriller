@@ -11,7 +11,7 @@ This tutorial guides you through a typical usage pattern to do so.
 A complete example is provided in ``pixdrill/example.py``.
 
 The typical usage pattern
-==============================
+--------------------------
 
 #. Specify the field survey properties
 #. Choose the images to be drilled
