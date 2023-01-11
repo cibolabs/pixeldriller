@@ -338,3 +338,36 @@ Example::
         pt.stats.reset()
 
     # And so on.
+
+Pitfalls
+----------
+
+Multiple calls to calc_stats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All data should be read from images before calling ``calc_stats()``. And
+``calc_stats`` should only be called once. This is how ``drill.drill()`` works.
+
+But care should be taken when using `an alternative usage pattern`_
+to reuse the Points to calculate statistics on a new set of Items.
+Always reset the statistics for every point before reading new data and
+calculating a new set of statistics. If the stats are not reset, any
+previously calculated stats are recalculated.
+
+Accessing STAC Item assets
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a STAC Item, GDAL must be able to read the *assets* that you want to drill.
+This means that:
+
+- assets have a URL (http, https, ftp etc) as their ``href`` attribute
+- GDAL is built so that it can read data from
+  `network-based filesystems <https://gdal.org/user/virtual_file_systems.html>`__
+- GDAL's ``CPL_VSIL_CURL_ALLOWED_EXTENSIONS`` environment variable is set and
+  contains the filename extensions of the assets, e.g.
+  ``CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff,.vrt,.jp2"``
+- For example, you should be able to read tif files if the following command
+  returns information about the file,
+  `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif" gdalinfo /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif`
+- if authentication is required it is done in a manner
+  `supported by GDAL <https://gdal.org/user/virtual_file_systems.html>`__

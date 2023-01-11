@@ -1,6 +1,6 @@
 """
-Contains the Point and ItemDriller classes which are used to create and hold
-the points for an Item.
+Contains the ``Point`` and ``ItemDriller`` classes which define the
+survey point's properties and are used to drill an Item's pixels.
 
 """
 
@@ -32,12 +32,40 @@ class PointError(Exception):
 
 class Point:
     """
-    A structure for an X-Y-Time point with a corresponding 
-    osr.SpatialReference system. A point is characterised by:
+    A structure for an X-Y-Time point with a coordinate reference system,
+    spatial shape, and image-acquisition window.
+
+    The statistics for a Point are retrievable using its `stats` attribute,
+    which is an instance of ``drillstats.PointStats``.
     
-    - a location in space and time
-    - a spatial buffer
-    - a temporal window
+    Parameters
+    ----------
+
+    point : an (x, y, time) tuple
+        `x` and `y` are the spatial coordinates of the survey point's centre
+        and `time` is a ``datetime.datetime`` object of when the survey
+        was conducted. `time` may be may be timezone aware or unaware.
+        `time` objects are handled as per the
+        `pystac_client.Client.search() <https://pystac-client.readthedocs.io>`_
+        interface.
+    sp_ref : osr.SpatialReference
+        The coordinate reference system of the point's `x`, `y` location.
+    t_delta : ``datetime.timedelta`` object
+        For searching STAC catalogues. An Item acquired within this time
+        window either side of the point's `time` will be drilled, provided
+        it is one of the ``nearest_n`` Items (see ``drill.drill()``).
+    buffer : int or float
+        Together with the ``shape`` parameter, buffer defines the region of
+        interest about the point.
+    shape : {ROI_SHP_SQUARE, ROI_SHP_CIRCLE}
+        The shape of the region of interest. If shape is
+        ``ROI_SHP_SQUARE``, then buffer is half the length of the square's side.
+        If shape is ``ROI_SHP_CIRCLE``, then buffer is the circle's radius.        
+    buffer_degrees : bool
+        If True, then the units for the point's buffer are
+        assumed to be in degrees, otherwise they are assumed to be in metres.
+        The default is False (metres).
+
     
     Attributes
     ----------
@@ -56,9 +84,9 @@ class Point:
     wgs84_y : float
         The point's y location in WGS84 coordinates.
     start_date : datetime.datetime
-        The datetime.datetime start date of the temporal buffer.
+        The start date of the image-acquistion window.
     end_date : datetime.datetime
-        The datetime.datetime end date of the temporal buffer.
+        The end date of the image-acquisition window.
     buffer : float
         The distance from the point that defines the region of interest.
     shape : int
@@ -69,37 +97,11 @@ class Point:
         Holds the drilled data and statistics.
     items : dictionary
         The items associated with this point, keyed by the Item ID.
-        See get_item_ids().
 
     """
     def __init__(self, point, sp_ref, t_delta, buffer, shape,
             buffer_degrees=False):
-        """
-        Point constructor.
-
-        point is a (X, Y, Time) tuple. X and Y are the spatial coordinates and
-        Time is a datetime.datetime object.
-
-        Time may be may be timezone aware or unaware.
-        They are handled as per the pystac_client.Client.search interface.
-        See: https://pystac-client.readthedocs.io/en/stable/api.html
-        
-        sp_ref is the osr.SpatialReference object
-        defining the coordinate reference system of the point.
-
-        t_delta is a datetime.timedelta object, which defines the
-        temporal window either side of the given Time.
-
-        buffer defines the region of interest about the point.
-        If buffer_degrees is True, then the units for the point's buffer are
-        assumed to be in degrees, otherwise they are assumed to be in metres.
-        The default is metres.
-
-        shape defines the shape of the region of interest. If shape is
-        ROI_SHP_SQUARE, then buffer is half the length of the square's side.
-        If shape is ROI_SHP_CIRCLE, then buffer is the circle's radius.
-
-        """
+        """Point constructor."""
         self.x = point[0]
         self.y = point[1]
         self.t = point[2]
@@ -118,15 +120,14 @@ class Point:
 
     def intersects(self, ds):
         """
-        Return True if the point intersects the GDAL dataset. ds can be a
-        open gdal.Dataset or a filepath as a string.
-
+        Return True if the point intersects the GDAL dataset.
         The comparison is made using the image's coordinate reference system.
 
         Parameters
         ----------
-        ds : GDAL dataset object or filepath as a string
-            The file to check intersection with
+        ds : A ``osgeo.gdal.Dataset`` object or ``str``
+            The file to check intersection with, it can be an open
+            GDAL Dataset or a filepath.
 
         Returns
         -------
@@ -146,33 +147,34 @@ class Point:
         Transform the point's x, y location to the destination
         osr.SpatialReference coordinate reference system.
 
-        Return the transformed (x, y) point.
-
-        You may supply an alternative src_srs for the (x, y) Point. If not
-        supplied the points sp_ref is used.
-
-        You may supply alternative x, y coordinates. If not supplied the 
-        point's x, y coordinates are used.
-
-        Under the hood, use the OAMS_TRADITIONAL_GIS_ORDER axis mapping
-        strategies to guarantee x, y point ordering of the input and
-        output points.
-
         Parameters
         ----------
 
         dst_srs : osr.SpatialReference
-            The optional destination SRS
-        src_srs : osr.SpatialReference
-            The optional source SRS
-        x : float
-            The optional x coord
-        y : float
-            The optional y coord
+            The destination SRS
+        src_srs : osr.SpatialReference, optional
+            The source SRS
+        x : float, optional
+            The x coord to be transformed.
+        y : float, optional
+            The y coord to be transformed.
 
         Returns
         -------
-        tuple with the new coords
+        tuple with the transformed (x, y) coords
+
+        Notes
+        -----
+
+        You may supply an alternative `src_srs` for the (x, y) Point. If not
+        supplied this Point's sp_ref is used.
+
+        You may supply alternative `x`, `y` coordinates. If not supplied the 
+        Point's `x`, `y` coordinates are used.
+
+        Under the hood, use GDAL's OAMS_TRADITIONAL_GIS_ORDER axis mapping
+        strategies to guarantee x, y point ordering of the input and
+        output points.
 
         """
         x = self.x if x is None else x
@@ -207,8 +209,22 @@ class Point:
     def change_buffer_units(self, dst_srs):
         """
         Given the destination (target) spatial reference system, change
-        the point's buffer units and estimate a new distance in the dst_srs.
+        the buffer's units and estimate a new distance in the dst_srs.
         
+        Parameters
+        ----------
+
+        dst_srs : osr.SpatialReference
+            The target SRS.
+
+        Returns
+        -------
+        float
+            The buffer distance.
+
+        Notes
+        -----
+
         Handles two cases:
 
         1. convert the point's buffer distance to metres if it is in degrees
@@ -216,25 +232,8 @@ class Point:
         2. convert the point's buffer distance to degrees if it is in metres
            and the dst_srs is a geographic reference system.
 
-        Return the buffer distance in the new units.
-
-        Do nothing, returning self.buffer, if the buffer distance and dst_srs
-        are compatible; that is:
-        
-        1. the buffer distance is metres and dst_srs is a
-           projected reference system
-        2. the buffer distance is in degrees and dst_srs is a
-           geographic reference system
-
-        Parameters
-        ----------
-
-        dst_srs : osr.SpatialReference
-            The new SRS
-
-        Returns
-        -------
-        float
+        If the buffer's units and `dst_srs` are compatible; then do nothing,
+        returning self.buffer as is.
 
         """
         if not self.buffer_degrees and dst_srs.IsGeographic():
@@ -288,13 +287,9 @@ class Point:
 
     def _transformed_buffer(self, x, y, buffer, src_srs, dst_srs):
         """
-        Add buffer to x to create a new point.
-        Project both points to dst_srs and calculate a new buffer distance
-        in the dst_srs.
-
-        Assumptions:
-            - x, y is in src_srs
-            - buffer's units are the same as the src_srs
+        Add the `buffer` distance to `x` to create a new point and calculate
+        the distance between the two points in the `dst_srs`, which is
+        the transformed buffer distance.
 
         Parameters
         ----------
@@ -307,7 +302,7 @@ class Point:
         Returns
         -------
         float
-
+            The transformed buffer distance.
 
         """
         xn = buffer + x
@@ -325,25 +320,29 @@ class ItemDriller:
     """
     Drills an Item, extracting pixels for a list of Points.
 
+    Parameters
+    ----------
+
+    item : a pystac.Item object or a drill.ImageItem object
+        The Item to be drilled.
+    asset_ids : a list of strings
+        The IDs of the pystac.Item's raster assets to read; leave
+        this as None (the default) if item is an instance of
+        ``drill.ImageItem`` or you want to set the assets later using
+        ``set_asset_ids()``.
+
+
     Attributes
     ----------
     item : pystac.Item object or a drill.ImageItem
-        These points intersect this item
-    points : list of Point objects
-    asset_ids : sequence of strings
-        the IDs of the pystac.Item's raster assets to read
+        The Item to be drilled.
+    points : list of ``drillpoints.Point`` objects
+    asset_ids : list of strings
+        the IDs of the pystac.Item's raster assets to read.
 
     """
     def __init__(self, item, asset_ids=None):
-        """
-        Construct an ItemDriller object, setting the following attributes:
-        - item: the pystac.Item object or a drill.ImageItem
-        - asset_ids: the IDs of the pystac.Item's raster assets to read; leave
-          this as None if item is an instance of drill.ImageItem or you want
-          to set the assets later using set_asset_ids().
-        - points: to an empty list
-
-        """
+        """Constructor"""
         if isinstance(item, drill.ImageItem) and asset_ids is not None:
             errmsg = "ERROR: do not set asset_ids when item is an ImageItem."
             raise ItemDrillerError(errmsg)
@@ -354,29 +353,32 @@ class ItemDriller:
     def set_asset_ids(self, asset_ids):
         """
         Set which asset IDs to read data from on the next call to read_data().
-        This function is not relevant when self.item is a drill.ImageItem.
-        But if self.item is a pystac.Item, then you must set the asset_ids
-        using this function or in the constructor.
-
-        Using this function probably only makes sense in the contexts of
-        setting the asset IDs for the first time or
-        reusing the pystac.Item objects to calculate statistics for an
-        entirely new set of raster assets. In the latter case,
-        you would call this function after calling reset_stats() and before
-        calling read_data() and calc_stats().
-
-        You may experience strange side effects if you don't call reset_stats()
-        on an ItemDriller object that previously had assets assigned.
-        The underlying behaviour is that arrays for the new set of asset_ids
-        will be appended to the existing arrays for each point's PointStats
-        objects. Then, on the next calc_stats() call, the stats for all
-        previously read data will be recalculated in addition to the new stats
-        for the new assets.
 
         Parameters
         ----------
-
         asset_ids : list of ids
+
+        Notes
+        -----
+        This function is irrelevant when ``self.item`` is an instance
+        of ``drill.ImageItem``.
+        If ``self.item`` is a ``pystac.Item``, then you must set the asset_ids
+        using this function or in the constructor.
+
+        Using this function probably only makes sense in the context of
+        setting the asset IDs for the first time or
+        reusing the ``pystac.Item`` objects to calculate statistics for an
+        entirely new set of raster assets. In the latter case,
+        you would call this function after calling ``reset_stats()`` and before
+        calling ``read_data()`` and ``calc_stats()``.
+
+        You may experience strange side effects if you don't call
+        ``reset_stats()`` when the ItemDriller previously had assets assigned.
+        The underlying behaviour is that arrays for the new set of asset_ids
+        will be appended to the existing arrays for each point's ``PointStats``
+        object. Then, on the next ``calc_stats()`` call, the stats for all
+        previously read data will be recalculated in addition to the new stats
+        for the new assets.
 
         """
         if isinstance(self.item, drill.ImageItem):
@@ -402,32 +404,36 @@ class ItemDriller:
     def read_data(self, ignore_val=None):
         """
         Read the pixels around every point for the given raster assets.
+        On completion, each Point's stats object will have a
+        ``numpy.ma.masked_array`` for this Item.
 
-        ignore_val specifies the no data values of the rasters being read.
-        
-        When reading from the assets of a STAC Item, ignore_val can be
+        Parameters
+        ----------
+        ignore_val : number or None
+            Use the given number to define the pixels to be masked when
+            creating the numpy masked arrays. See the notes below.
+
+        Returns
+        -------
+        bool
+            True if data is read or False if there's an error reading the data.
+
+        Notes
+        -----
+
+        When reading from the assets of a ``pystac.Item``, `ignore_val` can be
         a single value, a list of values, or None.
         A list of values is the null value per asset. It assumes all
         bands in an asset use the same null value.
         A single value is used for all bands of all assets.
         None means to use the no data value set on each asset.
         
-        When reading from a plain image, ignore_val can be a single value
-        or None.
+        When reading the image of a ``drill.ImageItem``, `ignore_val` can be a
+        single value or None.
         A single value is used for all bands in the image.
         None means to use the image band's no data value.
 
-        The reading is done by image_reader.ImageReader.read_data().
-
-        Parameters
-        ----------
-        ignore_val : number or None
-            Use the given number as the ignore value or all bands. If none,
-            use the image's nodata value.
-
-        Returns
-        -------
-        True if data is read or False if there's an error reading the data.
+        The reading is done by ``image_reader.ImageReader.read_data()``.
 
         """
         read_ok = True
@@ -483,7 +489,7 @@ class ItemDriller:
     
     def get_points(self):
         """
-        Get the list of pointstats.Point objects in this collection.
+        Get the list of ``Point`` objects in this collection.
 
         Returns
         -------
@@ -494,25 +500,26 @@ class ItemDriller:
 
     def calc_stats(self, std_stats=None, user_stats=None):
         """
-        Calculate the statistics for every Point.
+        Calculate the statistics for every Point. Call this after
+        calling ``read_data()``.
 
-        Call this after calling read_data().
-
-        std_stats is a list of standard stats to calculate for each point's
-        region of interest.
-        They are a list of STATS symbols defined in this module.
-
-        user_stats is a list of tuples. Each tuple defines:
-        
-        - the name (a string) for the statistic
-        - and the function that is called to calculate it
+        On completion, each Point's stats object will be populated with
+        the statistics.
 
         Parameters
         ----------
-        std_stats : int
-            One of the STATS* constants
+        std_stats : list of int, optional
+            The list of standard statistics to calculate. Each element must be
+            one of the ``STATS_*`` constants defined in
+            ``pixdrill.drillstats``.
         user_stats : list of (name, func) tuples
-            where func is the user functional to calculate a statistic
+            `name` is a string and is the name of the statistic.
+            `func` is the name of the function used to calculate the statistic.
+
+        See also
+        --------
+        drill.drill : for the signature of a user-supplied statistics function
+            and how to retrieve the statistics from a ``Point``.
 
         """
         for pt in self.points:
@@ -521,7 +528,7 @@ class ItemDriller:
 
     def get_item(self):
         """
-        Return the pystac.Item or drill.ImageItem.
+        Return this object's ``pystac.Item`` or ``drill.ImageItem``.
 
         Returns
         -------

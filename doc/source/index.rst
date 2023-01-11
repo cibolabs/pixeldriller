@@ -139,7 +139,10 @@ single-band rasters.::
 Download
 ---------
 
-From `Github <https://github.com/cibolabs/pixeldriller/releases>`__.
+`Releases <https://github.com/cibolabs/pixeldriller/releases>`__
+and
+`Source code <https://github.com/cibolabs/pixeldriller>`__
+from Github.
 
 
 Installation
@@ -155,22 +158,20 @@ They may also be available from your platform's package manager.
 Alternatively the `GDAL python bindings <https://pypi.org/project/GDAL/>`__
 are available on `pypi <https://pypi.org/>`__. But libgdal must be installed
 first. You might use your platform's package manager to install GDAL and
-its bindings instead. For example, on Ubuntu:
+its bindings instead. For example, on Ubuntu::
 
-```
-> sudo apt-get install -y python3-gdal gdal-bin`
-```
+
+    > sudo apt-get install -y python3-gdal gdal-bin`
+
 
 pystac-client and numpy are also available from `pypi <https://pypi.org/>`__,
-and are installed when installing Pixel Driller.
+and are installed when installing Pixel Driller::
+
+    > pip install https://github.com/cibolabs/pixeldriller/archive/refs/tags/v0.2.0.tar.gz
 
 TODO: Test pip command
+
 TODO: Is there a link to 'latest'?
-
-```
-> pip install https://github.com/cibolabs/pixeldriller/archive/refs/tags/v0.2.0.tar.gz
-```
-
 
 Guides
 =======
@@ -180,17 +181,7 @@ Guides
 
    tutorial
    developer_guide
-
-Python Module Reference
-=======================
-
-.. toctree::
-   :maxdepth: 1
-   
-   pixdrill_drill
-   pixdrill_drillpoints
-   pixdrill_drillstats
-   pixdrill_image_reader
+   api
 
 Indices and tables
 ==================

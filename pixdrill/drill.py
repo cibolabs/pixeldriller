@@ -2,21 +2,6 @@
 ``drill.drill()`` is the main interface. Most interaction with this package
 should be through this interface.
 
-Assumptions:
-
-- Uses GDAL's /vsicurl/ file system handler for online resources that do
-  not require authentication
-- The file server supports range requests
-- If you want to calculate standard statistics then each STAC Item's asset
-  must or raster image must contain only one band
-
-It depends on:
-
-- pystac-client for searching a STAC endpoint
-- osgeo.gdal for reading rasters
-- osgeo.osr for coordinate transformations
-- numpy for standard stats calcs
-
 """
 
 import logging
@@ -30,93 +15,106 @@ from . import drillpoints
 
 def drill(points, images=None,
         stac_endpoint=None, raster_assets=None, collections=None,
-        item_properties=None, nearest_n=1, std_stats=None, user_stats=None,
+        item_properties=None, nearest_n=0, std_stats=None, user_stats=None,
         ignore_val=None, concurrent=False):
     """
-    Given a list of drillpoints.Point objects, compute the zonal statistics for
-    the specified rasters.
+    Given a list of drillpoints.Point objects, compute the zonal statistics
+    around each point for the specified rasters.
+
+    Parameters
+    ----------
+    points : list of ``drillpoints.Point`` objects
+        Points to drill the specified STAC endpoint or images for.
+    images : list of strings
+        GDAL-readable list of filenames to drill.
+    stac_endpoint : string
+        The STAC catalogue's URL.
+    raster_assets : sequence of strings
+        The raster assets to read from each Item in the STAC catalogue.
+    collections : list of strings
+        The STAC catalogue's collections to query. You would normally only
+        specify one catalogue.
+    item_properties : a list of objects
+        These are passed to ``pystac-client.Client.search()`` using the
+        ``query`` parameter.
+    nearest_n : integer
+        Only use up to n STAC Items that are nearest-in-time to the ``Point``.
+        A value of 0 means use all items found.
+    std_stats : sequence of integers
+        Constants from the ``drillstats`` module (STATS_MEAN, STATS_STDEV etc)
+        defining which 'standard' statistics to extract.
+    user_stats : a list of tuples
+        A user defined list of statistic names and functions. See the
+        notes section below for a description of the function signatures.
+    ignore_val : value
+        A value to use for the ignore value for rasters. Should only be
+        specified when a raster does not have this already set. Either a single
+        value (same for all rasters) or one value for each asset.
+        TODO: explain how they are used differently for assets versus images.
+    concurrent : bool
+        If True, will call ``drill.calc_stats()`` for each Item to be drilled
+        concurrently in a ``ThreadPoolExecutor``.
+
+    Returns
+    -------
+    None
+        Instead, the Points' ``PointStats`` objects are updated.
+
+    Notes
+    -----
+    Rasters are specified in one of two ways. You may use either or both.
+    The first method is to use ``images``
+    parameter to supply a list of paths to rasters. A path is
+    any string understood by GDAL. All bands in each image are read.
     
-    Rasters are specified in one of two ways. Firstly, use the images
-    argument to supply a list of paths to rasters. In this case a path may be
-    any string understood by GDAL. All bands in each raster will be read.
+    The second method is to search a STAC endpoint for the raster.
+    In this case, you must supply:
     
-    The second method of specifying rasters is to search a STAC endpoint for
-    them. In this case, you must also supply a list of raster_assets, and
-    optionally a list of collection names in the STAC catalogue and a list of
-    item properties to filter the search by. stac_search() is called to find
-    all STAC items that intersect the survey points within their time-window;
-    but only the n nearest-in-time Items are used.
+    - a list of ``raster_assets``
+    - preferably, a name of one collection in the STAC catalogue
+    - optionally, a list of item properties to filter the search by
+    
+    ``create_stac_drillers()`` is called to find all STAC items that intersect
+    the survey points within their time-window; only up to the
+    n nearest-in-time Items are used.
 
     For each raster, the pixels are drilled and zonal statistics calculated
-    using the list of standard stats and user stats.
+    using the list of standard stats and user stats.   
 
-    The statistics are stored with the Point object, retrievable using the
-    Point class's get_stats() or get_item_stats() functions.
-
-    See example.py for typical example usage.
-
-    Familiarise yourself with the concepts of a Point's region of interest and
-    temporal window by reading the drillpoints.Point documentation.
-
-    std_stats is a list of standard stats defined in the drillstats module
-    with the STATS_* attributes. To use the standard statistics,
+    ``std_stats`` is a list of standard stats, as defined in the ``drillstats``
+    module with the ``STATS_*`` attributes. To use the standard statistics,
     every raster to be read must be a single-band raster.
  
-    user_stats is a list of (name, function) pairs. The function is used
-    to calculate a user-specified statistics.
+    ``user_stats`` is a list of (name, function) pairs. The function is used
+    to calculate a user-specified statistic.
     The signature of a user-supplied function must be::
 
         def user_func(array_info, item, pt):
 
     where:
     
-    - array_info is a list containing the data and meta data about the pixels
-      extracted from each asset; each element is an instance of
-      asset_reader.ArrayInfo
-    - item is the pystac.Item object (for STAC rasters) or ImageItem for 
-      image. pystac.Item is part of the PySTAC package.
-    - pt is the drillpoints.Point object from around which the pixels
+    - array_info is a list of ``image_reader.ArrayInfo`` objects, one element
+      for each image/asset read
+      meta data about the pixels extracted from each image/asset
+    - item is the ``pystac.Item`` object (for STAC rasters) or ImageItem for 
+      image. It is part of the
+      `PySTAC package <https://pystac.readthedocs.io/>`_
+    - pt is the ``drillpoints.Point`` object from around which the pixels
       were extracted
 
-    Each ArrayInfo instance has a data attribute that contains a 3D numpy
-    masked array with the pixel data for the asset defined by the instance's
-    asset_id attribute. But note that each element in array_info corresponds
-    to the raster_assets passed to drill().
+    Each ``ArrayInfo`` instance has a ``data`` attribute that contains a
+    3D numpy masked array with the pixel data for the asset defined by the
+    instance's ``asset_id`` attribute. But note that each element in
+    ``array_info`` corresponds to the ``raster_assets`` passed to ``drill()``.
 
     The user function must return a value. It can be any data type.
-    The returned value is stored with the point without modification.
-
-    With the statistics calculated, you retrieve their values point-by-point.
-    The Point's ``stats`` attribute is a ``PointStats`` object with a
-    ``get_stats()`` function. The function returns a dictionary, keyed by the
-    Item's ID. So, the dictionary's length matches the number of Items that
-    the Point intersects. For example::
-
-        point_stats = pt.stats.get_stats()
-        for item_id, item_stats in point_stats.items():
-            print(f"    Item ID={item_id}")
-            print(f"        Raw arrays : {item_stats[drillstats.STATS_RAW]}")
-            print(f"        Mean values: {item_stats[drillstats.STATS_MEAN]}")
-            print(f"        Counts     : {item_stats[drillstats.STATS_COUNT]}")
-            print(f"        My Stat    : {item_stats["MY STAT"]})
-
-    A few things to note in this example:
     
-    - the std_stats argument passed to ``drill()`` would have been
-      [drillstats.STATS_MEAN, drillstats.STATS_COUNT]
-    - the user_stats argument defines the 'MY_STAT' statistic and its
-      corresponding function name: [('MY_STAT', my_stat_function)]
-    - retrieve the numpy masked arrays using the key
-      ``drillstats.STATS_RAW``; these are always supplied
-    - likewise, retrieve the ArrayInfo object using
-      ``drillstats.STATS_ARRAYINFO``
+    The value(s) returned from the stats functions are stored with the
+    ``Point's`` ``stats`` object. See the examples section below for how to
+    retrieve them.
 
-    Additional implementation details.
-
-    endpoint is passed to pystac_client.Client.Open.
-
-    TODO: properties are passed through to pystac_client.Client.search
-    https://pystac-client.readthedocs.io/en/stable/api.html
+    TODO: ``item_properties`` are passed through to
+    `pystac_client.Client.search() <https://pystac-client.readthedocs.io>`_.
 
     TODO: ignore_val is the list of null values for each raster asset (or
     specify one value to be used for all raster assets). It should only be used
@@ -128,35 +126,40 @@ def drill(points, images=None,
       we remove pixels from the raw rectangular arrays
     - excluding pixels within the raw arrays from the stats calculations,
       those both within and outside the ROI
-      
-      
-    Parameters
-    ----------
-    points : sequence of ``drillpoints.Point`` objects
-        Points to drill the specified STAC endpoint/rasters for
-    images : sequence of strings
-        GDAL understood filenames to also drill in
-    stac_endpoint : string
-        A URL that represents a STAC endpoint
-    raster_assets : sequence of strings
-        Raster assets to use from the SATC endpoint
-    collections : sequence of strings
-        Collections to query provided by the STAC endpoint
-    item_properties : ?
-        Some sort of object to pass to stac-client?
-    nearest_n : integer
-        How many of the nearest matching records to use
-    std_stats : sequence of integers
-        Constants from the ``drillstats`` module (STATS_MEAN, STATS_STDEV etc)
-        defining which 'standard' statistics to extract
-    user_stats : function
-        A user defined function as specified above
-    ignore_val : value
-        A value to use for the ignore value for rasters. Should only be
-        specified when a raster does not have this already set. Either a single
-        value (same for all rasters) or one value for each asset.
-    concurrent : bool
-        Whether to process the assets concurrently
+
+    See Also
+    --------
+
+    example.py: a script that shows two usage patterns
+
+    Examples
+    --------
+
+    With the statistics calculated, you retrieve them point-by-point.
+    Use the Point's ``stats`` attribute. It is an instance of
+    ``drillpoints.PointStats``. It has a ``get_stats()`` function.
+    ``get_stats()`` returns a dictionary, keyed by the
+    Item's ID. So, the dictionary's length matches the number of Items that
+    the Point intersects. For example::
+
+        point_stats = pt.stats.get_stats()
+        for item_id, item_stats in point_stats.items():
+            print(f"    Item ID={item_id}")
+            print(f"        Raw arrays : {item_stats[drillstats.STATS_RAW]}")
+            print(f"        Mean values: {item_stats[drillstats.STATS_MEAN]}")
+            print(f"        Counts     : {item_stats[drillstats.STATS_COUNT]}")
+            print(f"        My Stat    : {item_stats["MY_STAT"]})
+    
+    A few things to note in this example:
+    
+    - the std_stats argument passed to ``drill()`` would have been
+      ``[drillstats.STATS_MEAN, drillstats.STATS_COUNT]``
+    - the user_stats argument defines the 'MY_STAT' statistic and its
+      corresponding function name: [('MY_STAT', my_stat_function)]
+    - retrieve the numpy masked arrays using the key
+      ``drillstats.STATS_RAW``; these are always supplied
+    - likewise, retrieve the ArrayInfo object using
+      ``drillstats.STATS_ARRAYINFO`` (not shown)
         
     """
     # TODO: Choose the n nearest-in-time items.
@@ -165,7 +168,8 @@ def drill(points, images=None,
     if stac_endpoint:
         client = Client.open(stac_endpoint)
         stac_drillers = create_stac_drillers(
-            client, points, collections, raster_assets)
+            client, points, collections, raster_assets=raster_assets,
+            item_properties=item_properties)
         drillers.extend(stac_drillers)
     if images:
         image_drillers = create_image_drillers(points, images)
@@ -190,25 +194,22 @@ def drill(points, images=None,
 
 def create_image_drillers(points, images, image_ids=None):
     """
-    Return a list of drillpoints.DrillerPoints collections, one for each image
+    Return a list of ``drillpoints.ItemDriller`` objects, one for each image
     in the images list.
-
-    A point will be added to an ItemDriller if it intersects the Item.
-    An ImageItem is also added to the point.
 
     Parameters
     ----------
-    points : sequence of ``drillpoints.Point`` objects.
+    points : sequence of ``drillpoints.Point`` objects
         Points to drill the image for.
-    images : sequence of strings.
-        GDAL understood filenames to drill.
-    image_ids : sequence of strings.
+    images : sequence of strings
+        GDAL-readable filenames to drill.
+    image_ids : sequence of strings
         ID to use for each image. If not specified the image filename is used.
 
     Returns
     -------
     drillers : list of ``drillpoints.ItemDriller`` objects
-        The ItemDriller for each Item.
+        The ItemDriller for each image.
 
     """
     drillers = []
@@ -229,42 +230,44 @@ def create_image_drillers(points, images, image_ids=None):
     return drillers
 
 
-def create_stac_drillers(stac_client, points, collections, raster_assets=None):
+def create_stac_drillers(stac_client, points, collections, raster_assets=None,
+        item_properties=None, nearest_n=0):
     """
     Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the list of points and are within the
     Points' temporal search windows.
 
-    stac_client is the pystac.Client object returned from calling
-    pystac.Client.open(endpoint_url).
-    
-    If no collections are specified then search all collections in the
-    endpoint.
-
-    Link each Point with its pystac.Items, and create a drillpoints.ItemDriller
-    for every item.
-
-    Return the list of drillpoints.ItemDriller objects.
+    Return a list of drillpoints.ItemDriller objects, one for each STAC Item
+    found.
 
     TODO: permit user-defined properties for filtering the stac search.
+    
+    TODO: implement nearest-n
     
     Parameters
     ----------
     
     stac_client : str or pystac.Client object
         The endpoint URL to the STAC catalogue (str) or the pystac.Client
-        object returned from calling pystac.Client.open(endpoint_url)
-    points : sequence of ``drillpoints.Point`` objects
-        Points to drill the endpoint for
-    collections : sequence of strings
-        Collections to query provided by the STAC endpoint
-    raster_assets : sequence of strings
-        Raster assets to use from the STAC endpoint
+        object returned from calling ``pystac.Client.open(endpoint_url)``.
+    points : list of ``drillpoints.Point`` objects
+        Points to drill the endpoint for.
+    collections : list of strings
+        The names of the collections to query, normally only collection
+        is given.
+    raster_assets : list of strings, required
+        Raster assets to use from the STAC endpoint.
+    item_properties : a list of objects, optional
+        These are passed to ``pystac-client.Client.search()`` using the
+        ``query`` parameter.
+    nearest_n : integer
+        Only use up to n STAC Items that are nearest-in-time to the ``Point``.
+        A value of 0 means use all items found.
 
     Returns
     -------
     drillers : list of ``drillpoints.ItemDriller`` objects
-        The ItemDriller for each image
+        Each driller is the ItemDriller for a STAC Item.
 
     """
     if isinstance(stac_client, str):
@@ -291,7 +294,6 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None):
     #        f'sentinel:utm_zone={zone}',
     #        f'sentinel:latitude_band={lat_band}',
     #        f'sentinel:grid_square={grid_sq}']
-        properties = []
         # TODO: Do bounding boxes that cross the anti-meridian need to be
         # split in 2, or does the stac-client handle this case?
         # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
@@ -301,7 +303,7 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None):
             intersects=pt_json,
             limit=500,  # results per page
             datetime=[pt.start_date, pt.end_date],
-            query=properties)
+            query=item_properties)
         items = list(search.items())
         # Group all points for each item together in an ItemDriller.
         for item in items:
@@ -315,8 +317,7 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None):
 def calc_stats(driller, std_stats=None, user_stats=None):
     """
     Calculate the statistics for all points in the ItemDriller objects.
-
-    This reads the rasters and calculates the stats.
+    It reads the rasters and calculates the stats.
 
     Parameters
     ----------
@@ -328,7 +329,7 @@ def calc_stats(driller, std_stats=None, user_stats=None):
         defining which 'standard' statistics to extract.
     user_stats : function
         A list of (stat_name, stat_function) tuples containing the user defined
-        function as specified above.
+        function as specified in the ``drill()`` function's docstring.
 
     """
     msg = "Calculating stats for %i points in item %s."
@@ -339,8 +340,15 @@ def calc_stats(driller, std_stats=None, user_stats=None):
 
 class ImageItem:
     """
-    Analogous to a pystac.Item object, which is to be passed to the
-    ItemDriller constructor when drilling pixels from an image file.
+    Analogous to a ``pystac.Item`` object, use an ``ImageItem`` object
+    when constructing ItemDriller objects for an image file.
+
+    Parameters
+    ----------
+    filepath: str
+        Path to the GDAL-readable file.
+    id:
+        An optional ID for the ImageItem. If not given, filepath is used.
 
     Attributes
     ----------

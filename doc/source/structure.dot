@@ -44,7 +44,7 @@ digraph Structure {
     /* Dependencies */
     edge [arrowhead="vee" style="dashed"]
     Driller -> ImageReader[headlabel="*"]
-    Driller -> PointStats[label="populates"]
+    ImageReader -> PointStats[label="populates data"]
 
     /* Realisations */
     edge [arrowhead="normal" style="dashed"]

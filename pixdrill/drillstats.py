@@ -1,6 +1,6 @@
 """
-Contains classes and functions for calculating and holding the statistics
-extracted from an Item around Points.
+Contains the ``PointStats`` class and standard functions for calculating
+and storing the drilled pixel data and statistics for a ``Point``.
 
 """
 
@@ -50,21 +50,22 @@ class PointStats:
     """
     Holds the statistics of the pixel arrays for a Point for one or more Items.
 
+    Parameters
+    ----------
+    pt: drillpoints.Point object
+        The point associated with this PointStats object.
+
     Attributes
     ----------
-
-    pt : Point object
-        the point associated with this PointStats object
-    item : pystac.item.Item or drill.ImageItem
-        the item to hold the stats for
+    pt : the drillpoints.Point object
     item_stats : dictionary
         a dictionary containing the raster statistics within the region
         of interest of the associated point. The key is the Item ID, and the
         value is another dictionary. The second dictionary's keys are the names
-        of the std_stats and user_stats passed to PointStats.calc_stats().
+        of the std_stats and user_stats passed to ``PointStats.calc_stats()``.
         Its values are a list of the return values of the corresponding stats
         functions. If the item is a STAC Item, there may be multiple elements
-        in the list corresponding to the drilled raster assets.
+        in the list corresponding to the drilled Item's assets.
     
     """
     def __init__(self, pt):
@@ -74,23 +75,26 @@ class PointStats:
 
     def add_data(self, item, arr_info):
         """
-        Add the image_reader.ArrayInfo object as read from an Item's raster.
-
-        Elements are appended to the lists that store the Item's statistics::
-
-            item_stats[item.id][STATS_RAW].append(arr_info.data)
-            item_stats[item.id][STATS_ARRAYINFO].append(arr_info)
-
-        where arr_info.data is the numpy masked array of data containing the
-        pixels for one of the assets of the item.
-        
-        If item is a STAC Item, then add_data may be called multiple times,
-        once for each raster asset that is drilled.
+        Add the ``image_reader.ArrayInfo`` object as read from
+        an Item's raster.
 
         Parameters
         ----------
         item : drill.ImageItem or pystac.Item
         arr_info : image_reader.ArrayInfo
+
+        Notes
+        -----
+        Elements are appended to the lists that store the Item's statistics::
+
+            item_stats[item.id][STATS_RAW].append(arr_info.data)
+            item_stats[item.id][STATS_ARRAYINFO].append(arr_info)
+
+        where ``arr_info.data`` is the numpy masked array of data containing
+        the pixels for one of the assets of the item.
+        
+        If item is a STAC Item, then ``add_data`` may be called multiple times,
+        once for each raster asset that is drilled.
 
         """
         if item.id in self.item_stats:
@@ -109,36 +113,28 @@ class PointStats:
         Calculate the given list of standard and user-defined statistics
         for the given item.
 
-        One of two of this class's functions must have been called first:
-        #. add_data(), for each raster asset in the item
-        #. reset()
-
-        std_stats is a list of standard stats to calculate for each point's
-        region of interest.
-        They are a list of STATS symbols defined in this module.
-
-        user_stats is a list of tuples. Each tuple defines:
-        - the name (a string) for the statistic
-        - and the function that is called to calculate it
-
-        The user function's signature must be::
-
-            def myfunc(array_info, item, pt)
-
-        Where:
-        - array_info is a list of ArrayInfo objects, one for each asset
-        - item is the pystac.Item object
-        - pt is the pointstats.Point object
-
         Parameters
         ----------
         item_id: str
             The Item's ID, for which stats will be calculated.
-        std_stats : int
-            A list of STATS_* constants defined in the drillstats module.
-        user_stats : list of (name, func) tuples
-            where func is the user functional to calculate a statistic.
-        
+        std_stats : int, optional
+            A list of ``STATS_*`` constants defined in the
+            ``drillstats`` module, defining the standard stats to calculate.
+        user_stats : list of (name, func) tuples, optional
+            `name` is the name of the statistic.
+            `func` is the user-defined function to calculate the statistic.
+
+        Notes
+        -----
+        One of two of this class's functions must have been called first:
+        #. ``add_data()``, for each raster asset in the item
+        #. ``reset()``
+
+        See Also
+        --------
+        drill.drill : for the signature of a user-supplied statistics function
+            and how to retrieve the statistics from a ``Point``.
+
         """
         stats = self.item_stats[item_id]
         item = stats[ITEM_KEY]
@@ -176,25 +172,32 @@ class PointStats:
 
         Returns
         -------
-        The requested statistics.
-            The return type varies depending on the parameters:
-            - the value returned from the statistic's function
-            if both item_id and stat_name are given
-            - a dictionary, keyed by the statistic names if only item_id is
-            given; the values are those returned from the statistic's function
-            - a dictionary, keyed by item ID if only stat_name is given;
-            the values are those returned from the statistics' functions
-            - this object's self.item_stats dictionary if both parameters are
-            None; this dictionary is keyed by the item_id, and each value is
-            another dictionary, keyed by the statistic name
-            If one or both of the item_id or stat_name are not present in this
-            object's statistics, then the stats returned in the above data
-            structures will be one of:
-            - an empty list if stat_name is a standard statistic or
-            STATS_RAW or STATS_ARRAYINFO and
-            calc_stats() was not called or read_data() failed.
-            - None if stat_name is a user statistic and
-            calc_stats() was not called or read_data() failed.
+        The requested statistic
+            See the notes below
+
+        Notes
+        -----
+        The return type varies depending on the parameters:
+
+        - the value returned from the statistic's function
+          if both `item_id` and `stat_name` are given
+        - a dictionary, keyed by the statistic names if only `item_id` is
+          given; the values are those returned from the statistic's function
+        - a dictionary, keyed by item ID if only `stat_name` is given;
+          the values are those returned from the statistics' functions
+        - this object's ``self.item_stats`` dictionary if both parameters
+          are ``None``; this dictionary is keyed by the `item_id`, and each
+          value is another dictionary, keyed by the statistic name
+        
+        If one or both of the `item_id` or `stat_name` are not present in
+        this object's statistics, then the stats returned in the above data
+        structures will be one of:
+
+        - an empty list if `stat_name` is a standard statistic or
+          ``STATS_RAW`` or ``STATS_ARRAYINFO`` and
+          ``calc_stats()`` was not called or ``read_data()`` failed.
+        - None if `stat_name` is a user statistic and
+          ``calc_stats()`` was not called or ``read_data()`` failed.
 
         """
         if item_id and stat_name:
@@ -225,19 +228,23 @@ class PointStats:
     def reset(self, item=None):
         """
         Delete all previously calculated stats and raw arrays,
-        and reset the STATS_RAW and STATS_ARRAYINFO lists.
+        and reset the ``STATS_RAW`` and ``STATS_ARRAYINFO`` lists
+        for ``self.item_stats[item.id]``.
 
         If the Item is supplied, then reset the stats for that Item only.
 
-        If the supplied Item is not in self.item_stats, then add it.
-        This is convenient if a call to read_data() failed and add_data()
-        was not called. This allows the user to progress through failed reads,
-        delaying the checks until after all reads are done and the stats
-        calculated.
-
         Parameters
         ----------
-        item : drill.ImageItem or pystac.Item
+        item : drill.ImageItem or pystac.Item, optional
+
+        Notes
+        -----
+        If the supplied Item is not in ``self.item_stats``, then add it.
+        This is convenient if a call to ``read_data()`` failed and
+        ``add_data()`` was not subsequently called. This allows the user to
+        progress through failed reads, delaying the checks until after all
+        reads are done and the stats calculated. To help, users can check
+        the return value of ``drillpoints.ItemDriller.read_data()``.
 
         """
         if item is None:
@@ -268,9 +275,9 @@ def check_std_arrays(item, asset_arrays):
     Parameters
     ----------
     item : pystac.item.Item or drill.ImageItem
-        Item the arrays belong to
+        Item the arrays belong to.
     asset_arrays : numpy array of shape (layers, ysize, xsize)
-        Arrays to check
+        Arrays to check.
 
     """
     errmsg = ""
@@ -294,12 +301,12 @@ def std_stat_mean(asset_arrays):
     Parameters
     ----------
     asset_arrays : numpy array of shape (layers, ysize, xsize)
-        Array to find the mean on
+        Arrays to find the mean for.
 
     Returns
     -------
     numpy array of float
-        The mean values - one for each input
+        The mean values - one for each input array.
 
     """
     # Calculate the stat for each array because their x and y sizes will
@@ -320,12 +327,12 @@ def std_stat_stdev(asset_arrays):
     Parameters
     ----------
     asset_arrays : numpy array of shape (layers, ysize, xsize)
-        Array to find the stdev on
+        Arrays to find the stdev for.
 
     Returns
     -------
     numpy array of float
-        The stdev values - one for each input
+        The stdev values - one for each input array.
 
     """
     # Calculate the stat for each array because their x and y sizes will
@@ -343,12 +350,12 @@ def std_stat_count(asset_arrays):
     Parameters
     ----------
     asset_arrays : numpy array of shape (layers, ysize, xsize)
-        Array to find the count
+        Arrays to find the count for.
 
     Returns
     -------
     numpy array of float
-        The count values - one for each input
+        The count values - one for each input array.
 
     """
     counts = [arr.count() for arr in asset_arrays]
@@ -363,12 +370,12 @@ def std_stat_countnull(asset_arrays):
     Parameters
     ----------
     asset_arrays : numpy array of shape (layers, ysize, xsize)
-        Array to find the count
+        Arrays to find the null count for.
 
     Returns
     -------
     numpy array of float
-        The count values - one for each input
+        The null counts - one for each input array.
 
     """
     counts = [arr.mask.sum() for arr in asset_arrays]

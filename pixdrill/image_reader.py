@@ -17,64 +17,65 @@ gdal.UseExceptions()
 class ImageInfo:
     """
     An object with metadata for the given image, in GDAL conventions.
-    ds is an already-opened gdal.Dataset object, or the path to the image as
-    a string.
 
-    Sourced from rios:
-    https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py
+    Parameters
+    ----------
+    ds : gdal.Dataset or string
+            If string, file will be opened
+    omit_per_band : bool
+        If True, won't calculate per band information. See the notes below.
 
-    The omit_per_band argument on the constructor is provided in order to speed
+    Attributes
+    ----------
+    x_min : float
+        Map X coord of left edge of left-most pixel.
+    x_max : float
+        Map X coord of right edge of right-most pixel.
+    y_min : float
+        Map Y coord of bottom edge of bottom pixel.
+    y_max : float
+        Map Y coord of top edge of top-most pixel.
+    x_res : float
+        Map coord size of each pixel, in X direction.
+    y_res : float
+        Map coord size of each pixel, in Y direction.
+    nrows : int
+        Number of rows in image.
+    ncols : int
+        Number of columns in image.
+    transform : list of floats
+        Transformation params to map between pixel and map coords,
+        in `GDAL form <https://gdal.org/tutorials/geotransforms_tut.html>`_.
+    projection : string
+        WKT string of projection.
+    raster_count : int
+        Number of rasters in file.
+    lnames : list of strings
+        Names of the layers as a list.
+    layer_type : string
+        "thematic" or "athematic", if it is set.
+    data_type : int
+        Data type for the first band (as a GDAL integer constant).
+    data_type_name : string
+        Data type for the first band (as a human-readable string).
+    nodataval : list of floats
+        Value used as the no-data indicator (per band).
+
+    Notes
+    -----
+    The omit_per_band parameter on the constructor is provided in order to speed
     up the access of very large VRT stacks. The information which is normally
     extracted from each band will, in that case, trigger a gdal.Open() for each
     band, which can be quite slow. So, if none of that information is actually
     required, then setting omit_per_band=True will omit that information, but
     will return as quickly as for a normal single file.
 
-    Attributes
-    ----------
-    x_min : float
-        Map X coord of left edge of left-most pixel
-    x_max : float
-        Map X coord of right edge of right-most pixel
-    y_min : float
-        Map Y coord of bottom edge of bottom pixel
-    y_max : float
-        Map Y coord of top edge of top-most pixel
-    x_res : float
-        Map coord size of each pixel, in X direction
-    y_res : float
-        Map coord size of each pixel, in Y direction
-    nrows : int
-        Number of rows in image
-    ncols : int
-        Number of columns in image
-    transform : list of floats
-        Transformation params to map between pixel and map coords, in GDAL form
-    projection : string
-        WKT string of projection
-    raster_count : int
-        Number of rasters in file
-    lnames : list of strings
-        Names of the layers as a list.
-    layer_type : string
-        "thematic" or "athematic", if it is set
-    data_type : int
-        Data type for the first band (as a GDAL integer constant)
-    data_type_name : string
-        Data type for the first band (as a human-readable string)
-    nodataval : list of floats
-        Value used as the no-data indicator (per band)
+    Sourced from
+    `rios.fileinfo <https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py>`_.
 
     """
     def __init__(self, ds, omit_per_band=False):
-        """
-        Parameters
-        ----------
-        ds : gdal.Dataset or string
-            If string, file will be opened
-        omit_per_band : bool
-            If True, won't calculate per band information
-        """
+        """Constructor"""
         opened=False
         if not isinstance(ds, gdal.Dataset):
             ds = gdal.Open(ds, gdal.GA_ReadOnly)
@@ -131,22 +132,26 @@ class ArrayInfo:
     """
     Contains information about the array read from the image around a point.
 
-    Attributes
+    Parameters
     ----------
-    
-    data : numpy arary
-        the numpy masked array containing the pixel data
+    data : numpy.ma.masked_array
+        The numpy masked array containing the pixel data.
     asset_id : string
-        the id of the Stac Item's asset from which the data was read
+        The ID of the STAC Item's asset from which the data was read.
     xoff, yoff, win_xsize, win_ysize : int
         The pixel window read from the raster asset in pixel coordinates.
-        xoff and yoff are the coordinates of the upper left pixel in
-        the array in pixel coordinates
+        `xoff` and `yoff` are the coordinates of the upper left pixel in
+        the array.
     ulx, uly, lrx, lry : float
-        The bounding box of the array in image coordinates.
+        The bounding box of the array in image coordinates, as
+        (upper-left x, upper-left y, lower-right x, lower-right y).
     x_res, y_res : float
         The pixel size in the same units as the image's coordinate
         reference system.
+
+    Attributes
+    ----------
+    The same as the above list of parameters.
 
     """
     def __init__(
@@ -167,7 +172,7 @@ class ArrayInfo:
         self.y_res = y_res
 
     def isempty(self):
-        """Return True of the ArrayInfo's data array contains no data."""
+        """Return True if the ArrayInfo's data array contains no data."""
         return self.data.size == 0
 
     def __repr__(self):
@@ -195,7 +200,7 @@ class ImageReaderError(Exception):
 
 def get_asset_filepath(item, asset_id):
     """
-    Get the filepath to the STAC item's asset.
+    Construct a GDAL filepath to the STAC Item's asset.
 
     """
     return f"/vsicurl/{item.assets[asset_id].href}"
@@ -205,39 +210,32 @@ class ImageReader:
     """
     Encapsulates the GDAL Dataset object and metadata (an ImageInfo object) for
     a STAC raster asset or raster image. It also contains the algorithms
-    used to read arrays of pixels around a list of points.
+    used to read arrays of pixels around a list of points
+
+    Parameters
+    ----------
+    item : pystac.Item or ImageItem object
+        Item to read from.
+    asset_id : string
+        The raster asset ID. If None, then it's assumed that `item`
+        is an ImageItem.
 
     Attributes
     ----------
     item : pystac.Item or ImageItem object
-        Item to read from
+        Item to read from.
     asset_id : string
-        Asset ID. If None, then will be assumed that item is a ImageItem
+        Asset ID. If None, then item is an ImageItem.
     filepath : string
-        The GDAL openable filepath
+        The GDAL-readable filepath.
     dataset : GDAL dataset
-        The GDAL dataset for filepath
+        The GDAL dataset for filepath.
     info : ImageInfo
-        The ImageInfo for the filepath
+        The ``ImageInfo`` object for the `dataset`.
 
     """
     def __init__(self, item, asset_id=None):
-        """
-        Construct an ImageReader object.
-
-        item is a pystac.Item or ImageItem object. If it is a pystac.Item
-        object then you must supply the asset_id. If it is a
-        drillpoints.ImageItem object, then its id must be the path of the file
-        to be read.
-
-        Parameters
-        ----------
-        item : pystac.Item or ImageItem object
-            Item to read from
-        asset_id : string
-            Asset ID. If None, then will be assumed that item is a ImageItem
-
-        """
+        """Constructor"""
         self.item = item
         self.asset_id = asset_id
         if self.asset_id is None:
@@ -250,21 +248,23 @@ class ImageReader:
 
     def read_data(self, points, ignore_val=None):
         """
-        Read the data around each of the given points and add it to the point.
-
-        The data is read using read_roi(), passing it the ignore_val.
-        The data is attached to each point.
-
-        Once read, the PointStats object (corresponding to this asset's
-        Item ID) of every Point will contain the ArrayInfo object for
-        data read.
+        Read the pixel data around each of the given points.
 
         Parameters
         ----------
         points : list of drillpoints.Point objects
-            Points to read from
+            Points to read from.
         ignore_val : float
-            ignore value to use, if None then the image no data is used
+            ignore value to use, if None then the image's no data value
+            is used.
+
+        Notes
+        -----
+        The data is read using ``read_roi()``, passing it the ignore_val.
+
+        Once read, the ``drillstats.PointStats`` object
+        (corresponding to this asset's Item ID) of every ``Point`` will contain
+        an ``ArrayInfo`` object.
 
         """
         # Do a naive read, reading a small chunk of the image for every point.
@@ -282,24 +282,7 @@ class ImageReader:
     def read_roi(self, pt, ignore_val=None):
         """
         Extract the smallest number of pixels required to cover the region of
-        interest. We use an 'all-touched' approach, whereby any pixel inside
-        or touched by the ROI's boundary is returned. Any pixels outside or
-        not touched by the ROI's boundary are masked using ignore_val.
-        
-        Return an ArrayInfo object.
-
-        The ArrayInfo object contains a 3D numpy masked array 
-        (numpy.ma.MaskedArray) with the pixel data. If ignore_val=None, the
-        no-data value set on each band in the asset/image is used. If
-        ignore_val is set then the same value is used for every band in the
-        asset/image.
-        
-        The returned ArrayInfo object also contains information about the ROI's
-        location within the image.
-
-        If the ROI straddles the image extents, the ROI is clipped to the
-        extents (i.e. only that portion of the image that is within the extents
-        is returned).
+        interest.
 
         Parameters
         ----------
@@ -307,11 +290,28 @@ class ImageReader:
         pt : drillpoints.Point
             Point to use
         ignore_val : float
-            ignore value to use, if None then the image no data is used
+            ignore value to use, if None then the image's no data value
+            is used.
 
         Returns
         -------
         ArrayInfo
+
+        Notes
+        -----
+        We use an 'all-touched' approach, whereby any pixel inside
+        or touched by the ROI's boundary is returned. Any pixels outside or
+        not touched by the ROI's boundary are masked using `ignore_val`.
+        
+        The ArrayInfo object contains a 3D `numpy.ma.masked_array`
+        with the pixel data. If ``ignore_val=None``, the
+        no-data value set on each band in the asset/image is used. If
+        ``ignore_val`` is set then the same value is used for every band in
+        the image.
+        
+        If the point's footprint straddles the image's extents,
+        the ROI is clipped to the extents. That is, only that portion of the
+        image that is within the extents is returned.
 
         """
         # ROI bounds in pixel coordinates.
@@ -362,24 +362,8 @@ class ImageReader:
 
     def get_pix_window(self, pt):
         """
-        Return the rectangular bouds of the region of interest in the image's
-        pixel coordinate space as: (xoff, yoff, win_xsize, win_ysize).
-        
-        If a pixel touches the image's bounds it is included.
-    
-        xoff, yoff is the grid location of the top-left pixel of the ROI.
-        win_xsize and win_ysize are the number of columns and rows to read
-        from the image.
-    
-        An xoff, yoff of 0, 0 corresponds to the top-left pixel of the image.
-        An xoff, yoff of (ncols-1, nrows-1) corresponds to the bottom-right
-        pixel of the image.
-        
-        If the ROI is outside the image bounds, the returned window is clipped
-        to the image bounds.
-
-        If the returned win_xsize or win_ysize is 0, then the ROI is outside
-        of the image's extents.
+        Return the rectangular bounds of the region of interest in the image's
+        pixel coordinate space as.
 
         Parameters
         ----------
@@ -390,6 +374,27 @@ class ImageReader:
         Returns
         -------
         tuple of floats
+            The rectangular bounds in pixel coordinates as
+            (xoff, yoff, win_xsize, win_ysize).
+
+        Notes
+        -----
+        If a pixel touches the image's bounds it is included.
+    
+        In the returned tuple, `xoff`, `yoff` defines the grid location of the
+        top-left pixel of the pixel window to read. `win_xsize` and `win_ysize`
+        are the number of columns and rows to read from the image.
+    
+        An `xoff`, `yoff` of 0, 0 corresponds to the top-left pixel of the
+        image. An `xoff`, `yoff` of
+        (ImageInfo.ncols-1, ImageInfo.nrows-1) corresponds to
+        the bottom-right pixel of the image.
+        
+        If the window straddles the image's extents bounds, the returned
+        window is clipped to the image's extents.
+
+        If the returned win_xsize or win_ysize is 0, it means the window was
+        entirely outside of the image's extents.
 
         """
         a_sp_ref = osr.SpatialReference()
@@ -440,31 +445,41 @@ class ImageReader:
 
     def mask_roi_shape(self, pt, arr_info, ignore_val):
         """
-        Mask the pixels in the ArrayInfo.data's array that are outside
+        Mask the pixels in the arr_info.data's array that are outside
         the region of interest.
-
-        arr_info is the ArrayInfo instance.
-        pt is the Point.
-        The pixels outside the shape are set to ignore_val. If ignore_val is
-        None, the no-data value set on each band of the asset/image is used. If
-        ignore_val is set use the same value for every band of the asset/image.
-
-        arr_info.data is updated in place, so the function returns nothing.
-
-        Currently only supports ROI_SHP_SQUARE and ROI_SHP_CIRCLE. No masking
-        is done in the case of squares. For circles, the size of the array
-        must be greater than four pixels. Raise an ImageReaderError if it
-        is not.
 
         Parameters
         ----------
 
         pt : drillpoints.Point
-            Point to use
+            Point to use.
         arr_info : ArrayInfo
-            The data
+            The ArrayInfo object with the data to be masked.
         ignore_val : float
-            ignore value to use, if None then the image no data is used
+            ignore value to use, if None then the image's no data value
+            is used.
+
+        Returns
+        -------
+        None
+            arr_info.data is updated in place.
+
+        Notes
+        -----
+        The pixels outside the shape are set to `ignore_val`.
+        If `ignore_val` is None, the no-data value set on each band of the
+        image is used. If `ignore_val` is set, use the same value for every
+        image band.
+
+        Currently only supports points with a ``shape`` attribute of
+        ``drillpoints.ROI_SHP_SQUARE`` or ``drillpoints.ROI_SHP_CIRCLE``.
+        No masking is done in the case of squares.
+        
+        Raises
+        ------
+        ImageReaderError
+            If ``pt.shape==drillpoints.ROI_SHP_CIRCLE`` and the size of
+            ``arr_info.data`` is less than 5.
 
         """
         if pt.shape==drillpoints.ROI_SHP_SQUARE:
@@ -518,12 +533,12 @@ class ImageReader:
     
     def wld2pix(self, geox, geoy):
         """
-        converts a set of map coords to pixel coords
+        Convert a set of map coords to pixel coords.
 
         Parameters
         ----------
         geox, geoy : float
-            The input coordinates
+            The input coordinates.
 
         Returns
         -------
@@ -536,7 +551,7 @@ class ImageReader:
 
     def pix2wld(self, x, y):
         """
-        converts a set of pixel coords to map coords
+        Convert a set of pixel coords to map coords.
 
         Parameters
         ----------
@@ -546,6 +561,7 @@ class ImageReader:
         Returns
         -------
         tuple of (geox, geoy)
+
         """
         geo_x, geo_y = gdal.ApplyGeoTransform(self.info.transform, x, y)
         return (geo_x, geo_y)
