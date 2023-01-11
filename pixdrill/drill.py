@@ -181,10 +181,9 @@ def drill(points, images=None,
     if concurrent:
         logging.info("Running extract concurrently.")
         with futures.ThreadPoolExecutor() as executor:
-            tasks = [
+            for dr in drillers:
                 executor.submit(
                     calc_stats(dr, std_stats=std_stats, user_stats=user_stats))
-                for dr in drillers]
     else:
         logging.info("Running extract sequentially.")
         for dr in drillers:
