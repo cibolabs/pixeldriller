@@ -1,2 +1,2 @@
-pystac-client==0.4.0
+pystac-client>=0.4.0
 numpy
