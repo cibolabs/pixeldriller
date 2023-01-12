@@ -8,6 +8,7 @@ in conjunction with the documentation for pixdrill.drill().
 
 import datetime
 from osgeo import osr
+import numpy
 
 from pixdrill import drill
 from pixdrill import drillpoints
@@ -111,9 +112,9 @@ def user_range(array_info, item, pt):
     """
     Example of a function for a customised statistics.
 
-    array_info is a list of asset_reader.ArrayInfo objects,
-    item is the pystac.Item object, and pt is the drillpoints.Point object
-    that intesects the item.
+    array_info is a list of image_reader.ArrayInfo objects,
+    item is the pystac.Item or drill.ImageItem object, and pt
+    is the drillpoints.Point object that intersects the item.
 
     The numpy.ma.masked_array objects are stored in ArrayInfo.data.
 
@@ -147,15 +148,15 @@ def get_image_path(stac_id, asset_id):
     return image_path
 
 
-def run_example():
+def run_typical():
     """
-    Run the example.
-
+    Demonstrate running the typical usage pattern to support
+    the tutorial in the docs.
     """
     endpoint = "https://earth-search.aws.element84.com/v0"
     collections = ['sentinel-s2-l2a-cogs']
     std_stats = [
-        drillstats.STATS_MEAN,
+        drillstats.STATS_MEAN, drillstats.STATS_STDEV,
         drillstats.STATS_COUNT, drillstats.STATS_COUNTNULL]
     user_stats = [("USER_RANGE", user_range)]
     points = [pt_1(), pt_2(), pt_3(), pt_4()]
@@ -173,16 +174,92 @@ def run_example():
         pid = getattr(pt, "other_atts")["PointID"]
         print(f"with ID {pid}")
         for item_id, item_stats in pt.stats.get_stats().items():
-            print(f"    Item ID={item_id}") # The pystac.Item or ImageItem ID
+            print(f"    Item ID={item_id}")  # The pystac.Item or ImageItem ID
             array_info = item_stats[drillstats.STATS_ARRAYINFO]
             # The asset_id for arrays extracted from Images is None.
             asset_ids = [a_info.asset_id for a_info in array_info]
             print(f"        Asset IDs  : {asset_ids}")
-#            print(f"        Raw arrays: {item_stats.get_stats(drillstats.STATS_RAW)}")
+#            print("        Raw arrays: "
+#                f"{item_stats.get_stats(drillstats.STATS_RAW)}")
             print(f"        Mean values: {item_stats[drillstats.STATS_MEAN]}")
+            print(f"        Std dev    : {item_stats[drillstats.STATS_STDEV]}")
             print(f"        Counts     : {item_stats[drillstats.STATS_COUNT]}")
-            print(f"        Null Counts: {item_stats[drillstats.STATS_COUNTNULL]}")
+            print("        Null Counts: "
+                f"{item_stats[drillstats.STATS_COUNTNULL]}")
             print(f"        Ranges     : {item_stats['USER_RANGE']}")
 
+
+def run_alternative():
+    """
+    Demonstrate running an alternative usage pattern
+    to support the tutorial in the docs.
+    """
+    points = [pt_1(), pt_2(), pt_3(), pt_4()]
+    endpoint = "https://earth-search.aws.element84.com/v0"
+    collections = ['sentinel-s2-l2a-cogs']
+    drillers = drill.create_stac_drillers(
+        endpoint, points, collections)
+    # Loop over each item, calculating the stats, reading the data and
+    # calculating statistics on the continuous assets.
+    for drlr in drillers:
+        drlr.set_asset_ids(['B02', 'B11'])
+        drlr.read_data()
+        std_stats = [drillstats.STATS_MEAN, drillstats.STATS_STDEV]
+        drlr.calc_stats(std_stats=std_stats)
+    # Fetch the stats.
+    for pt in points:
+        stats_dict = pt.stats.get_stats()
+        # Do something.
+        print(f"CONTINUOUS Stats for point: x={pt.x}, y={pt.y}")
+        pid = getattr(pt, "other_atts")["PointID"]
+        print(f"with ID {pid}")
+        for item_id, item_stats in stats_dict.items():
+            print(f"    Item ID={item_id}")
+            array_info = item_stats[drillstats.STATS_ARRAYINFO]
+            asset_ids = [a_info.asset_id for a_info in array_info]
+            print(f"        Asset IDs  : {asset_ids}")
+            print(f"        Mean values: {item_stats[drillstats.STATS_MEAN]}")
+            print(f"        Std dev    : {item_stats[drillstats.STATS_STDEV]}")
+        pt.stats.reset()
+    print("---------------------------------------\n")
+
+    # Repeat, but this time for a categorical asset. Define a user function
+    # that counts the number of pixels in category 7 or 8.
+    def cat_count(array_info, item, pt):
+        arr_data = array_info[0].data
+        cats = [7, 8]
+        cat_count = numpy.isin(arr_data, cats).sum()
+        return cat_count
+
+    for drlr in drillers:
+        drlr.set_asset_ids(['SCL'])
+        drlr.read_data()
+        std_stats = [drillstats.STATS_COUNT]
+        user_stats = [("CAT_COUNT", cat_count)]
+        drlr.calc_stats(std_stats=std_stats, user_stats=user_stats)
+    # Fetch the stats
+    for pt in points:
+        stats_dict = pt.stats.get_stats()
+        # Do something.
+        print(f"CATEGORICAL Stats for point: x={pt.x}, y={pt.y}")
+        pid = getattr(pt, "other_atts")["PointID"]
+        print(f"with ID {pid}")
+        for item_id, item_stats in stats_dict.items():
+            print(f"    Item ID={item_id}")
+            array_info = item_stats[drillstats.STATS_ARRAYINFO]
+            asset_ids = [a_info.asset_id for a_info in array_info]
+            print(f"        Asset IDs: {asset_ids}")
+            print(f"        Count    : {item_stats[drillstats.STATS_COUNT]}")
+            print(f"        Cat count: {item_stats['CAT_COUNT']}")
+        pt.stats.reset()
+
+
 if __name__ == '__main__':
-    run_example()
+    print("=====================================")
+    print("RUNNING TYPICAL USAGE PATTERN EXAMPLE")
+    print("=====================================")
+    run_typical()
+    print("\n=========================================")
+    print("RUNNING ALTERNATIVE USAGE PATTERN EXAMPLE")
+    print("=========================================")
+    run_alternative()

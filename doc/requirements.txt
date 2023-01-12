@@ -1,5 +1,10 @@
-sphinx
+# List of python packages installed using pip install -r requirements.txt.
+# But note that it also requires graphviz, which must be installed separately.
+# sudo apt-get install graphviz
+# 
+# Update sphinx version when this issue is resolved: https://github.com/pydata/pydata-sphinx-theme/issues/1094
+sphinx<6
 numpydoc
 pydata-sphinx-theme
 pystac-client
-pixeldriller
+-e .

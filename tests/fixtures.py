@@ -15,6 +15,8 @@ from pixdrill.drillpoints import Point, ROI_SHP_SQUARE, ROI_SHP_CIRCLE
 STAC_ENDPOINT = "https://earth-search.aws.element84.com/v0"
 COLLECTIONS = ['sentinel-s2-l2a-cogs']
 _STAC_CLIENT = None
+
+
 def get_stac_client():
     """
     Get a STAC endpoint for working with.
@@ -74,7 +76,9 @@ def point_albers():
 
 @pytest.fixture
 def point_albers_buffer_degrees():
-    """Create a point in Australian albers with a buffer distance in degrees."""
+    """
+    Create a point in Australian albers with a buffer distance in degrees.
+    """
     sp_ref = create_sp_ref(3577)
     x = 0
     y = -1123600
@@ -287,7 +291,6 @@ def point_outside_bounds_3():
     return pt
 
 
-
 @pytest.fixture
 def point_all_nulls():
     """
@@ -307,10 +310,14 @@ def point_all_nulls():
 def fake_item():
     """Return a dummy pystac Item with attributes needed for the tests."""
     # curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2B_53HPV_20220728_0_L2A | jq | less
-    class Item: pass
-    class Asset: pass
+    class Item:
+        pass
+
+    class Asset:
+        pass
+
     item = Item()
-    item.assets = {"B02":Asset()}
+    item.assets = {"B02": Asset()}
     item.assets["B02"].href = \
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com/" \
         "sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif"
@@ -324,8 +331,8 @@ def real_item(point_one_item):
     Return a real Item by calling drill.assign_points_to_stac_items using the
     earth-search endpoint on the sentinel-s2-l2a-cogs collection.
 
-    Of course, this assumes that drill.assign_points_to_stac_items is functioning
-    as expected - see test_drill.test_assign_points_to_stac_items.
+    Of course, this assumes that drill.assign_points_to_stac_items is
+    functioning as expected - see test_drill.test_assign_points_to_stac_items.
 
     A side-effect of calling assign_points_to_stac_items() to find this
     real_item is that the item is attached to point_one_item,
@@ -338,9 +345,9 @@ def real_item(point_one_item):
     # https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/B02.tif
     # Note that we return a pystac.StacItem, so the raster_assets here have
     # no effect; they're only needed by assign_points_to_stac_items.
-    item_points = drill.assign_points_to_stac_items(
+    drillers = drill.create_stac_drillers(
         client, [point_one_item], COLLECTIONS)
-    return item_points[0].get_item()
+    return drillers[0].get_item()
 
 
 @pytest.fixture

@@ -1,7 +1,6 @@
 """Tests for drillpoints.py"""
 
 import pytest
-import numpy
 from osgeo import osr
 
 from pixdrill import drill
@@ -24,7 +23,8 @@ def test_point(point_albers):
     assert point_albers.end_date.strftime("%Y-%m-%d") == "2022-07-31"
     assert point_albers.buffer == 50
     assert point_albers.shape == drillpoints.ROI_SHP_SQUARE
-    assert getattr(point_albers, "other_atts") == {"PointID": "def456", "OwnerID": "uvw000"}
+    assert getattr(point_albers, "other_atts") == {
+        "PointID": "def456", "OwnerID": "uvw000"}
     assert point_albers.stats.item_stats == {}
     # Also tests Point.to_wgs84()
     assert round(point_albers.wgs84_x, 1) == 132.0
@@ -60,10 +60,14 @@ def test_point_change_buffer_units(
     point_wgs84, point_wgs84_buffer_degrees):
     """Test Point.change_buffer_units."""
     # There are five cases:
-    # 1. convert buffer distance from metres to degrees where point is projected
-    # 2. convert buffer distance from metres to degrees where point is geographic
-    # 3. convert buffer distance from degrees to metres where point is projected
-    # 4. convert buffer distance from degrees to metres where point is geographic
+    # 1. convert buffer distance from metres to degrees where point
+    #    is projected
+    # 2. convert buffer distance from metres to degrees where point
+    #    is geographic
+    # 3. convert buffer distance from degrees to metres where point
+    #    is projected
+    # 4. convert buffer distance from degrees to metres where point
+    #    is geographic
     # 5. no conversion needed, because the buffer units and destination
     #    spatial reference system are compatible.
     # Case 1.
@@ -93,55 +97,57 @@ def test_point_change_buffer_units(
     assert t_buffer == 0.0005
 
 
-def test_point_intersects(point_one_item, point_outside_bounds_1, real_image_path):
+def test_point_intersects(
+        point_one_item, point_outside_bounds_1, real_image_path):
     """Test Point.intersects."""
     assert point_one_item.intersects(real_image_path)
     assert not point_outside_bounds_1.intersects(real_image_path)
 
 
-def test_item_points(real_item):
-    """Test the ItemPoints constructor."""
-    ip = drillpoints.ItemPoints(real_item)
-    with pytest.raises(drillpoints.ItemPointsError) as excinfo:
-        ip.read_data()
+def test_item_driller(real_item):
+    """Test the ItemDriller constructor."""
+    drlr = drillpoints.ItemDriller(real_item)
+    with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
+        drlr.read_data()
     assert "Cannot read data from pystac.Item objects without " in str(excinfo)
-    ip.set_asset_ids(['B02', 'B11'])
-    ip.read_data()
-    assert ip.item.id == "S2B_53HPV_20220728_0_L2A"
-    assert ip.asset_ids == ['B02', 'B11']
-    with pytest.raises(drillpoints.ItemPointsError) as excinfo:
-        drillpoints.ItemPoints(drill.ImageItem("fake_path"), asset_ids=['B02'])
-    assert "do not set asset_ids when item is an ImageItem" in str(excinfo.value)
+    drlr.set_asset_ids(['B02', 'B11'])
+    drlr.read_data()
+    assert drlr.item.id == "S2B_53HPV_20220728_0_L2A"
+    assert drlr.asset_ids == ['B02', 'B11']
+    with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
+        drillpoints.ItemDriller(
+            drill.ImageItem("fake_path"), asset_ids=['B02'])
+    assert "do not set asset_ids when item is an ImageItem" in \
+        str(excinfo.value)
 
 
 def test_read_data(caplog, point_one_item, real_item):
     """
-    Test the ItemPoints.read_data() and PointStats.add_data() functions.
+    Test the ItemDriller.read_data() and PointStats.add_data() functions.
 
     """
-    point_one_item.add_items([real_item])
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11'])
-    ip.add_point(point_one_item)
-    read_ok = ip.read_data()
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr.add_point(point_one_item)
+    read_ok = drlr.read_data()
     assert read_ok
-    #item_stats = point_one_item.get_item_stats(real_item.id)
     raw_stats = point_one_item.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_RAW) 
     assert len(raw_stats) == 2
     assert raw_stats[0].shape == (1, 11, 11)
     assert raw_stats[1].shape == (1, 6, 6)
-    assert raw_stats[0][0, 0, 0] == 406 # Top-left array element.
-    assert raw_stats[1][0, 5, 5] == 135 # Bottom-right array element.
+    assert raw_stats[0][0, 0, 0] == 406  # Top-left array element.
+    assert raw_stats[1][0, 5, 5] == 135  # Bottom-right array element.
     # The following fails because we give it the non-image, metadata, asset.
     # read_data() fails with a message being written to the log, and
     # the stats should return empty lists.
-    point_one_item.stats.reset() # scrub the stats.
-    ip = drillpoints.ItemPoints(real_item, asset_ids=['B02', 'B11', 'metadata'])
-    ip.add_point(point_one_item)
-    read_ok = ip.read_data()
+    point_one_item.stats.reset()  # scrub the stats.
+    drlr = drillpoints.ItemDriller(
+        real_item, asset_ids=['B02', 'B11', 'metadata'])
+    drlr.add_point(point_one_item)
+    read_ok = drlr.read_data()
     assert not read_ok
     assert "is not recognized as a supported dataset name" in caplog.text
-    ip.calc_stats(std_stats=[drillstats.STATS_COUNT])
+    drlr.calc_stats(std_stats=[drillstats.STATS_COUNT])
     raw_stats = point_one_item.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_RAW)
     assert len(raw_stats) == 0
