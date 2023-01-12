@@ -269,12 +269,37 @@ Note that:
 - the standard statistics are retrieved using the ``drillstats.STATS_`` symbols
 - the user statistcs are retrieved using the user-defined name
 
-A note about null pixel values
-------------------------------
+A note about image no-data values
+---------------------------------
 
-By default, ``Pixel Driller`` uses the image's *no data* value to define
-pixels that are excluded from the stats calculations. This can be
-changed using the ``ignore_val`` parameter in ``drill.drill()``.
+An image may have *no-data* values defined in its metadata, one for each band.
+Pixels with this value represents locations in the image that contain
+no information. By default, ``Pixel Driller`` uses the no-data value
+set on every band of every image it drills.
+
+A problem may arise when the no-data value may not have
+been set when the image was created, or the file format lacks support for
+it to be specified. In this case, ``Pixel Driller`` considers all pixel values
+to be valid data when calculating statistics. But what if they're not?
+
+You can set or override the *no data* using
+the ``ignore_val`` parameter in ``drill.drill()`` (and other functions).
+``Pixel Driller`` uses the ``ignore_val`` differently depending on whether
+the Item being drilled is an ``ImageItem`` or a ``STAC Item``.
+
+When reading the raster assets of a ``STAC Item``, ``ignore_val`` can be
+a list of values or a single value.
+The list must contain the no-data value per asset. The same value
+is used for all bands in an asset.
+If ``ignore_val`` is a single value, then the same value is used for all bands
+of all assets.
+    
+When reading the image of a ``drill.ImageItem``, ``ignore_val`` can be a
+single value. It is used for all bands in the image.
+
+Clearly, further development work is needed to support specifying the *no data*
+value per-band. ``Pixel Driller`` currently relies on the image's creators
+to do that for us.
 
 An alternative usage pattern
 ------------------------------

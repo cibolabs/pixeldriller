@@ -169,10 +169,6 @@ and are installed when installing Pixel Driller::
 
     > pip install https://github.com/cibolabs/pixeldriller/archive/refs/tags/v0.2.0.tar.gz
 
-TODO: Test pip command
-
-TODO: Is there a link to 'latest'?
-
 Guides
 =======
 

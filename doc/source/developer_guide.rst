@@ -191,11 +191,6 @@ choose one.
 The details are in ``Point.change_buffer_units()``.
 
 
-Ignore values
-------------------
-
-TODO: Insert comments.
-
 Contributing
 ------------------
 

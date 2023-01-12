@@ -151,10 +151,12 @@ def drill(points, images=None,
             f'sentinel:latitude_band={lat_band}',
             f'sentinel:grid_square={grid_sq}']
 
-    Whereever possible, you should use the image's no data values. But you
-    can override these if you wish.
-    The ``ignore_val`` parameter is treated differently depending on whether
+    The ``ignore_val`` parameter allows you to set or override the pixel values
+    to be ignored when calculating statistics.
+    Whereever possible though, you should use the image's no data values.
+    ``ignore_val`` is treated differently depending on whether
     a STAC Item's assets are being read or a ``drill.ImageItem`` is being read.
+    
     
     When reading from the assets of a ``pystac.Item``, ``ignore_val`` can be
     a list of values, a single values, or None.
