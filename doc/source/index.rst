@@ -15,11 +15,16 @@ Introduction
 
 Pixel Driller is for those who:
 
+- want to extract pixels from locations in an image
+- calculate statistics on the extracted pixels
+- are comfortable using Python
+
+For example, you might be someone who:
+
 - work in the field of remote sensing
 - take measurements of *something* on the ground, and
 - create statistical or machine learning models to predict that *something*
   from satellite or aerial images
-- are comfortable using Python
 
 
 What it does
