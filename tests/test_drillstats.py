@@ -204,7 +204,7 @@ def test_user_nulls(point_all_nulls, real_item):
     std_stats = [drillstats.STATS_MEAN]
     drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
     drlr.add_point(point_all_nulls)
-    with pytest.raises(AssertionError) as excinfo:
+    with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
         drlr.read_data(ignore_val=[-9999])
     assert "ignore_val list must be the same length as asset_ids" in \
         str(excinfo.value)

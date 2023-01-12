@@ -304,8 +304,10 @@ class ImageReader:
         not touched by the ROI's boundary are masked using `ignore_val`.
         
         The ArrayInfo object contains a 3D `numpy.ma.masked_array`
-        with the pixel data. If ``ignore_val=None``, the
-        no-data value set on each band in the asset/image is used. If
+        with the pixel data.
+        
+        If ``ignore_val`` is ``None``, the
+        no-data value set on each band in the image is used. If
         ``ignore_val`` is set then the same value is used for every band in
         the image.
         

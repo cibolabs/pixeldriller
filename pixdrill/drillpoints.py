@@ -430,16 +430,16 @@ class ItemDriller:
         -----
 
         When reading from the assets of a ``pystac.Item``, `ignore_val` can be
-        a single value, a list of values, or None.
+        a list of values, a single values, or None.
         A list of values is the null value per asset. It assumes all
         bands in an asset use the same null value.
         A single value is used for all bands of all assets.
-        None means to use the no data value set on each asset.
+        None means to use the no data value set on each the assets' bands.
         
         When reading the image of a ``drill.ImageItem``, `ignore_val` can be a
         single value or None.
         A single value is used for all bands in the image.
-        None means to use the image band's no data value.
+        None means to use the each band's no data value.
 
         The reading is done by ``image_reader.ImageReader.read_data()``.
 
@@ -471,9 +471,10 @@ class ItemDriller:
                           "calling ItemDriller.set_asset_ids()")
                 raise ItemDrillerError(errmsg)
             if isinstance(ignore_val, list):
-                errmsg = "The ignore_val list must be the same length as " \
-                         "asset_ids."
-                assert len(ignore_val) == len(self.asset_ids), errmsg
+                if len(ignore_val) != len(self.asset_ids):
+                    errmsg = "The ignore_val list must be the same length " \
+                             "as asset_ids."
+                    raise ItemDrillerError(errmsg)
             else:
                 ignore_val = [ignore_val] * len(self.asset_ids)
             # GDAL will raise a RuntimeError if it can't open files,
