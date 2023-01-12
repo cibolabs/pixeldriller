@@ -41,17 +41,17 @@ class Point:
     
     Parameters
     ----------
-
-    point : an (x, y, time) tuple
-        `x` and `y` are the spatial coordinates of the survey point's centre
-        and `time` is a ``datetime.datetime`` object of when the survey
-        was conducted. `time` may be may be timezone aware or unaware.
-        `time` objects are handled as per the
-        `pystac_client.Client.search() <https://pystac-client.readthedocs.io>`_
-        interface.
-        `time` is assumed to be UTC if it is timezone unaware.
-    sp_ref : osr.SpatialReference
+    x : float
+        The x-coordinate of the survey's centre (e.g. longitude or easting).
+    y : float
+        The y-coordinate of the survey's centre (e.g. latitude or northing).
+    t : datetime.datetime
+        The point's survey date and time. If `t` is time zone unaware, then
+        UTC is assumed.
+    sp_ref : int or osr.SpatialReference
         The coordinate reference system of the point's `x`, `y` location.
+        Integer's are interpreted as `EPSG codes <https://epsg.org/>`__
+        and used to create a GDAL osr.SpatialReference object.
     t_delta : ``datetime.timedelta`` object
         For searching STAC catalogues. An Item acquired within this time
         window either side of the point's `time` will be drilled, provided
@@ -67,16 +67,15 @@ class Point:
         If True, then the units for the point's buffer are
         assumed to be in degrees, otherwise they are assumed to be in metres.
         The default is False (metres).
-
     
     Attributes
     ----------
     x : float
-        The point's x-coordinate.
+        The survey point's x-coordinate.
     y : float
-        The point's y-coordinate.
+        The survey point's y-coordinate.
     t : datetime.datetime
-        The point's datetime.datetime time.
+        The survey point's date and time.
     x_y : tuple of float
         The point's (x, y) location.
     sp_ref : osr.SpatialReference
@@ -101,16 +100,21 @@ class Point:
         The items associated with this point, keyed by the Item ID.
 
     """
-    def __init__(self, point, sp_ref, t_delta, buffer, shape,
+    def __init__(self, x, y, t, sp_ref, t_delta, buffer, shape,
             buffer_degrees=False):
         """Point constructor."""
-        self.x = point[0]
-        self.y = point[1]
-        self.t = point[2]
+        self.x = x
+        self.y = y
+        self.t = t
         if self.t.tzinfo is None:
             self.t = self.t.replace(tzinfo=timezone.utc)
         self.x_y = (self.x, self.y)
-        self.sp_ref = sp_ref
+        if not isinstance(sp_ref, osr.SpatialReference):
+            sp_ref_osr = osr.SpatialReference()
+            sp_ref_osr.ImportFromEPSG(sp_ref)
+            self.sp_ref = sp_ref_osr
+        else:
+            self.sp_ref = sp_ref
         self.wgs84_x, self.wgs84_y = self.to_wgs84()
         self.wgs84_x = -180 if math.isclose(self.wgs84_x, 180) else \
             self.wgs84_x

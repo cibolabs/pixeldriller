@@ -63,13 +63,12 @@ def create_date(d_days):
 @pytest.fixture
 def point_albers():
     """Create a point in Australian albers."""
-    sp_ref = create_sp_ref(3577)
     x = 0
     y = -1123600
     date, t_delta = create_date(3)
     other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
     pt = Point(
-        (x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+        x, y, date, 3577, t_delta, 50, ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
@@ -85,7 +84,7 @@ def point_albers_buffer_degrees():
     date, t_delta = create_date(3)
     other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
     pt = Point(
-        (x, y, date), sp_ref, t_delta, 0.0005, ROI_SHP_SQUARE,
+        x, y, date, sp_ref, t_delta, 0.0005, ROI_SHP_SQUARE,
         buffer_degrees=True)
     setattr(pt, "other_atts", other_atts)
     return pt
@@ -94,11 +93,10 @@ def point_albers_buffer_degrees():
 @pytest.fixture
 def point_wgs84():
     """Create a point in WGS 84."""
-    sp_ref = create_sp_ref(4326)
     x = 140
     y = -36.5
     date, t_delta = create_date(3)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, 4326, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -111,7 +109,7 @@ def point_wgs84_buffer_degrees():
     date, t_delta = create_date(3)
     # A buffer of 0.00056 degrees is 50.20 m at this latitude.
     pt = Point(
-        (x, y, date), sp_ref, t_delta, 0.00056, ROI_SHP_SQUARE,
+        x, y, date, sp_ref, t_delta, 0.00056, ROI_SHP_SQUARE,
         buffer_degrees=True)
     return pt
 
@@ -127,7 +125,7 @@ def point_one_item():
     x = 136.5
     y = -36.5
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -143,7 +141,7 @@ def point_one_item_circle():
     x = 136.5
     y = -36.5
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_CIRCLE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_CIRCLE)
     return pt
 
 
@@ -161,7 +159,7 @@ def point_one_item_circle_small():
     x = 136.5
     y = -36.5
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 3, ROI_SHP_CIRCLE)
+    pt = Point(x, y, date, sp_ref, t_delta, 3, ROI_SHP_CIRCLE)
     return pt
 
 
@@ -177,7 +175,7 @@ def point_one_item_singular():
     x = 136.5
     y = -36.5
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 0, ROI_SHP_CIRCLE)
+    pt = Point(x, y, date, sp_ref, t_delta, 0, ROI_SHP_CIRCLE)
     return pt
 
 
@@ -194,7 +192,7 @@ def point_intersects():
     x = 136.5
     y = -36.5
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -209,7 +207,7 @@ def point_partial_nulls():
     x = 137.3452
     y = -36.7259
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -224,7 +222,7 @@ def point_straddle_bounds_1():
     x = 136.1115
     y = -36.1392
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -239,7 +237,7 @@ def point_straddle_bounds_2():
     x = 137.3612
     y = -37.1107
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -255,7 +253,7 @@ def point_outside_bounds_1():
     x = 136.1107
     y = -36.1387
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -271,7 +269,7 @@ def point_outside_bounds_2():
     x = 137.3467
     y = -36.5957
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -287,7 +285,7 @@ def point_outside_bounds_3():
     x = 137.3647
     y = -37.1175
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
@@ -302,7 +300,7 @@ def point_all_nulls():
     x = 137.3417
     y = -36.7294
     date, t_delta = create_date(1)
-    pt = Point((x, y, date), sp_ref, t_delta, 50, ROI_SHP_SQUARE)
+    pt = Point(x, y, date, sp_ref, t_delta, 50, ROI_SHP_SQUARE)
     return pt
 
 
