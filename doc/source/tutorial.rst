@@ -38,7 +38,11 @@ Example::
     longitude = 140
     latitude = -36.5
     crs_code = 4326 # EPSG code for WGS84 coordinate reference system. See epsg.org.
-    survey_date = datetime.datetime(2022, 7, 28) # 28 July 2022
+    # The survey date and time. If the timezone is not specified, then
+    # UTC is assumed.
+    tz = datetime.timezone(datetime.timedelta(hours=10))
+    survey_date = datetime.datetime(
+        2022, 7, 28, 14, 30, 0, tzinfo=tz) # 28 July 2022 @ 2:30 pm
     acquisition_window = datetime.timedelta(days=3)
     site_shape = drill_points.ROI_SHP_CIRCLE # Define the extraction shape
     site_radius = 50 # The extraction size, in metres

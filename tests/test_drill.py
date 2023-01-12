@@ -3,6 +3,8 @@
 # TODO: add tests that handle geometry that cuts across the anti-meridian.
 # See section 3.1.9 in https://www.rfc-editor.org/rfc/rfc7946#section-3.1
 
+from datetime import timezone
+
 from pixdrill import drill
 from pixdrill import drillstats
 
@@ -25,6 +27,11 @@ def test_assign_points_to_stac_items(point_wgs84):
     assert drillers[1].get_item().assets['B02'].href == \
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com/" \
         "sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2B_54HVE_20220725_0_L2A/B02.tif"
+    # Test the nearest_n parameter.
+    drillers = drill.create_stac_drillers(
+        get_stac_client(), [point_wgs84], COLLECTIONS, nearest_n=1)
+    assert len(drillers) == 1
+    assert drillers[0].item.id == "S2A_54HVE_20220730_0_L2A"
 
 
 def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
@@ -96,3 +103,9 @@ def test_assign_points_to_images(
     assert len(assigned_points) == 1
     ap = assigned_points[0]
     assert ap == point_intersects
+
+
+def test_time_diff(real_item, point_one_item):
+    """Test drill._time_diff."""
+    n_secs = drill._time_diff(real_item, point_one_item)
+    assert n_secs == 39440

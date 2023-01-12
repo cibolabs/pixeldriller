@@ -94,7 +94,7 @@ def create_sp_ref(epsg_code):
 
 def create_date(d_days):
     """
-    Create a datetime.datetime instance for 28 July 2022 in UTC=10 hours
+    Create a datetime.datetime instance for 28 July 2022 in UTC
     and a datetime.timedelta object of d_days.
 
     """

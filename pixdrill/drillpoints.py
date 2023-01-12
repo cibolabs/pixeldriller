@@ -7,6 +7,7 @@ survey point's properties and are used to drill an Item's pixels.
 import traceback
 import math
 import logging
+from datetime import timezone
 
 from osgeo import osr
 
@@ -48,6 +49,7 @@ class Point:
         `time` objects are handled as per the
         `pystac_client.Client.search() <https://pystac-client.readthedocs.io>`_
         interface.
+        `time` is assumed to be UTC if it is timezone unaware.
     sp_ref : osr.SpatialReference
         The coordinate reference system of the point's `x`, `y` location.
     t_delta : ``datetime.timedelta`` object
@@ -105,6 +107,8 @@ class Point:
         self.x = point[0]
         self.y = point[1]
         self.t = point[2]
+        if self.t.tzinfo is None:
+            self.t = self.t.replace(tzinfo=timezone.utc)
         self.x_y = (self.x, self.y)
         self.sp_ref = sp_ref
         self.wgs84_x, self.wgs84_y = self.to_wgs84()
