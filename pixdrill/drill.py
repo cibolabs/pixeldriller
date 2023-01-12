@@ -6,6 +6,9 @@ should be through this interface.
 
 import logging
 from concurrent import futures
+import datetime
+from datetime import timezone
+import functools
 
 from osgeo import gdal
 from pystac_client import Client
@@ -35,7 +38,8 @@ def drill(points, images=None,
         The STAC catalogue's collections to query. You would normally only
         specify one catalogue.
     item_properties : a list of objects
-        These are passed to ``pystac-client.Client.search()`` using the
+        These are for filtering the results of a STAC search. The list is
+        passed to ``pystac-client.Client.search()`` using the
         ``query`` parameter.
     nearest_n : integer
         Only use up to n STAC Items that are nearest-in-time to the ``Point``.
@@ -113,8 +117,24 @@ def drill(points, images=None,
     ``Point's`` ``stats`` object. See the examples section below for how to
     retrieve them.
 
-    TODO: ``item_properties`` are passed through to
-    `pystac_client.Client.search() <https://pystac-client.readthedocs.io>`_.
+    ``item_properties`` allows you to filter your STAC search results if the
+    STAC endpoint supports the
+    `Query extension <https://github.com/stac-api-extensions/query>`__. An
+    Item's properties are specific to the STAC collection. So you need to
+    inspect the properties of a STAC Item in the collection to determine
+    sensible values for this parameter.
+    For example, the 'sentinel2-s2-l2a-cogs' collection in the STAC
+    Catalogue at endpoint 'https://earth-search.aws.element84.com/v0', has
+    Sentinel2-specific properties that allow you to filter by the tile ID::
+
+        tile = '54JVR'
+        zone = tile[:2]
+        lat_band = tile[2]
+        grid_sq = tile[3:]
+        item_properties = [
+            f'sentinel:utm_zone={zone}',
+            f'sentinel:latitude_band={lat_band}',
+            f'sentinel:grid_square={grid_sq}']
 
     TODO: ignore_val is the list of null values for each raster asset (or
     specify one value to be used for all raster assets). It should only be used
@@ -169,7 +189,7 @@ def drill(points, images=None,
         client = Client.open(stac_endpoint)
         stac_drillers = create_stac_drillers(
             client, points, collections, raster_assets=raster_assets,
-            item_properties=item_properties)
+            item_properties=item_properties, nearest_n=nearest_n)
         drillers.extend(stac_drillers)
     if images:
         image_drillers = create_image_drillers(points, images)
@@ -234,13 +254,8 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None,
     """
     Search the list of collections in a STAC endpoint for items that
     intersect the x, y coordinate of the list of points and are within the
-    Points' temporal search windows.
+    Points' image-acquisition windows.
 
-    Return a list of drillpoints.ItemDriller objects, one for each STAC Item
-    found.
-
-    TODO: permit user-defined properties for filtering the stac search.
-    
     TODO: implement nearest-n
     
     Parameters
@@ -275,24 +290,10 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None,
         client = stac_client
 
     drillers = {}
-    # TODO: it might be worth optimising the search by clumping points
-    # instead of a naive one-point-at-a-time approach.
     for pt in points:
         pt_json = {
             "type": "Point",
             "coordinates": [pt.wgs84_x, pt.wgs84_y]}
-        # TODO: permit user-defined properties. For example:
-    # Properties can be determined by examining the 'properties' attribute
-    # of an item in the collection.
-    # e.g. curl -s https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2B_53HPV_20220728_0_L2A | jq | less
-    #    tile = '54JVR'
-    #    zone = tile[:2]
-    #    lat_band = tile[2]
-    #    grid_sq = tile[3:]
-    #    properties = [
-    #        f'sentinel:utm_zone={zone}',
-    #        f'sentinel:latitude_band={lat_band}',
-    #        f'sentinel:grid_square={grid_sq}']
         # TODO: Do bounding boxes that cross the anti-meridian need to be
         # split in 2, or does the stac-client handle this case?
         # See: https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9
@@ -304,6 +305,10 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None,
             datetime=[pt.start_date, pt.end_date],
             query=item_properties)
         items = list(search.items())
+        # Choose the nearest_n Items for the point
+        if nearest_n > 0:
+            sort_func = functools.partial(_time_diff, pt=pt)
+            items = sorted(items, key=sort_func)[:nearest_n]
         # Group all points for each item together in an ItemDriller.
         for item in items:
             if item.id not in drillers:
@@ -311,6 +316,42 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None,
                     item, asset_ids=raster_assets)
             drillers[item.id].add_point(pt)
     return list(drillers.values())
+
+
+def _time_diff(item, pt):
+    """
+    Calculate the time difference, in seconds, between the STAC Item's
+    acquisition time and the time of the survey. Use this function to sort the
+    returned STAC Items so that the n_nearest can be selected.
+
+    Parameters
+    ----------
+    item : ``pystac.Item``
+        The Item containing information about the image acquisition time.
+    pt : ``drillpoints.Point``
+        The survey point.
+
+    Returns
+    -------
+        The number of seconds difference. This is a positive value, so this
+        function cannot be used to determine if the image was acquired
+        before or after the survey.
+
+    Notes
+    -----
+    Assumes the datetime property of the STAC Item is formatted as
+    'YYYY-MM-DDTHH:MM:SSZ', as per the date+time formatting rules in the
+    `STAC Item Spec <https://github.com/radiantearth/stac-spec/blob/master/item-spec/item-spec.md>`_.
+    For example '2022-07-28T00:57:20Z'. A time zone offset is not expected
+    because the spec specifies UTC.
+
+    """
+    acq_time = item.properties['datetime'].upper()
+    acq_time = datetime.datetime.strptime(acq_time, "%Y-%m-%dT%H:%M:%SZ")
+    acq_time = acq_time.replace(tzinfo=timezone.utc)
+    surv_time = pt.t.astimezone(timezone.utc)
+    diff = abs(acq_time - surv_time).total_seconds()
+    return diff
 
 
 def calc_stats(driller, std_stats=None, user_stats=None):
