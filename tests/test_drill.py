@@ -69,7 +69,6 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     stac_id = 'S2B_53HPV_20220728_0_L2A'
     # Check that the mean and range stats have been set for the stac Item
     # and that the length is 2, one for each of B02 and B03.
-    #item_stats = point_intersects.get_item_stats(stac_id)
     stats = point_intersects.stats.item_stats[stac_id]
     assert len(stats[drillstats.STATS_MEAN]) == 2
     assert len(stats["USER_RANGE"]) == 2
@@ -78,6 +77,24 @@ def test_drill(point_albers, point_wgs84, point_intersects, real_image_path):
     stats = point_intersects.stats.item_stats[real_image_path]
     assert len(stats[drillstats.STATS_MEAN]) == 1
     assert len(stats["USER_RANGE"]) == 1
+
+
+def test_user_nulls(point_albers):
+    """
+    Test passing the null values through from the drill function.
+    There's another test, test_drillstats.py::test_user_nulls, 
+    which is a more comprehensive, downstream test.
+    """
+    drill.drill(
+        [point_albers], stac_endpoint=STAC_ENDPOINT,
+        raster_assets=['B02', 'B03'],
+        collections=COLLECTIONS, std_stats=[drillstats.STATS_MEAN],
+        ignore_val=[434, 195])
+    stats = point_albers.stats.get_stats(
+        item_id="S2B_52LHP_20220730_0_L2A", stat_name=drillstats.STATS_RAW)
+    # Four pixels are masked from B02 and three from B03.
+    assert stats[0].mask.sum() == 4
+    assert stats[1].mask.sum() == 3
 
 
 def test_assign_points_to_images(

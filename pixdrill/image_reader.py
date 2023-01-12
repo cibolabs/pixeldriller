@@ -3,6 +3,23 @@ For reading pixel data and metadata from images.
 
 """
 
+# This file is part of Pixel Driller - for extracting pixels from
+# imagery that correspond to survey field sites.
+# Copyright (C) 2023 Cibolabs.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import math
 import numpy
 
@@ -304,8 +321,10 @@ class ImageReader:
         not touched by the ROI's boundary are masked using `ignore_val`.
         
         The ArrayInfo object contains a 3D `numpy.ma.masked_array`
-        with the pixel data. If ``ignore_val=None``, the
-        no-data value set on each band in the asset/image is used. If
+        with the pixel data.
+        
+        If ``ignore_val`` is ``None``, the
+        no-data value set on each band in the image is used. If
         ``ignore_val`` is set then the same value is used for every band in
         the image.
         

@@ -96,7 +96,7 @@ a typical usage pattern::
     std_stats = [drillstats.STATS_MEAN]
     user_stats = [('MY_RANGE', my_range_func)]
 
-    Step 4. Extract pixels and compute stats.
+    # Step 4. Extract pixels and compute stats.
     # Drill the given images and those returned from a search of
     # the STAC catalogue. Calculate the stats at the same time.
     drill.drill(

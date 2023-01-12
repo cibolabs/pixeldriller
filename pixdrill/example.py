@@ -6,6 +6,23 @@ in conjunction with the documentation for pixdrill.drill().
 
 """
 
+# This file is part of Pixel Driller - for extracting pixels from
+# imagery that correspond to survey field sites.
+# Copyright (C) 2023 Cibolabs.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import datetime
 from osgeo import osr
 import numpy
@@ -17,28 +34,26 @@ from pixdrill import drillstats
 
 def pt_1():
     """Create a point in Australian albers."""
-    sp_ref = create_sp_ref(3577)
     x = 0
     y = -1123600
     date, t_delta = create_date(3)
     # Attach some other attributes
     other_atts = {"PointID": "abc123", "OwnerID": "xyz789"}
     pt = drillpoints.Point(
-        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
+        x, y, date, 3577, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
 
 def pt_2():
     """Create a point in WGS 84."""
-    sp_ref = create_sp_ref(4326)
     x = 140
     y = -36.5
     date, t_delta = create_date(3)
     # Attach some other attributes
     other_atts = {"PointID": "def456", "OwnerID": "uvw000"}
     pt = drillpoints.Point(
-        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
+        x, y, date, 4326, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
@@ -56,7 +71,7 @@ def pt_3():
     # Attach some other attributes
     other_atts = {"PointID": "p-nulls", "OwnerID": "uvw000"}
     pt = drillpoints.Point(
-        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
+        x, y, date, sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 
@@ -76,7 +91,7 @@ def pt_4():
     # Attach some other attributes
     other_atts = {"PointID": "straddle-extent", "OwnerID": "rst432"}
     pt = drillpoints.Point(
-        (x, y, date), sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
+        x, y, date, sp_ref, t_delta, 50, drillpoints.ROI_SHP_SQUARE)
     setattr(pt, "other_atts", other_atts)
     return pt
 

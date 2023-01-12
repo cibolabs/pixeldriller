@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Pixel Driller'
-copyright = '2022, Tony Gill'
+copyright = '2023, Cibolabs'
 author = 'Tony Gill'
 
 # -- General configuration ---------------------------------------------------
@@ -32,3 +32,5 @@ html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
 
 numpydoc_show_class_members = False
+
+html_logo = "logo-cibolabs.png"

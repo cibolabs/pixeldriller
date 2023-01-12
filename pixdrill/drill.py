@@ -4,6 +4,23 @@ should be through this interface.
 
 """
 
+# This file is part of Pixel Driller - for extracting pixels from
+# imagery that correspond to survey field sites.
+# Copyright (C) 2023 Cibolabs.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import logging
 from concurrent import futures
 import datetime
@@ -50,11 +67,9 @@ def drill(points, images=None,
     user_stats : a list of tuples
         A user defined list of statistic names and functions. See the
         notes section below for a description of the function signatures.
-    ignore_val : value
+    ignore_val : float or list of floats
         A value to use for the ignore value for rasters. Should only be
-        specified when a raster does not have this already set. Either a single
-        value (same for all rasters) or one value for each asset.
-        TODO: explain how they are used differently for assets versus images.
+        used to override the image's no data values. See the notes below.
     concurrent : bool
         If True, will call ``drill.calc_stats()`` for each Item to be drilled
         concurrently in a ``ThreadPoolExecutor``.
@@ -136,21 +151,34 @@ def drill(points, images=None,
             f'sentinel:latitude_band={lat_band}',
             f'sentinel:grid_square={grid_sq}']
 
-    TODO: ignore_val is the list of null values for each raster asset (or
-    specify one value to be used for all raster assets). It should only be used
-    if the null value of the raster is not set or to override it.
-    It's used for:
+    Whereever possible, you should use the image's no data values. But you
+    can override these if you wish.
+    The ``ignore_val`` parameter is treated differently depending on whether
+    a STAC Item's assets are being read or a ``drill.ImageItem`` is being read.
+    
+    When reading from the assets of a ``pystac.Item``, ``ignore_val`` can be
+    a list of values, a single values, or None.
+    A list of values is the null value per asset. It assumes all
+    bands in an asset use the same null value.
+    A single value is used for all bands of all assets.
+    None means to use the no data value set on each the assets' bands.
+    
+    When reading the image of a ``drill.ImageItem``, `ignore_val` can be a
+    single value or None. A single value is used for all bands in the image.
+    None means to use the each band's no data value.
+
+    ``ignore_val`` is used for:
     
     - the mask value when 'removing' pixels from the raw arrays that
-      are outside the region of interest, e.g. if the ROI is a circle then
-      we remove pixels from the raw rectangular arrays
-    - excluding pixels within the raw arrays from the stats calculations,
-      those both within and outside the ROI
+      are outside the region of interest, e.g. if the Point's footprint
+      is a circle then we remove pixels from the raw rectangular arrays
+    - excluding pixels from the stats calculations,
+      those both within and outside the Point's footprint
 
     See Also
     --------
 
-    example.py: a script that shows two usage patterns
+    pixdrill.example: a script that shows two usage patterns
 
     Examples
     --------
@@ -182,7 +210,6 @@ def drill(points, images=None,
       ``drillstats.STATS_ARRAYINFO`` (not shown)
         
     """
-    # TODO: Choose the n nearest-in-time items.
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
     drillers = []
     if stac_endpoint:
@@ -203,12 +230,15 @@ def drill(points, images=None,
         with futures.ThreadPoolExecutor() as executor:
             for dr in drillers:
                 executor.submit(
-                    calc_stats(dr, std_stats=std_stats, user_stats=user_stats))
+                    calc_stats(
+                        dr, std_stats=std_stats, user_stats=user_stats,
+                        ignore_val=ignore_val))
     else:
         logging.info("Running extract sequentially.")
         for dr in drillers:
             calc_stats(
-                dr, std_stats=std_stats, user_stats=user_stats)
+                dr, std_stats=std_stats, user_stats=user_stats,
+                ignore_val=ignore_val)
 
 
 def create_image_drillers(points, images, image_ids=None):
@@ -256,8 +286,6 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None,
     intersect the x, y coordinate of the list of points and are within the
     Points' image-acquisition windows.
 
-    TODO: implement nearest-n
-    
     Parameters
     ----------
     
@@ -349,12 +377,11 @@ def _time_diff(item, pt):
     acq_time = item.properties['datetime'].upper()
     acq_time = datetime.datetime.strptime(acq_time, "%Y-%m-%dT%H:%M:%SZ")
     acq_time = acq_time.replace(tzinfo=timezone.utc)
-    surv_time = pt.t.astimezone(timezone.utc)
-    diff = abs(acq_time - surv_time).total_seconds()
+    diff = abs(acq_time - pt.t).total_seconds()
     return diff
 
 
-def calc_stats(driller, std_stats=None, user_stats=None):
+def calc_stats(driller, std_stats=None, user_stats=None, ignore_val=None):
     """
     Calculate the statistics for all points in the ItemDriller objects.
     It reads the rasters and calculates the stats.
@@ -374,7 +401,7 @@ def calc_stats(driller, std_stats=None, user_stats=None):
     """
     msg = "Calculating stats for %i points in item %s."
     logging.info(msg, len(driller.points), driller.item.id)
-    driller.read_data()
+    driller.read_data(ignore_val=ignore_val)
     driller.calc_stats(std_stats=std_stats, user_stats=user_stats)
 
 
