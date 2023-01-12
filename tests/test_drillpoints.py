@@ -146,7 +146,7 @@ def test_read_data(caplog, point_one_item, real_item):
     drlr.add_point(point_one_item)
     read_ok = drlr.read_data()
     assert not read_ok
-    assert "is not recognized as a supported dataset name" in caplog.text
+    assert "is not recognized as a supported" in caplog.text
     drlr.calc_stats(std_stats=[drillstats.STATS_COUNT])
     raw_stats = point_one_item.stats.get_stats(
         item_id=real_item.id, stat_name=drillstats.STATS_RAW)
