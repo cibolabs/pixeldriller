@@ -178,7 +178,7 @@ def drill(points, images=None,
     See Also
     --------
 
-    example.py: a script that shows two usage patterns
+    pixdrill.example: a script that shows two usage patterns
 
     Examples
     --------
