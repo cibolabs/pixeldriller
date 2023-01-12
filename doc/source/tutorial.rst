@@ -346,6 +346,14 @@ Example::
 Pitfalls
 ----------
 
+Failing to specify a Point's timezone
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A Point's time zone is assumed to be UTC if its
+`t` attribute is a timezone *unaware* ``datetime.datetime`` object.
+Setting the time zone correctly is important when
+determining the `nearest_n` STAC Items to the survey.
+
 Multiple calls to calc_stats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
