@@ -275,11 +275,12 @@ A note about image no-data values
 An image may have *no-data* values defined in its metadata, one for each band.
 Pixels with this value represents locations in the image that contain
 no information. By default, ``Pixel Driller`` uses the no-data value
-set on every band of every image it drills.
+set on every band of every image it drills as values to ignore when
+calculating statistics.
 
-A problem may arise when the no-data value may not have
-been set when the image was created, or the file format lacks support for
-it to be specified. In this case, ``Pixel Driller`` considers all pixel values
+A problem may arise when the image's no-data values are not set,
+or the file format lacks support for it to be specified.
+In such cases, ``Pixel Driller`` considers all pixel values
 to be valid data when calculating statistics. But what if they're not?
 
 You can set or override the *no data* using
@@ -400,11 +401,12 @@ This means that:
 - assets have a URL (http, https, ftp etc) as their ``href`` attribute
 - GDAL is built so that it can read data from
   `network-based filesystems <https://gdal.org/user/virtual_file_systems.html>`__
+- if authentication is required it is done in a manner
+  `supported by GDAL <https://gdal.org/user/virtual_file_systems.html>`__
 - GDAL's ``CPL_VSIL_CURL_ALLOWED_EXTENSIONS`` environment variable is set and
   contains the filename extensions of the assets, e.g.
   ``CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff,.vrt,.jp2"``
 - For example, you should be able to read tif files if the following command
-  returns information about the file,
-  `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif" gdalinfo /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif`
-- if authentication is required it is done in a manner
-  `supported by GDAL <https://gdal.org/user/virtual_file_systems.html>`__
+  returns information about the file::
+
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif" gdalinfo /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif

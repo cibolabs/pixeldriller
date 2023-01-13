@@ -21,9 +21,9 @@ Pixel Driller is for those who:
 
 For example, you might be someone who:
 
-- work in the field of remote sensing
-- take measurements of *something* on the ground, and
-- create statistical or machine learning models to predict that *something*
+- works in the field of remote sensing
+- takes measurements of *something* on the ground, and
+- creates statistical or machine learning models to predict that *something*
   from satellite or aerial images
 
 
