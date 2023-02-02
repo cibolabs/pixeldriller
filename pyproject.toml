@@ -3,6 +3,8 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
+name = "pixeldriller"
+version = "0.2.0"
 dependencies = [
     "pystac-client>=0.4.0",
     "numpy"
