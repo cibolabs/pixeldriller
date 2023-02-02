@@ -269,12 +269,38 @@ Note that:
 - the standard statistics are retrieved using the ``drillstats.STATS_`` symbols
 - the user statistcs are retrieved using the user-defined name
 
-A note about null pixel values
-------------------------------
+A note about image no-data values
+---------------------------------
 
-By default, ``Pixel Driller`` uses the image's *no data* value to define
-pixels that are excluded from the stats calculations. This can be
-changed using the ``ignore_val`` parameter in ``drill.drill()``.
+An image may have *no-data* values defined in its metadata, one for each band.
+Pixels with this value represents locations in the image that contain
+no information. By default, ``Pixel Driller`` uses the no-data value
+set on every band of every image it drills as values to ignore when
+calculating statistics.
+
+A problem may arise when the image's no-data values are not set,
+or the file format lacks support for it to be specified.
+In such cases, ``Pixel Driller`` considers all pixel values
+to be valid data when calculating statistics. But what if they're not?
+
+You can set or override the *no data* using
+the ``ignore_val`` parameter in ``drill.drill()`` (and other functions).
+``Pixel Driller`` uses the ``ignore_val`` differently depending on whether
+the Item being drilled is an ``ImageItem`` or a ``STAC Item``.
+
+When reading the raster assets of a ``STAC Item``, ``ignore_val`` can be
+a list of values or a single value.
+The list must contain the no-data value per asset. The same value
+is used for all bands in an asset.
+If ``ignore_val`` is a single value, then the same value is used for all bands
+of all assets.
+    
+When reading the image of a ``drill.ImageItem``, ``ignore_val`` can be a
+single value. It is used for all bands in the image.
+
+Clearly, further development work is needed to support specifying the *no data*
+value per-band. ``Pixel Driller`` currently relies on the image's creators
+to do that for us.
 
 An alternative usage pattern
 ------------------------------
@@ -375,11 +401,12 @@ This means that:
 - assets have a URL (http, https, ftp etc) as their ``href`` attribute
 - GDAL is built so that it can read data from
   `network-based filesystems <https://gdal.org/user/virtual_file_systems.html>`__
+- if authentication is required it is done in a manner
+  `supported by GDAL <https://gdal.org/user/virtual_file_systems.html>`__
 - GDAL's ``CPL_VSIL_CURL_ALLOWED_EXTENSIONS`` environment variable is set and
   contains the filename extensions of the assets, e.g.
   ``CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff,.vrt,.jp2"``
 - For example, you should be able to read tif files if the following command
-  returns information about the file,
-  `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif" gdalinfo /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif`
-- if authentication is required it is done in a manner
-  `supported by GDAL <https://gdal.org/user/virtual_file_systems.html>`__
+  returns information about the file::
+
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif" gdalinfo /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/54/H/VE/2022/7/S2A_54HVE_20220730_0_L2A/B02.tif

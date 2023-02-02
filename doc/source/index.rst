@@ -15,11 +15,16 @@ Introduction
 
 Pixel Driller is for those who:
 
-- work in the field of remote sensing
-- take measurements of *something* on the ground, and
-- create statistical or machine learning models to predict that *something*
-  from satellite or aerial images
+- want to extract pixels from locations in an image
+- calculate statistics on the extracted pixels
 - are comfortable using Python
+
+For example, you might be someone who:
+
+- works in the field of remote sensing
+- takes measurements of *something* on the ground, and
+- creates statistical or machine learning models to predict that *something*
+  from satellite or aerial images
 
 
 What it does
@@ -168,10 +173,6 @@ pystac-client and numpy are also available from `pypi <https://pypi.org/>`__,
 and are installed when installing Pixel Driller::
 
     > pip install https://github.com/cibolabs/pixeldriller/archive/refs/tags/v0.2.0.tar.gz
-
-TODO: Test pip command
-
-TODO: Is there a link to 'latest'?
 
 Guides
 =======

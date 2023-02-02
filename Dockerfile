@@ -15,7 +15,7 @@ RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # pypi packages
 # pystac-client, monitor updates and test regularly
-RUN pip install pystac-client==0.4.0
+RUN pip install pystac-client==0.6.0
 
 ENV PYTHONUNBUFFERED=1
 
