@@ -7,4 +7,3 @@ sphinx<6
 numpydoc
 pydata-sphinx-theme
 pystac-client
--e .
