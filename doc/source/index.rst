@@ -54,9 +54,10 @@ Features
 Example
 ---------
 
-``pixdrill.drill.drill()`` is the main interface. However, several data structures
-and functions must be created before using it. The following example is
-a typical usage pattern::
+
+:meth:`pixdrill.drill.drill` is the main interface. However, several data
+structures and functions must be created before using it. The following example
+shows a typical usage pattern::
 
     import datetime
     from pixdrill import drill
