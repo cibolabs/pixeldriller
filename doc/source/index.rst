@@ -59,7 +59,6 @@ and functions must be created before using it. The following example is
 a typical usage pattern::
 
     import datetime
-    from osgeo import osr
     from pixdrill import drill
     from pixdrill import drillpoints
     from pixdrill import drillstats

@@ -83,14 +83,6 @@ for computing statistics to each ``Point's`` associated ``Survey Stats``
 object, which is an instance of ``drillstats.PointStats``. As such,
 ``Drillers`` indirectly populate the each point's survey statistics.
 
-Iterate over each Driller, drilling pixels for all points for an item,
-and storing the pixel data with the Point's PointStats object.
-
-``Image Reader`` and image ``Metadata`` (not much to say about the latter).
-
-``Survey Stats`` - raw data storage, using the ``image_reader.ArrayInfo`` class
-and its .data attribute.
-
 Statistics
 ~~~~~~~~~~
 
@@ -270,7 +262,7 @@ To generate the HTML on your development machine::
     user@dev-host:~$ sudo apt-get install graphviz
     user@dev-host:~$ python3 -m venv .doc_venv
     user@dev-host:~$ source .doc_venv/bin/activate
-    user@dev-host:~$ (.doc_venv) $ pip install -r doc/requirements.txt
+    user@dev-host:~$ (.doc_venv) $ pip install .[docs]
     user@dev-host:~$ (.doc_venv) $ cd doc
     user@dev-host:~$ (.doc_venv) $ make clean
     user@dev-host:~$ (.doc_venv) $ make html
