@@ -29,7 +29,7 @@ autosectionlabel_prefix_document=True
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'pydata_sphinx_theme'
-html_static_path = ['_static']
+html_static_path = []
 
 numpydoc_show_class_members = False
 
