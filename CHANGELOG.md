@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- .readthedocs.yaml for building the docs on RTD
+- modifications to doc/requirements.txt, pyproject.toml and
+  docs/source/conf.py to support building the docs on RTD
+
 ## [v0.2.0 - 2023-01-17]
 
 First public release.

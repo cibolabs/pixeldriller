@@ -9,3 +9,6 @@ dependencies = [
     "pystac-client>=0.4.0",
     "numpy"
 ]
+
+[project.optional-dependencies]
+docs = ["sphinx<6", "numpydoc", "pydata-sphinx-theme"]
