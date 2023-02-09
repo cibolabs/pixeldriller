@@ -11,4 +11,4 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-docs = ["sphinx<6", "numpydoc", "pydata-sphinx-theme"]
+docs = ["sphinx", "numpydoc", "pydata-sphinx-theme"]
