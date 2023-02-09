@@ -52,5 +52,6 @@ html_logo = "logo-cibolabs.png"
 intersphinx_mapping = {
     "pystac": ("https://pystac.readthedocs.io/en/latest", None),
     "pystacclient": ("https://pystac-client.readthedocs.io/en/latest", None),
-    "numpy": ("https://numpy.org/doc/stable", None)
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "python": ("https://docs.python.org/3", None)
 }

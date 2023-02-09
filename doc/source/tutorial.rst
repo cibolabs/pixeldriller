@@ -161,28 +161,30 @@ Your function must have the following signature::
 
 Where:
 
-- ``array_info`` is a list of ``image_reader.ArrayInfo`` instances
-- ``item`` is an instance of ``drill.ImageItem`` for a user-supplied image,
-  or an instance of `pystac Item`_ for a STAC_ *Item*.
-- point is one of the Point objects that you defined
+- ``array_info`` is a list of :class:`pixdrill.image_reader.ArrayInfo` instances
+- ``item`` is an instance of :class:`pixdrill.drill.ImageItem` for a
+  user-supplied image, or an instance of :class:`pystac:pystac.Item`
+  for a STAC_ *Item*.
+- point is one of the :class:`pixdrill.drillpoints.Point` objects that
+  you defined
 
 The ``array_info`` list contains:
 
 - one element if the data were extracted from a user-supplied image
 - an element for every asset name given if the data were extracted from a STAC_ *Item*
 
-An ``image_reader.ArrayInfo`` instance contains these properties:
+An :class:`~pixdrill.image_reader.ArrayInfo` instance contains these properties:
 
-- ``data``: a 3D numpy_ masked array (``numpy.ma.masked_array``) containing the
+- ``data``: a 3D :ref:`masked array <numpy:maskedarray>` containing the
   pixel values read from the image or item asset
 - ``asset_id``: the asset name
 - and other attributes that define the location of the array within the
-  image it was extracted from (see the docs for ``image_reader.ArrayInfo``)
+  image it was extracted from
 
 In the following example we want to know the range (max-min) of all pixel
 values. It returns a list with one element when the ``item`` is
 ``img1`` or ``img2``. And a list with two elements (one each for ``B02`` and ``B11``)
-when ``item`` is a `pystac Item`_::
+when ``item`` is a :class:`pystac:pystac.Item`::
 
     def user_range(array_info, item, pt):
         return [a_info.data.max() - a_info.data.min() for a_info in array_info]
@@ -197,24 +199,23 @@ when ``item`` is a `pystac Item`_::
         collections=collections,
         std_stats=std_stats, user_stats=user_stats)
 
-.. _pystac Item: https://pystac.readthedocs.io/en/stable/api/pystac.html#pystac.Item
-
 .. _numpy: https://numpy.org/
 
 Extract the pixels and calculate the stats
 ------------------------------------------
 
-This is done by calling ``drill.drill()``, as per the previous section's
+This is done by calling :func:`pixdrill.drill.drill`, as per the previous section's
 example.
 
 Fetch the results
 ------------------------------
 
 ``Pixel Driller`` stores the statistics for each field site with the corresponding
-``drillpoints.Point`` object. They are accessed using the Point's ``stats`` attribute.
-``stats`` is an instance of the ``drillstats.PointStats`` class.
-Use ``drillstats.PointStats.get_stats()`` to access the statistics for
-all items::
+:class:`~pixdrill.drillpoints.Point` object. They are accessed using the
+``Point's`` ``stats`` attribute.
+``stats`` is an instance of :class:`pixdrill.drillstats.PointStats`.
+Use :func:`pixdrill.drillstats.PointStats.get_stats` to access the statistics
+for all items::
 
     # The stats.
     std_stats = [drillstats.STATS_MEAN, drillstats.STATS_STDEV]
@@ -262,11 +263,13 @@ For ``pt_1`` in our example, this gives the following output::
 
 Note that:
 
-- two STAC_ *Items* were found that matched the Point's location and imagery acquisition window
-- the call to ``pt.stats.get_stats()`` (with no parameters) returns a dictionary
-  keyed by the item_id whose values are another dictionary, which is keyed
-  by the statstic name
-- the standard statistics are retrieved using the ``drillstats.STATS_`` symbols
+- two STAC_ *Items* were found that matched the Point's location and imagery
+  acquisition window
+- the call to ``pt.stats.get_stats()`` (with no parameters) returns a
+  dictionary keyed by the item_id whose values are dictionaries,
+  keyed by the statstic name
+- the standard statistics are retrieved using the ``STATS_`` symbols in
+  the :mod:`pixdrill.drillstats` module.
 - the user statistcs are retrieved using the user-defined name
 
 A note about image no-data values
@@ -284,22 +287,24 @@ In such cases, ``Pixel Driller`` considers all pixel values
 to be valid data when calculating statistics. But what if they're not?
 
 You can set or override the *no data* using
-the ``ignore_val`` parameter in ``drill.drill()`` (and other functions).
+the ``ignore_val`` parameter in :func:`~pixdrill.drill.drill`
+(and other functions).
 ``Pixel Driller`` uses the ``ignore_val`` differently depending on whether
-the Item being drilled is an ``ImageItem`` or a ``STAC Item``.
+the Item being drilled is an :class:`~pixdrill.drill.ImageItem` or a
+:class:`pystac:pystac.Item`.
 
-When reading the raster assets of a ``STAC Item``, ``ignore_val`` can be
-a list of values or a single value.
+When reading the raster assets of a :class:`pystac:pystac.Item`, 
+``ignore_val`` can be a list of values or a single value.
 The list must contain the no-data value per asset. The same value
 is used for all bands in an asset.
 If ``ignore_val`` is a single value, then the same value is used for all bands
 of all assets.
     
-When reading the image of a ``drill.ImageItem``, ``ignore_val`` can be a
-single value. It is used for all bands in the image.
+When reading the image of an :class:`~pixdrill.drill.ImageItem`, ``ignore_val``
+can be a single value. It is used for all bands in the image.
 
 Clearly, further development work is needed to support specifying the *no data*
-value per-band. ``Pixel Driller`` currently relies on the image's creators
+value per-band. ``Pixel Driller`` currently relies on the images' creators
 to do that for us.
 
 An alternative usage pattern
@@ -375,19 +380,22 @@ Pitfalls
 Failing to specify a Point's timezone
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A Point's time zone is assumed to be UTC if its
-`t` attribute is a timezone *unaware* ``datetime.datetime`` object.
+A :class:`Point's <pixdrill.drillpoints.Point>` time zone is assumed to be UTC if its
+:attr:`~pixdrill.drillpoints.Point.t` attribute is a timezone *unaware*
+:class:`datetime object <python:datetime.datetime>` object.
 Setting the time zone correctly is important when
 determining the `nearest_n` STAC Items to the survey.
 
 Multiple calls to calc_stats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All data should be read from images before calling ``calc_stats()``. And
-``calc_stats`` should only be called once. This is how ``drill.drill()`` works.
+All data should be read from images before calling
+:func:`~pixdrill.drillpoints.ItemDriller.calc_stats`.
+And :func:`~pixdrill.drillpoints.ItemDriller.calc_stats`
+should only be called once. This is how :func:`pixdrill.drill.drill` works.
 
 But care should be taken when using `an alternative usage pattern`_
-to reuse the Points to calculate statistics on a new set of Items.
+to reuse the ``Points`` to calculate statistics on a new set of ``Items``.
 Always reset the statistics for every point before reading new data and
 calculating a new set of statistics. If the stats are not reset, any
 previously calculated stats are recalculated.
@@ -398,7 +406,8 @@ Accessing STAC Item assets
 For a STAC Item, GDAL must be able to read the *assets* that you want to drill.
 This means that:
 
-- assets have a URL (http, https, ftp etc) as their ``href`` attribute
+- assets have a URL (http, https, ftp etc) as their
+  :attr:`href attribute <pystac:pystac.Asset.href>`
 - GDAL is built so that it can read data from
   `network-based filesystems <https://gdal.org/user/virtual_file_systems.html>`__
 - if authentication is required it is done in a manner
