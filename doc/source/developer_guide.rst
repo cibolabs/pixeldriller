@@ -95,7 +95,7 @@ Pixel data and statistics are stored in the ``PointStats.item_stats``
 dictionary, keyed by the Item's ID. Each item in the dictionary is
 another dictionary containing elements for:
 
-- the _raw_ pixel data, a :ref:`Masked array <numpy:maskedarray>`
+- the _raw_ pixel data, a :ref:`masked array <numpy:maskedarray>`
 - information about the array of pixels read from the image, an instance
   of ``image_reader.ArrayInfo``
 - the statistics, the data type of which is that returned from the function

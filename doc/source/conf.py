@@ -29,6 +29,18 @@ autosectionlabel_prefix_document=True
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'pydata_sphinx_theme'
+
+html_theme_options = {
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/cibolabs/pixeldriller",
+            "icon": "fa-brands fa-square-github",
+            "type": "fontawesome",
+        }
+    ]
+}
+
 html_static_path = []
 
 numpydoc_show_class_members = False
