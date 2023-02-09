@@ -154,7 +154,7 @@ Installation
 -------------
 
 The package requires :doc:`pystac-client <pystacclient:index>`,
-`numpy <https://numpy.org/>`__ and `GDAL <https://gdal.org/>`__.
+:doc:`numpy <numpy:index>` and `GDAL <https://gdal.org/>`__.
 
 All packages are available from the conda-forge archive.
 

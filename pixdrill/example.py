@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
 """
-Work through this example, starting in the run_example() function,
-in conjunction with the documentation for pixdrill.drill().
+An example script::
+
+    python3 -m pixdrill.example
+
+Work through this example, starting in the :func:`run_typical` function,
+in conjunction with the documentation for :func:`pixdrill.drill.drill`.
 
 """
 

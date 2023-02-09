@@ -30,3 +30,10 @@ image_reader module
 .. automodule:: pixdrill.image_reader
    :members:
    :undoc-members:
+
+
+example module
+--------------
+.. automodule:: pixdrill.example
+   :members:
+   :undoc-members:

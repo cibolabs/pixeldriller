@@ -8,7 +8,7 @@ or aerial images acquired over the field sites. And you want to
 calculate one or more statistics on the extracted pixel values for each site.
 
 This tutorial guides you through a typical usage pattern to do so.
-A complete example is provided in ``pixdrill/example.py``.
+A complete example is provided in :mod:`pixdrill.example`.
 
 The typical usage pattern
 --------------------------
@@ -22,7 +22,7 @@ The typical usage pattern
 Specify the field survey properties
 ------------------------------------------------------
 
-Use the ``pixdrill.drillpoints.Point`` class to model the properties of
+Use the :class:`pixdrill.drillpoints.Point` class to model the properties of
 the pixel extraction you want to do for each field site. The properties are the:
 - location of your field site defined by a coordinate and a coordinate reference system
 - the extraction region of interest, which will resemble that of your field site
