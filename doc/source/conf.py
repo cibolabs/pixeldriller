@@ -15,7 +15,7 @@ author = 'Tony Gill'
 
 extensions = [
     'sphinx.ext.autodoc', 'numpydoc', 'sphinx.ext.graphviz',
-    'sphinx.ext.autosectionlabel']
+    'sphinx.ext.autosectionlabel', 'sphinx.ext.intersphinx']
 
 templates_path = ['_templates']
 exclude_patterns = []
@@ -34,3 +34,10 @@ html_static_path = []
 numpydoc_show_class_members = False
 
 html_logo = "logo-cibolabs.png"
+
+# -- Options for intersphinx extension ---------------------------------------
+
+intersphinx_mapping = {
+    "pystac": ("https://pystac.readthedocs.io/en/latest", None),
+    "pystacclient": ("https://pystac-client.readthedocs.io/en/latest", None)
+}

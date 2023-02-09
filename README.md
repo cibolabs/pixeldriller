@@ -8,4 +8,4 @@ Pixel Driller is for the following use cases:
 - Given a list of images, a set of X-Y points, and a buffer, return the
   zonal stats for the bands in each image about each point
 
-Please refer to the documentation at _readthedocs_ (TODO: Insert link).
+Please refer to the [documentation](https://pixeldriller.readthedocs-hosted.com).
