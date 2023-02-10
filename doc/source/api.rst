@@ -6,6 +6,7 @@ intended as a reference for those that want a deeper understanding
 of the package.
 
 Please start with the :doc:`tutorial` to learn how to use the package.
+And read this API reference in conjunction with the :doc:`developer_guide`.
 
 drill module
 ------------

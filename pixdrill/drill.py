@@ -1,5 +1,5 @@
 """
-``drill.drill()`` is the main interface. Most interaction with this package
+:func:`drill` is the main interface. Most interaction with this package
 should be through this interface.
 
 """
@@ -38,8 +38,8 @@ def drill(points, images=None,
         item_properties=None, nearest_n=0, std_stats=None, user_stats=None,
         ignore_val=None, concurrent=False):
     """
-    Given a list of drillpoints.Point objects, compute the zonal statistics
-    around each point for the specified rasters.
+    Given a list of :class:`~pixdrill.drillpoints.Point` objects, compute the
+    zonal statistics around each point for the specified images.
 
     Parameters
     ----------
