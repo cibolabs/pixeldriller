@@ -382,7 +382,7 @@ Failing to specify a Point's timezone
 
 A :class:`Point's <pixdrill.drillpoints.Point>` time zone is assumed to be UTC if its
 :attr:`~pixdrill.drillpoints.Point.t` attribute is a timezone *unaware*
-:class:`datetime object <python:datetime.datetime>` object.
+:class:`datetime object <python:datetime.datetime>`.
 Setting the time zone correctly is important when
 determining the `nearest_n` STAC Items to the survey.
 

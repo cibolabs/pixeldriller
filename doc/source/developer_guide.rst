@@ -13,9 +13,11 @@ Package design
 ``pixdrill`` is the top-level package. The Python modules and classes
 in ``pixdrill`` are shown in the following class diagram as dark grey boxes.
 
-``Pixel Driller`` leans on other packages (pystac-client, pystac, GDAL, and numpy).
-The main classes in these packages that Pixel Driller interfaces with
-are shown as white boxes.
+The package leans on :doc:`pystac-client <pystacclient:index>`,
+:doc:`pystac <pystac:index>`, :doc:`numpy <numpy:index>` and
+`GDAL <https://gdal.org/>`__.
+The main classes in these packages that ``Pixel Driller`` interfaces with
+are shown in the diagram as white boxes.
 
 ..
     graphviz is required to render the diagram
@@ -32,17 +34,22 @@ Images and Items
 At its core, ``Pixel Driller`` is about extracting pixels from images.
 The user specifies these images in one of two ways by providing:
 
-- a path or URL to an image, represented by an ``Image Item``
+- a path or URL to an image, represented by a :class:`pixdrill.drill.ImageItem`
 - parameters for searching for images in a STAC catalogue,
-  the results of which are represented by ``STAC Items``
+  the results of which are represented by :class:`pystac:pystac.Item` objects
 
-``Item`` is a conceptual abstraction of ``Image Item`` and ``STAC Item``.
+In the diagram, ``Item`` is a conceptual abstraction of
+:class:`~pixdrill.drill.ImageItem` and :class:`pystac:pystac.Item`.
 It has no corresponding software component. All ``Items`` have an
-*ID* and a way to access the file paths (or URLs) to the underlying image or images.
+*ID* and a way to access the file paths (or URLs) to the underlying image or
+images.
 
-The main difference between an ``Image Item`` and a ``STAC Item`` is the number
-if images associated with them. An ``Image Item`` has one image only.
-A ``STAC Item`` can have one or more images; each image is a *STAC asset*.
+The main difference between an :class:`~pixdrill.drill.ImageItem` and a
+:class:`pystac:pystac.Item` is the number
+of images associated with them. An :class:`~pixdrill.drill.ImageItem` has
+has only one image.
+A :class:`pystac:pystac.Item` can have one or more images. Each image is
+a :class:`pystac:pystac.Asset`.
 
 ``Pixel Driller`` reads images using the GDAL package.
 GDAL represents an image as a ``Dataset``.
@@ -52,68 +59,79 @@ numpy array of pixels.
 Where and what to drill
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-A ``Survey Point`` determines the location of the pixels within an image to
-extract.
+A :class:`Survey Point <pixdrill.drillpoints.Point>` determines the location
+of the pixels within an image to extract.
 
-For ``Image Items``, the user supplies the paths or URLs to the images
-they want drilled. The ``Survey Point`` date is not used.
+For :class:`Image Items <pixdrill.drill.ImageItem>`, the user supplies the
+paths or URLs to the images they want drilled.
+The :class:`Survey Point's <pixdrill.drillpoints.Point>` date is not used.
 
-For ``STAC Items``, Pixel Driller uses the images returned from the search
-of a ``STAC Catalogue`` using the user-supplied parameters, including:
+For :class:`STAC Items <pystac:pystac.Item>`, ``Pixel Driller`` uses the images
+returned from the search of a ``STAC Catalogue`` using the user-supplied
+parameters, including:
 
 - the ``STAC Catalogue`` and *collections* specified
-- the locations of the ``Survey Points``
-- the image acquisition-window for each ``Survey Point``
+- the locations of the :class:`Survey Points <pixdrill.drillpoints.Point>`
+- the image acquisition-window for each
+  :class:`Survey Point <pixdrill.drillpoints.Point>`
 
 Drilling
 ~~~~~~~~~
 
-The ``drill`` module contains functions for drilling or creating the
-``Driller`` objects to do so. A ``Driller`` is an instance of the
-``drillpoints.ItemDriller`` class. A ``Driller`` contains:
+The :mod:`pixdrill.drill` module contains functions for drilling or creating
+the :class:`Driller <pixdrill.drillpoints.ItemDriller>`
+objects to do so.
+A :class:`Driller <pixdrill.drillpoints.ItemDriller>` contains:
 
-- a collection of ``Survey Points`` that intersect the ``Item``
-- a function for reading the pixel data for every point from its ``Item's``
-  images
-- a function for calculating the statistics for every point
+- a collection of :class:`Survey Points <pixdrill.drillpoints.Point>`
+  that intersect the ``Item``
+- a function for reading the pixel data for every
+  :class:`~pixdrill.drillpoints.Point` from its ``Item's`` images
+- a function for calculating the statistics for every
+  :class:`~pixdrill.drillpoints.Point`
 
-``Driller`` delegates the responsibility of reading the pixels from an
-image to an ``Image Reader`` object. It also delegates responsibility
-for computing statistics to each ``Point's`` associated ``Survey Stats``
-object, which is an instance of ``drillstats.PointStats``. As such,
-``Drillers`` indirectly populate the each point's survey statistics.
+:class:`Driller <pixdrill.drillpoints.ItemDriller>`
+delegates the responsibility of reading the pixels from an
+image to an :class:`Image Reader <pixdrill.image_reader.ImageReader>` object.
+It also delegates responsibility for computing statistics to each
+:class:`Point's <~pixdrill.drillpoints.Point>`
+:class:`Survey Stats <pixdrill.drillstats.PointStats>` object.
+Thus :class:`Drillers <pixdrill.drillpoints.ItemDriller>` indirectly populate
+each :class:`Point's <~pixdrill.drillpoints.Point>` survey statistics.
 
 Statistics
 ~~~~~~~~~~
 
-Each ``Survey Point`` stores its pixel data and statistics in a
-``Survey Stats`` object, which is an instance of ``drillstats.PointStats``.
-A Point might intersect multiple Items, so the ``Survey Stats`` object
-stores the pixel data and statistics for every Item.
+Each :class:`<~pixdrill.drillpoints.Point>` stores its pixel data and
+statistics in a :class:`pixdrill.drillstats.PointStats` object.
+A Point might intersect multiple ``Items``, so the
+:class:`pixdrill.drillstats.PointStats` object stores the pixel data and
+statistics for every Item.
 
 Pixel data and statistics are stored in the ``PointStats.item_stats``
-dictionary, keyed by the Item's ID. Each item in the dictionary is
+dictionary, keyed by the ``Item's`` ID. Each item in the dictionary is
 another dictionary containing elements for:
 
 - the _raw_ pixel data, a :ref:`masked array <numpy:maskedarray>`
 - information about the array of pixels read from the image, an instance
-  of ``image_reader.ArrayInfo``
+  of :class:`pixdrill.image_reader.ArrayInfo``
 - the statistics, the data type of which is that returned from the function
   used to compute the statistic
 
 
 **Standard statistics**
 
-The ``pixdrill.drillstats`` module contains built-in functions for computing
+The :mod:`pixdrill.drillstats` module contains built-in functions for computing
 a suite of standard statistics. These functions take a list of
-``numpy.ma.masked_array`` arrays. Each is a 3D array containing the pixels
-extracted for a Point for one image. The functions assume that each image
-contains only one band, thus the shape of each array passed to the built-in
-functions must be (1, nrows, ncols).
+:ref:`masked arrays <numpy:maskedarray>` Each is a 3D array containing the
+pixels extracted for a :class:`~pixdrill.drillpoints.Point`` for one image.
+The functions assume that each image contains only one band, thus the shape
+of each array passed to the built-in functions must be ``(1, nrows, ncols)``.
 
-For an ImageItem, the array list passed to a built-in function contains only
-one array. For a STAC Item, the list will contain an array for each
-Item asset.
+For an :class:`~pixdrill.drill.ImageItem`, the array list passed to a
+built-in function contains only one array. For a
+:class:`pystac:pystac.Item` the list will contain an array for each
+:class:`pystac:pystac.Asset`.
 
 **User statistics**
 
@@ -123,7 +141,9 @@ signature and the objects that are passed to a user's function.
 
 The user will also provide a name for their function. The code calls each
 user function and stores the value returned from the function
-in the ``PointStats`` object. For example, from ``PointStats.calc_stats()``::
+in the :class:`pixdrill.drillstats.PointStats` object.
+For example, from
+:func:`PointStats.calc_stats() <pixdrill.drillstats.PointStats.calc_stats`::
 
     stats = self.item_stats[item_id]  # Dictionary of stats for the Item
     ...
@@ -136,18 +156,21 @@ in the ``PointStats`` object. For example, from ``PointStats.calc_stats()``::
 
 The information passed to the user function contains everything we think a
 user would need to compute a statistic.
-``stats[STATS_ARRAYINFO]`` is the ``image_reader.ArrayInfo`` object, which
-contains:
+``stats[STATS_ARRAYINFO]`` is the
+:class:`pixdrill.image_reader.ArrayInfo`` object, which contains:
 
 - the pixel data, in the ``data`` attribute
 - the asset id, in the ``asset_id`` attribute
 - plus the location of the pixels within the image it was read from
 
-``item`` is the ``Stac Item`` or ``Image Item``. The user can inspect its
-properties, such as its ID. And ``self.pt`` is the ``Point`` object, so that
-the user knows which point is being operated on. The user can pass
-additional information to the user function a ``Point`` attributes,
-for example, using Python's built-in ``setattr`` and ``getattr`` functions.
+``item`` is the :class:`pystac:pystac.Item` or
+:class:`~pixdrill.drill.ImageItem`. The user can inspect its
+properties, such as its ID. And ``self.pt`` is the
+:class:`~pixdrill.drillpoints.Point` object, so that the user knows which
+point is being operated on. The user can pass additional information to the
+user function as :class:`~pixdrill.drillpoints.Point` attributes.
+For example: use Python's built-in :func:`python:setatrr` and
+:func:`python:getattr` functions.
 
 Reprojecting points
 --------------------
@@ -181,7 +204,7 @@ the image's CRS is projected, and the point's CRS is projected. Again, we
 don't know which CRS the buffer distance is defined in and we have to
 choose one.
 
-The details are in ``Point.change_buffer_units()``.
+The details are in :func:`pixdrill.drillpoints.Point.buffer_units`.
 
 
 Contributing
@@ -230,7 +253,7 @@ Tests and coverage
 ~~~~~~~~~~~~~~~~~~~
 
 When contributing, please write a test for new features, and confirm that
-all existing tests pass. Tests are located in the ``tests`` directory.
+all existing tests pass. Tests are located in the ``tests/`` directory.
 We use the `pytest <https://docs.pytest.org>`__ framework.
 
 We also use coverage to show the test coverage.
@@ -251,7 +274,7 @@ Documentation
 ~~~~~~~~~~~~~~~~~
 
 When contributing, please also update these docs.
-Documentation is in the ``doc`` folder. Consider modifying the
+Documentation is in the ``doc/`` directory. Consider modifying the
 tutorial or developer guide. Docs are written in
 `restructured text <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`__
 and converted to HTML using `sphinx <https://www.sphinx-doc.org/>`__.
