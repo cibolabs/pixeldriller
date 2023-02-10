@@ -41,17 +41,17 @@ The user specifies these images in one of two ways by providing:
 In the diagram, ``Item`` is a conceptual abstraction of
 :class:`~pixdrill.drill.ImageItem` and :class:`pystac:pystac.Item`.
 It has no corresponding software component. All ``Items`` have an
-*ID* and a way to access the file paths (or URLs) to the underlying image or
-images.
+``id`` attribute and a way to access the file paths or URLs to the
+underlying image or images.
 
 The main difference between an :class:`~pixdrill.drill.ImageItem` and a
 :class:`pystac:pystac.Item` is the number
-of images associated with them. An :class:`~pixdrill.drill.ImageItem` has
+of images associated with them. An :class:`~pixdrill.drill.ImageItem`
 has only one image.
-A :class:`pystac:pystac.Item` can have one or more images. Each image is
+A :class:`pystac:pystac.Item` can have one or more images; each
 a :class:`pystac:pystac.Asset`.
 
-``Pixel Driller`` reads images using the GDAL package.
+``Pixel Driller`` delegates image reading to `GDAL <https://gdal.org/>`__.
 GDAL represents an image as a ``Dataset``.
 An image is composed of one or more bands. Each band is a two-dimensional
 numpy array of pixels.
@@ -59,21 +59,21 @@ numpy array of pixels.
 Where and what to drill
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-A :class:`Survey Point <pixdrill.drillpoints.Point>` determines the location
+A Survey :class:`~pixdrill.drillpoints.Point` determines the location
 of the pixels within an image to extract.
 
 For :class:`Image Items <pixdrill.drill.ImageItem>`, the user supplies the
 paths or URLs to the images they want drilled.
-The :class:`Survey Point's <pixdrill.drillpoints.Point>` date is not used.
+The Survey :class:`Point's <pixdrill.drillpoints.Point>` date is not used.
 
 For :class:`STAC Items <pystac:pystac.Item>`, ``Pixel Driller`` uses the images
-returned from the search of a ``STAC Catalogue`` using the user-supplied
+returned from searching a ``STAC Catalogue`` with the user-supplied
 parameters, including:
 
 - the ``STAC Catalogue`` and *collections* specified
-- the locations of the :class:`Survey Points <pixdrill.drillpoints.Point>`
-- the image acquisition-window for each
-  :class:`Survey Point <pixdrill.drillpoints.Point>`
+- the locations of the Survey :class:`Points <pixdrill.drillpoints.Point>`
+- the image acquisition-window for each Survey
+  :class:`<pixdrill.drillpoints.Point>`
 
 Drilling
 ~~~~~~~~~
@@ -83,10 +83,11 @@ the :class:`Driller <pixdrill.drillpoints.ItemDriller>`
 objects to do so.
 A :class:`Driller <pixdrill.drillpoints.ItemDriller>` contains:
 
-- a collection of :class:`Survey Points <pixdrill.drillpoints.Point>`
+- the ``Item`` to be drilled
+- a collection of Survey :class:`Points <pixdrill.drillpoints.Point>`
   that intersect the ``Item``
 - a function for reading the pixel data for every
-  :class:`~pixdrill.drillpoints.Point` from its ``Item's`` images
+  :class:`~pixdrill.drillpoints.Point` from the ``Item's`` images
 - a function for calculating the statistics for every
   :class:`~pixdrill.drillpoints.Point`
 
@@ -94,56 +95,57 @@ A :class:`Driller <pixdrill.drillpoints.ItemDriller>` contains:
 delegates the responsibility of reading the pixels from an
 image to an :class:`Image Reader <pixdrill.image_reader.ImageReader>` object.
 It also delegates responsibility for computing statistics to each
-:class:`Point's <~pixdrill.drillpoints.Point>`
-:class:`Survey Stats <pixdrill.drillstats.PointStats>` object.
+:class:`Point's <pixdrill.drillpoints.Point>`
+:class:`Stats <pixdrill.drillstats.PointStats>` object.
 Thus :class:`Drillers <pixdrill.drillpoints.ItemDriller>` indirectly populate
-each :class:`Point's <~pixdrill.drillpoints.Point>` survey statistics.
+each :class:`Point's <pixdrill.drillpoints.Point>` survey statistics.
 
 Statistics
 ~~~~~~~~~~
 
-Each :class:`<~pixdrill.drillpoints.Point>` stores its pixel data and
+Each :class:`~pixdrill.drillpoints.Point` stores its pixel data and
 statistics in a :class:`pixdrill.drillstats.PointStats` object.
 A Point might intersect multiple ``Items``, so the
-:class:`pixdrill.drillstats.PointStats` object stores the pixel data and
+:class:`~pixdrill.drillstats.PointStats` object stores the pixel data and
 statistics for every Item.
 
 Pixel data and statistics are stored in the ``PointStats.item_stats``
 dictionary, keyed by the ``Item's`` ID. Each item in the dictionary is
 another dictionary containing elements for:
 
-- the _raw_ pixel data, a :ref:`masked array <numpy:maskedarray>`
+- the *raw* pixel data, a :ref:`masked array <numpy:maskedarray>`
 - information about the array of pixels read from the image, an instance
-  of :class:`pixdrill.image_reader.ArrayInfo``
-- the statistics, the data type of which is that returned from the function
-  used to compute the statistic
+  of :class:`pixdrill.image_reader.ArrayInfo`
+- the statistics, the data types of which are those returned from the functions
+  used to compute the statistics
 
 
 **Standard statistics**
 
-The :mod:`pixdrill.drillstats` module contains built-in functions for computing
+:mod:`pixdrill.drillstats` contains built-in functions for computing
 a suite of standard statistics. These functions take a list of
-:ref:`masked arrays <numpy:maskedarray>` Each is a 3D array containing the
-pixels extracted for a :class:`~pixdrill.drillpoints.Point`` for one image.
-The functions assume that each image contains only one band, thus the shape
-of each array passed to the built-in functions must be ``(1, nrows, ncols)``.
+3D :ref:`masked arrays <numpy:maskedarray>`. Each array contains the
+pixels extracted for a :class:`~pixdrill.drillpoints.Point` for one image.
+The standard stats functions assume that each image contains only one band.
+So the shape of each array passed to the built-in functions must be
+``(1, nrows, ncols)``.
 
 For an :class:`~pixdrill.drill.ImageItem`, the array list passed to a
 built-in function contains only one array. For a
-:class:`pystac:pystac.Item` the list will contain an array for each
-:class:`pystac:pystac.Asset`.
+:class:`pystac:pystac.Item` the list contains an array for every
+:class:`pystac:pystac.Asset` drilled.
 
 **User statistics**
 
-Users can write their own functions to calculate statistics. The
-:ref:`Tutorial <tutorial:user statistics>` describes the function
-signature and the objects that are passed to a user's function.
+Users can write custom functions to calculate statistics. The
+:ref:`Tutorial <tutorial:user statistics>` describes the signature of a 
+user's statistics function and the objects that ``Pixel Driller`` passes to it.
 
-The user will also provide a name for their function. The code calls each
+The user also provides a name for their function. ``Pixel Driller`` calls each
 user function and stores the value returned from the function
-in the :class:`pixdrill.drillstats.PointStats` object.
+in the :class:`~pixdrill.drillstats.PointStats` object.
 For example, from
-:func:`PointStats.calc_stats() <pixdrill.drillstats.PointStats.calc_stats`::
+:func:`PointStats.calc_stats() <pixdrill.drillstats.PointStats.calc_stats>`::
 
     stats = self.item_stats[item_id]  # Dictionary of stats for the Item
     ...
@@ -154,10 +156,11 @@ For example, from
     for stat_name, stat_func in user_stats:
         stats[stat_name] = stat_func(stats[STATS_ARRAYINFO], item, self.pt)
 
-The information passed to the user function contains everything we think a
-user would need to compute a statistic.
+``Pixel Driller`` passes all the information it thinks the user needs to
+calculate a statistic.
+
 ``stats[STATS_ARRAYINFO]`` is the
-:class:`pixdrill.image_reader.ArrayInfo`` object, which contains:
+:class:`pixdrill.image_reader.ArrayInfo` object, which contains:
 
 - the pixel data, in the ``data`` attribute
 - the asset id, in the ``asset_id`` attribute
@@ -165,12 +168,13 @@ user would need to compute a statistic.
 
 ``item`` is the :class:`pystac:pystac.Item` or
 :class:`~pixdrill.drill.ImageItem`. The user can inspect its
-properties, such as its ID. And ``self.pt`` is the
-:class:`~pixdrill.drillpoints.Point` object, so that the user knows which
-point is being operated on. The user can pass additional information to the
-user function as :class:`~pixdrill.drillpoints.Point` attributes.
-For example: use Python's built-in :func:`python:setatrr` and
-:func:`python:getattr` functions.
+properties, such as its `id` attribute.
+
+``self.pt`` is the :class:`~pixdrill.drillpoints.Point` object,
+so the user knows which point is being operated on. The user can pass
+additional information to the user function as
+:class:`~pixdrill.drillpoints.Point` attributes with Python's
+built-in :func:`python:setattr` and :func:`python:getattr` functions.
 
 Reprojecting points
 --------------------
@@ -204,7 +208,7 @@ the image's CRS is projected, and the point's CRS is projected. Again, we
 don't know which CRS the buffer distance is defined in and we have to
 choose one.
 
-The details are in :func:`pixdrill.drillpoints.Point.buffer_units`.
+The details are in :func:`pixdrill.drillpoints.Point.change_buffer_units`.
 
 
 Contributing

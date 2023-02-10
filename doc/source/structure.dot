@@ -15,6 +15,7 @@ digraph Structure {
     Item [label="Item\n(conceptual only)" fillcolor="#eeeeee"]
     node [shape="square", style=""]
     StacItem [label="STAC Item\n(pystac.Item)"]
+    StacAsset [label="STAC Asset\n(pystac.Asset)"]
     StacCatalogue [label="STAC Catalogue\n(pystac-client.Client)"]
     Image [label="Image\n(gdal.Dataset)"]
     Band [label="Band\n(gdal.Band)"]
@@ -26,7 +27,8 @@ digraph Structure {
 
     /* Associations */
     edge [arrowhead="vee"]
-    StacItem -> Image[headlabel="*"]
+    StacItem -> StacAsset[headlabel="*"]
+    StacAsset -> Image
     ImageItem -> Image
     PointStats -> Item[headlabel="*"]
     Driller -> Item
