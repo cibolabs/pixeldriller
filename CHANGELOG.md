@@ -7,6 +7,7 @@
 - .readthedocs.yaml for building the docs on RTD
 - modifications to doc/requirements.txt, pyproject.toml and
   docs/source/conf.py to support building the docs on RTD
+- rich links in the docs including to third-party packages using intersphinx
 
 ## [v0.2.0 - 2023-01-17]
 

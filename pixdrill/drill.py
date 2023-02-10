@@ -43,7 +43,7 @@ def drill(points, images=None,
 
     Parameters
     ----------
-    points : list of `~pixdrill.drillpoints.Point` objects
+    points : list of :class:`~pixdrill.drillpoints.Point` objects
         Points to drill the specified STAC endpoint or images for.
     images : list of strings
         GDAL-readable list of filenames to drill.
