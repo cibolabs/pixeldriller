@@ -43,7 +43,7 @@ def drill(points, images=None,
 
     Parameters
     ----------
-    points : list of ``drillpoints.Point`` objects
+    points : list of `~pixdrill.drillpoints.Point` objects
         Points to drill the specified STAC endpoint or images for.
     images : list of strings
         GDAL-readable list of filenames to drill.
@@ -56,14 +56,16 @@ def drill(points, images=None,
         specify one catalogue.
     item_properties : a list of objects
         These are for filtering the results of a STAC search. The list is
-        passed to ``pystac-client.Client.search()`` using the
-        ``query`` parameter.
+        passed to the :class:`pystacclient:pystac_client.Client` ``search``
+        function using the ``query`` parameter.
     nearest_n : integer
-        Only use up to n STAC Items that are nearest-in-time to the ``Point``.
+        Only use up to n STAC Items that are nearest-in-time to the
+        :class:`~pixdrill.drillpoints.Point`.
         A value of 0 means use all items found.
     std_stats : sequence of integers
-        Constants from the ``drillstats`` module (STATS_MEAN, STATS_STDEV etc)
-        defining which 'standard' statistics to extract.
+        Constants from the :mod:`~pixdrill.drillstats` module
+        (STATS_MEAN, STATS_STDEV etc) defining which 'standard'
+        statistics to extract.
     user_stats : a list of tuples
         A user defined list of statistic names and functions. See the
         notes section below for a description of the function signatures.
@@ -71,17 +73,19 @@ def drill(points, images=None,
         A value to use for the ignore value for rasters. Should only be
         used to override the image's no data values. See the notes below.
     concurrent : bool
-        If True, will call ``drill.calc_stats()`` for each Item to be drilled
-        concurrently in a ``ThreadPoolExecutor``.
+        If True, will call :func:`~pixdrill.drill.calc_stats` for each Item
+        to be drilled concurrently in a
+        :class:`python:concurrent.futures.ThreadPoolExecutor`.
 
     Returns
     -------
     None
-        Instead, the Points' ``PointStats`` objects are updated.
+        Instead, the Points' :class:`pixdrill.drillstats.PointStats` objects
+        are updated.
 
     Notes
     -----
-    Rasters are specified in one of two ways. You may use either or both.
+    Images are specified in one of two ways. You may use either or both.
     The first method is to use ``images``
     parameter to supply a list of paths to rasters. A path is
     any string understood by GDAL. All bands in each image are read.
@@ -93,53 +97,52 @@ def drill(points, images=None,
     - preferably, a name of one collection in the STAC catalogue
     - optionally, a list of item properties to filter the search by
     
-    ``create_stac_drillers()`` is called to find all STAC items that intersect
-    the survey points within their time-window; only up to the
-    n nearest-in-time Items are used.
+    :func:`~pixdrill.drill.create_stac_drillers` is called to find all STAC
+    items that intersect the survey points within their time-window;
+    only up to the n nearest-in-time Items are used.
 
     For each raster, the pixels are drilled and zonal statistics calculated
     using the list of standard stats and user stats.   
 
-    ``std_stats`` is a list of standard stats, as defined in the ``drillstats``
-    module with the ``STATS_*`` attributes. To use the standard statistics,
-    every raster to be read must be a single-band raster.
+    ``std_stats`` is a list of standard stats, as defined in the
+    :mod:`pixdrill.drillstats` module with the ``STATS_*`` attributes.
+    To use the standard statistics, every image must only contain one band.
  
-    ``user_stats`` is a list of (name, function) pairs. The function is used
-    to calculate a user-specified statistic.
+    ``user_stats`` is a list of ``(name, function)`` pairs. The function is
+    used to calculate a user-specified statistic.
     The signature of a user-supplied function must be::
 
         def user_func(array_info, item, pt):
 
     where:
     
-    - array_info is a list of ``image_reader.ArrayInfo`` objects, one element
-      for each image/asset read
-      meta data about the pixels extracted from each image/asset
-    - item is the ``pystac.Item`` object (for STAC rasters) or ImageItem for 
-      image. It is part of the
-      `PySTAC package <https://pystac.readthedocs.io/>`_
-    - pt is the ``drillpoints.Point`` object from around which the pixels
-      were extracted
+    - array_info is a list of :class:`~pixdrill.image_reader.ArrayInfo`
+      objects, one element for each image/asset read
+    - item is the :class:`pystac:pystac.Item` object (for STAC rasters) or
+      :class:`~pixdrill.drill.ImageItem` for an image.
+    - pt is the :class:`~pixdrill.drillpoints.Point` object from around which
+      the pixels were extracted
 
-    Each ``ArrayInfo`` instance has a ``data`` attribute that contains a
-    3D numpy masked array with the pixel data for the asset defined by the
-    instance's ``asset_id`` attribute. But note that each element in
-    ``array_info`` corresponds to the ``raster_assets`` passed to ``drill()``.
+    Each :class:`~pixdrill.image_reader.ArrayInfo` instance has a ``data``
+    attribute that contains a 3D numpy masked array with the pixel data for
+    the asset defined by the instance's ``asset_id`` attribute.
+    Note that each element in ``array_info`` corresponds to the
+    ``raster_assets`` passed to :func:`~pixdrill.drill.drill`.
 
     The user function must return a value. It can be any data type.
     
     The value(s) returned from the stats functions are stored with the
-    ``Point's`` ``stats`` object. See the examples section below for how to
-    retrieve them.
+    Point's :class:`~pixdrill.drillstats.PointStats` object. See the examples
+    section below for how to retrieve them.
 
     ``item_properties`` allows you to filter your STAC search results if the
     STAC endpoint supports the
     `Query extension <https://github.com/stac-api-extensions/query>`__. An
-    Item's properties are specific to the STAC collection. So you need to
-    inspect the properties of a STAC Item in the collection to determine
+    ``Item's`` properties are specific to the STAC collection. So you need to
+    inspect the properties of a ``STAC Item`` in the collection to determine
     sensible values for this parameter.
-    For example, the 'sentinel2-s2-l2a-cogs' collection in the STAC
-    Catalogue at endpoint 'https://earth-search.aws.element84.com/v0', has
+    For example, the ``sentinel2-s2-l2a-cogs`` collection in the STAC
+    Catalogue at endpoint https://earth-search.aws.element84.com/v0, has
     Sentinel2-specific properties that allow you to filter by the tile ID::
 
         tile = '54JVR'
@@ -154,20 +157,21 @@ def drill(points, images=None,
     The ``ignore_val`` parameter allows you to set or override the pixel values
     to be ignored when calculating statistics.
     Whereever possible though, you should use the image's no data values.
-    ``ignore_val`` is treated differently depending on whether
-    a STAC Item's assets are being read or a ``drill.ImageItem`` is being read.
+    ``ignore_val`` is treated differently depending on whether the assets of
+    a :class:`pystac:pystac.Item` are being read or a
+    :class:`~pixdrill.drill.ImageItem` is being read.
     
-    
-    When reading from the assets of a ``pystac.Item``, ``ignore_val`` can be
-    a list of values, a single values, or None.
+    When reading from the assets of a :class:`pystac:pystac.Item`,
+    ``ignore_val`` can be a list of values, a single values, or ``None``.
     A list of values is the null value per asset. It assumes all
     bands in an asset use the same null value.
     A single value is used for all bands of all assets.
-    None means to use the no data value set on each the assets' bands.
+    ``None`` means to use the no data value set on each the assets' bands.
     
-    When reading the image of a ``drill.ImageItem``, `ignore_val` can be a
-    single value or None. A single value is used for all bands in the image.
-    None means to use the each band's no data value.
+    When reading the image of a :class:`pixdrill.drill.ImageItem`,
+    ``ignore_val`` can be a single value or ``None``. A single value is used
+    for all bands in the image. ``None`` means to use the each band's
+    no data value.
 
     ``ignore_val`` is used for:
     
@@ -187,10 +191,11 @@ def drill(points, images=None,
 
     With the statistics calculated, you retrieve them point-by-point.
     Use the Point's ``stats`` attribute. It is an instance of
-    ``drillpoints.PointStats``. It has a ``get_stats()`` function.
-    ``get_stats()`` returns a dictionary, keyed by the
-    Item's ID. So, the dictionary's length matches the number of Items that
-    the Point intersects. For example::
+    :class:`~pixdrill.drillstats.PointStats`. Use its
+    :func:`~pixdrill.drillstats.PointStats.get_stats` function, which
+    returns a dictionary, keyed by the Item's ID. So, the dictionary's
+    length matches the number of Items that the Point intersects.
+    For example::
 
         point_stats = pt.stats.get_stats()
         for item_id, item_stats in point_stats.items():
@@ -202,14 +207,14 @@ def drill(points, images=None,
     
     A few things to note in this example:
     
-    - the std_stats argument passed to ``drill()`` would have been
+    - the std_stats argument passed to :func:`~pixdrill.drill` would have been
       ``[drillstats.STATS_MEAN, drillstats.STATS_COUNT]``
-    - the user_stats argument defines the 'MY_STAT' statistic and its
-      corresponding function name: [('MY_STAT', my_stat_function)]
+    - the user_stats argument defines the ``MY_STAT`` statistic and its
+      corresponding function name: ``[('MY_STAT', my_stat_function)]``
     - retrieve the numpy masked arrays using the key
-      ``drillstats.STATS_RAW``; these are always supplied
+      :attr:`pixdrill.drillstats.STATS_RAW`; these are always supplied
     - likewise, retrieve the ArrayInfo object using
-      ``drillstats.STATS_ARRAYINFO`` (not shown)
+      :attr:`pixdrill.drillstats.STATS_ARRAYINFO` (not shown)
         
     """
     logging.info(f"Searching {stac_endpoint} for {len(points)} points")
@@ -245,12 +250,12 @@ def drill(points, images=None,
 
 def create_image_drillers(points, images, image_ids=None):
     """
-    Return a list of ``drillpoints.ItemDriller`` objects, one for each image
-    in the images list.
+    Return a list of :class:`~pixdrill.drillpoints.ItemDriller` objects,
+    one for each image in the images list.
 
     Parameters
     ----------
-    points : sequence of ``drillpoints.Point`` objects
+    points : sequence of :class:`~pixdrill.drillpoints.Point` objects
         Points to drill the image for.
     images : sequence of strings
         GDAL-readable filenames to drill.
@@ -259,7 +264,7 @@ def create_image_drillers(points, images, image_ids=None):
 
     Returns
     -------
-    drillers : list of ``drillpoints.ItemDriller`` objects
+    drillers : list of :class:`~pixdrill.drillpoints.ItemDriller` objects
         The ItemDriller for each image.
 
     """
@@ -292,9 +297,10 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None,
     ----------
     
     stac_client : str or pystac.Client object
-        The endpoint URL to the STAC catalogue (str) or the pystac.Client
-        object returned from calling ``pystac.Client.open(endpoint_url)``.
-    points : list of ``drillpoints.Point`` objects
+        The endpoint URL to the STAC catalogue (str) or the
+        :class:`pystacclient:pystac_client.Client` object returned from
+        calling its ``open()`` function.
+    points : list of :class:`~pixdrill.drillpoints.Point` objects
         Points to drill the endpoint for.
     collections : list of strings
         The names of the collections to query, normally only collection
@@ -302,15 +308,16 @@ def create_stac_drillers(stac_client, points, collections, raster_assets=None,
     raster_assets : list of strings, required
         Raster assets to use from the STAC endpoint.
     item_properties : a list of objects, optional
-        These are passed to ``pystac-client.Client.search()`` using the
-        ``query`` parameter.
+        These are passed to the :class:`pystacclient:pystac_client.Client`
+        ``search()`` function using its ``query`` parameter.
     nearest_n : integer
-        Only use up to n STAC Items that are nearest-in-time to the ``Point``.
+        Only use up to n STAC Items that are nearest-in-time to the
+        :class:`~pixdrill.drillpoints.Point`.
         A value of 0 means use all items found.
 
     Returns
     -------
-    drillers : list of ``drillpoints.ItemDriller`` objects
+    drillers : list of :class:`~pixdrill.drillpoints.ItemDriller` objects
         Each driller is the ItemDriller for a STAC Item.
 
     """
@@ -356,9 +363,9 @@ def _time_diff(item, pt):
 
     Parameters
     ----------
-    item : ``pystac.Item``
+    item : :class:`pystac:pystac.Item`
         The Item containing information about the image acquisition time.
-    pt : ``drillpoints.Point``
+    pt : :class:`~pixdrill.drillpoints.Point`
         The survey point.
 
     Returns
@@ -391,14 +398,15 @@ def calc_stats(driller, std_stats=None, user_stats=None, ignore_val=None):
     Parameters
     ----------
 
-    driller : a ``drillpoints.ItemDriller``.
+    driller : a :class:`~pixdrill.drillpoints.ItemDriller`.
         The driller for the Item to be drilled.
     std_stats : sequence of integers
-        Constants from the ``drillpoints`` module (STATS_MEAN, STATS_STDEV etc)
+        Constants from the :mod:`~pixdrill.drillpoints` module
+        ```(STATS_MEAN, STATS_STDEV etc)``
         defining which 'standard' statistics to extract.
     user_stats : function
         A list of (stat_name, stat_function) tuples containing the user defined
-        function as specified in the ``drill()`` function's docstring.
+        function as specified by :func:`~pixdrill.drill.drill`.
 
     """
     msg = "Calculating stats for %i points in item %s."
@@ -409,8 +417,9 @@ def calc_stats(driller, std_stats=None, user_stats=None, ignore_val=None):
 
 class ImageItem:
     """
-    Analogous to a ``pystac.Item`` object, use an ``ImageItem`` object
-    when constructing ItemDriller objects for an image file.
+    Analogous to a :class:`pystac:pystac.Item` object, use an
+    ``ImageItem`` object when constructing
+    :class:`~pixdrill.drillpoints.ItemDriller` objects for an image file.
 
     Parameters
     ----------

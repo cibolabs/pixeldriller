@@ -1,6 +1,7 @@
 """
-Contains the ``PointStats`` class and standard functions for calculating
-and storing the drilled pixel data and statistics for a ``Point``.
+Contains the :class:`~pixdrill.drillstats.PointStats` class and standard
+functions for calculating and storing the drilled pixel data and statistics
+for a :class:`~pixdrill.drillpoints.Point`.
 
 """
 
@@ -36,7 +37,7 @@ STATS_ARRAYINFO = 'arrayinfo'
 Information about the array
 """
 STATS_MEAN = 'mean'
-""""
+"""
 Calculate the mean
 """
 STATS_STDEV = 'stddev'
@@ -59,7 +60,7 @@ List of standard statistics.
 ITEM_KEY="ITEM"
 """
 For internal use only, it is the symbol used as the key for storing the
-reference to the Item in PointStats.
+reference to the ``Item`` in :class:`~pixdrill.drillstats.PointStats`.
 """
 
 
@@ -69,20 +70,22 @@ class PointStats:
 
     Parameters
     ----------
-    pt: drillpoints.Point object
-        The point associated with this PointStats object.
+    pt : :class:`~pixdrill.drillpoints.Point` object
+        The point associated with this ``PointStats`` object.
 
     Attributes
     ----------
-    pt : the drillpoints.Point object
+    pt : the :class:`~pixdrill.drillpoints.Point` object
     item_stats : dictionary
         a dictionary containing the raster statistics within the region
         of interest of the associated point. The key is the Item ID, and the
         value is another dictionary. The second dictionary's keys are the names
-        of the std_stats and user_stats passed to ``PointStats.calc_stats()``.
-        Its values are a list of the return values of the corresponding stats
-        functions. If the item is a STAC Item, there may be multiple elements
-        in the list corresponding to the drilled Item's assets.
+        of the std_stats and user_stats passed to
+        :func:`~pixdrill.drillstats.PointStats.calc_stats()`. Its values are
+        a list of the return values of the corresponding stats
+        functions. If the item is a :class:`pystac:pystac.Item`, there may be
+        multiple elements in the list corresponding to the drilled
+        ``Item's`` ``assets``.
     
     """
     def __init__(self, pt):
@@ -92,26 +95,28 @@ class PointStats:
 
     def add_data(self, item, arr_info):
         """
-        Add the ``image_reader.ArrayInfo`` object as read from
-        an Item's raster.
+        Add the :class:`~pixdrill.image_reader.ArrayInfo` object as read from
+        an ``Item's`` raster.
 
         Parameters
         ----------
-        item : drill.ImageItem or pystac.Item
-        arr_info : image_reader.ArrayInfo
+        item : :class:`~pixdrill.drill.ImageItem` or :class:`pystac:pystac.Item`
+        arr_info : :class:`pixdrill.image_reader.ArrayInfo`
 
         Notes
         -----
-        Elements are appended to the lists that store the Item's statistics::
+        Elements are appended to the lists that store the ``Item's``
+        statistics::
 
             item_stats[item.id][STATS_RAW].append(arr_info.data)
             item_stats[item.id][STATS_ARRAYINFO].append(arr_info)
 
-        where ``arr_info.data`` is the numpy masked array of data containing
-        the pixels for one of the assets of the item.
+        where ``arr_info.data`` is the :ref:`masked array <numpy:maskedarray>`
+        of data containing the pixels for one of the assets of the item.
         
-        If item is a STAC Item, then ``add_data`` may be called multiple times,
-        once for each raster asset that is drilled.
+        If item is a :class:`pystac:pystac.Item`, then
+        :func:`~pixdrill.drillstats.PointStats.add_data()` may be called
+        multiple times, once for each raster asset that is drilled.
 
         """
         if item.id in self.item_stats:
@@ -133,24 +138,29 @@ class PointStats:
         Parameters
         ----------
         item_id: str
-            The Item's ID, for which stats will be calculated.
+            The ``Item's`` ID, for which stats will be calculated.
         std_stats : int, optional
             A list of ``STATS_*`` constants defined in the
-            ``drillstats`` module, defining the standard stats to calculate.
-        user_stats : list of (name, func) tuples, optional
-            `name` is the name of the statistic.
-            `func` is the user-defined function to calculate the statistic.
+            :mod:`pixdrill.drillstats` module, defining the standard stats
+            to calculate.
+        user_stats : list of ``(name, func)`` tuples, optional
+            ``name`` is the name of the statistic.
+            ``func`` is the user-defined function to calculate the statistic.
 
         Notes
         -----
         One of two of this class's functions must have been called first:
-        #. ``add_data()``, for each raster asset in the item
-        #. ``reset()``
+
+        #. :func:`~pixdrill.drillstats.PointStats.add_data` for each raster
+           asset in the ``Item``
+        #. :func:`~pixdrill.drillstats.PointStats.reset` to clear the stats
 
         See Also
         --------
-        drill.drill : for the signature of a user-supplied statistics function
-            and how to retrieve the statistics from a ``Point``.
+        :func:`pixdrill.drill.drill` : for the signature of a user-supplied
+            statistics function
+            and how to retrieve the statistics from a
+            :class:`~pixdrill.drillstats.Point`.
 
         """
         stats = self.item_stats[item_id]
@@ -183,7 +193,7 @@ class PointStats:
         Parameters
         ----------
         item_id : string
-            The ID of the Item to retrieve the statistics for.
+            The ID of the ``Item`` to retrieve the statistics for.
         stat_name : string
             The name of the statistic to get.
 
@@ -197,24 +207,27 @@ class PointStats:
         The return type varies depending on the parameters:
 
         - the value returned from the statistic's function
-          if both `item_id` and `stat_name` are given
-        - a dictionary, keyed by the statistic names if only `item_id` is
+          if both ``item_id`` and ``stat_name`` are given
+        - a dictionary, keyed by the statistic names if only ``item_id`` is
           given; the values are those returned from the statistic's function
-        - a dictionary, keyed by item ID if only `stat_name` is given;
+        - a dictionary, keyed by item ID if only ``stat_name`` is given;
           the values are those returned from the statistics' functions
         - this object's ``self.item_stats`` dictionary if both parameters
-          are ``None``; this dictionary is keyed by the `item_id`, and each
+          are ``None``; this dictionary is keyed by the ``item_id``, and each
           value is another dictionary, keyed by the statistic name
         
-        If one or both of the `item_id` or `stat_name` are not present in
+        If one or both of the ``item_id`` or ``stat_name`` are not present in
         this object's statistics, then the stats returned in the above data
         structures will be one of:
 
-        - an empty list if `stat_name` is a standard statistic or
-          ``STATS_RAW`` or ``STATS_ARRAYINFO`` and
-          ``calc_stats()`` was not called or ``read_data()`` failed.
-        - None if `stat_name` is a user statistic and
-          ``calc_stats()`` was not called or ``read_data()`` failed.
+        - an empty list if ``stat_name`` is a standard statistic or
+          :attr:`~pixdrill.drillstats.STATS_RAW` or
+          :attr:`~pixdrill.drillstats.STATS_ARRAYINFO` and
+          :func:`~pixdrill.drillstats.PointStats.calc_stats()` was not called
+          or :func:`~pixdrill.drillpoints.ItemDriller.read_data` failed
+        - ``None`` if ``stat_name`` is a user statistic and
+          :func:`~pixdrill.drillstats.PointStats.calc_stats()` was not called
+          or :func:`~pixdrill.drillpoints.ItemDriller.read_data` failed
 
         """
         if item_id and stat_name:
@@ -252,16 +265,18 @@ class PointStats:
 
         Parameters
         ----------
-        item : drill.ImageItem or pystac.Item, optional
+        item : :class:`~pixdrill.drill.ImageItem` or :class:`pystac:pystac.Item`, optional
 
         Notes
         -----
-        If the supplied Item is not in ``self.item_stats``, then add it.
-        This is convenient if a call to ``read_data()`` failed and
-        ``add_data()`` was not subsequently called. This allows the user to
-        progress through failed reads, delaying the checks until after all
-        reads are done and the stats calculated. To help, users can check
-        the return value of ``drillpoints.ItemDriller.read_data()``.
+        If the supplied ``item`` is not in ``self.item_stats``, then add it.
+        This is convenient if a call to
+        :func:`~pixdrill.drillpoints.ItemDriller.read_data` failed and
+        :func:`~pixdrill.drillstats.PointStats.add_data` was not subsequently
+        called. This allows the user to progress through failed reads,
+        delaying the checks until after all reads are done and the stats
+        calculated. To help, users can check the return value of
+        :func:`~pixdrill.drillpoints.ItemDriller.read_data`.
 
         """
         if item is None:
@@ -291,9 +306,9 @@ def check_std_arrays(item, asset_arrays):
 
     Parameters
     ----------
-    item : pystac.item.Item or drill.ImageItem
+    item : :class:`pystac:pystac.Item` or :class:`~pixdrill.drill.ImageItem`
         Item the arrays belong to.
-    asset_arrays : numpy array of shape (layers, ysize, xsize)
+    asset_arrays : numpy array of shape ``(n_bands, ysize, xsize)``
         Arrays to check.
 
     """
@@ -317,7 +332,7 @@ def std_stat_mean(asset_arrays):
 
     Parameters
     ----------
-    asset_arrays : numpy array of shape (layers, ysize, xsize)
+    asset_arrays : list of :ref:`numpy:maskedarray` of shape (1, ysize, xsize)
         Arrays to find the mean for.
 
     Returns
@@ -338,12 +353,9 @@ def std_stat_stdev(asset_arrays):
     Return a 1D array with the standard deviation for each masked array
     in the list of asset_arrays.
 
-    If all values in an input array are masked, then return numpy.ma.masked
-    for that array.
-
     Parameters
     ----------
-    asset_arrays : numpy array of shape (layers, ysize, xsize)
+    asset_arrays : list of :ref:`numpy:maskedarray` of shape (1, ysize, xsize)
         Arrays to find the stdev for.
 
     Returns
@@ -366,7 +378,7 @@ def std_stat_count(asset_arrays):
 
     Parameters
     ----------
-    asset_arrays : numpy array of shape (layers, ysize, xsize)
+    asset_arrays : list of :ref:`numpy:maskedarray` of shape (1, ysize, xsize)
         Arrays to find the count for.
 
     Returns
@@ -386,7 +398,7 @@ def std_stat_countnull(asset_arrays):
 
     Parameters
     ----------
-    asset_arrays : numpy array of shape (layers, ysize, xsize)
+    asset_arrays : list of :ref:`numpy:maskedarray` of shape (1, ysize, xsize)
         Arrays to find the null count for.
 
     Returns

@@ -290,7 +290,7 @@ To generate the HTML on your development machine::
     user@dev-host:~$ sudo apt-get install graphviz
     user@dev-host:~$ python3 -m venv .doc_venv
     user@dev-host:~$ source .doc_venv/bin/activate
-    user@dev-host:~$ (.doc_venv) $ pip install .[docs]
+    user@dev-host:~$ (.doc_venv) $ pip install -e .[docs]
     user@dev-host:~$ (.doc_venv) $ cd doc
     user@dev-host:~$ (.doc_venv) $ make clean
     user@dev-host:~$ (.doc_venv) $ make html

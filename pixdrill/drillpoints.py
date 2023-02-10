@@ -1,6 +1,7 @@
 """
-Contains the ``Point`` and ``ItemDriller`` classes which define the
-survey point's properties and are used to drill an Item's pixels.
+Contains the :class:`~pixdrill.drillpoints.Point` and
+:class:`~pixdrill.drillpoints.ItemDriller` classes which define the
+survey point's properties and are used to drill an ``Item's`` pixels.
 
 """
 
@@ -53,8 +54,8 @@ class Point:
     A structure for an X-Y-Time point with a coordinate reference system,
     spatial shape, and image-acquisition window.
 
-    The statistics for a Point are retrievable using its `stats` attribute,
-    which is an instance of ``drillstats.PointStats``.
+    The statistics for a Point are retrievable using its ``stats`` attribute,
+    which is an instance of :class:`~pixdrill.drillstats.PointStats`.
     
     Parameters
     ----------
@@ -69,17 +70,20 @@ class Point:
         The coordinate reference system of the point's `x`, `y` location.
         Integer's are interpreted as `EPSG codes <https://epsg.org/>`__
         and used to create a GDAL osr.SpatialReference object.
-    t_delta : ``datetime.timedelta`` object
+    t_delta : :class:`python:datetime.timedelta` object
         For searching STAC catalogues. An Item acquired within this time
-        window either side of the point's `time` will be drilled, provided
-        it is one of the ``nearest_n`` Items (see ``drill.drill()``).
+        window either side of the point's time will be drilled, provided
+        it is one of the ``nearest_n`` Items
+        (see :func:`pixdrill.drill.drill`).
     buffer : int or float
         Together with the ``shape`` parameter, buffer defines the region of
         interest about the point.
     shape : {ROI_SHP_SQUARE, ROI_SHP_CIRCLE}
         The shape of the region of interest. If shape is
-        ``ROI_SHP_SQUARE``, then buffer is half the length of the square's side.
-        If shape is ``ROI_SHP_CIRCLE``, then buffer is the circle's radius.        
+        :attr:`~pixdrill.drillpoints.ROI_SHP_SQUARE`, then buffer is half the
+        length of the square's side.
+        If shape is :attr:`~pixdrill.drillpoints.ROI_SHP_CIRCLE`, then buffer
+        is the circle's radius.        
     buffer_degrees : bool
         If True, then the units for the point's buffer are
         assumed to be in degrees, otherwise they are assumed to be in metres.
@@ -108,7 +112,8 @@ class Point:
     buffer : float
         The distance from the point that defines the region of interest.
     shape : int
-        ROI_SHP_SQUARE or ROI_SHP_CIRCLE
+        :attr:`~pixdrill.drillpoints.ROI_SHP_SQUARE` or
+        :attr:`~pixdrill.drillpoints.ROI_SHP_CIRCLE`.
     buffer_degrees : bool
         True if the buffer distance is in degrees or False if it is in metres.
     stats : drillstats.PointStats
@@ -150,7 +155,7 @@ class Point:
 
         Parameters
         ----------
-        ds : A ``osgeo.gdal.Dataset`` object or ``str``
+        ds : An ``osgeo.gdal.Dataset`` object or ``str``
             The file to check intersection with, it can be an open
             GDAL Dataset or a filepath.
 
@@ -353,17 +358,17 @@ class ItemDriller:
     asset_ids : a list of strings
         The IDs of the pystac.Item's raster assets to read; leave
         this as None (the default) if item is an instance of
-        ``drill.ImageItem`` or you want to set the assets later using
-        ``set_asset_ids()``.
+        :class:`~pixdrill.drill.ImageItem` or you want to set the assets
+        later using :func:`~pixdrill.drillpoints.ItemDriller.set_asset_ids`.
 
 
     Attributes
     ----------
-    item : pystac.Item object or a drill.ImageItem
+    item : :class:`pystac:pystac.Item` or :class:`~pixdrill.drill.ImageItem`
         The Item to be drilled.
-    points : list of ``drillpoints.Point`` objects
+    points : list of :class:`~pixdrill.drillpoints.Point` objects
     asset_ids : list of strings
-        the IDs of the pystac.Item's raster assets to read.
+        the IDs of the :class:`pystac:pystac.Item`'s raster assets to read.
 
     """
     def __init__(self, item, asset_ids=None):
@@ -377,7 +382,8 @@ class ItemDriller:
 
     def set_asset_ids(self, asset_ids):
         """
-        Set which asset IDs to read data from on the next call to read_data().
+        Set which asset IDs to read data from on the next call to
+        :func:`~pixdrill.drillpoints.ItemDriller.read_data`.
 
         Parameters
         ----------
@@ -386,24 +392,28 @@ class ItemDriller:
         Notes
         -----
         This function is irrelevant when ``self.item`` is an instance
-        of ``drill.ImageItem``.
-        If ``self.item`` is a ``pystac.Item``, then you must set the asset_ids
-        using this function or in the constructor.
+        of :class:`~pixdrill.drill.ImageItem`.
+        If ``self.item`` is a :class:`pystac:pystac.Item`, then you must set
+        the asset_ids using this function or the constructor.
 
         Using this function probably only makes sense in the context of
         setting the asset IDs for the first time or
-        reusing the ``pystac.Item`` objects to calculate statistics for an
+        reusing the :class:`pystac:pystac.Item` to calculate statistics for an
         entirely new set of raster assets. In the latter case,
-        you would call this function after calling ``reset_stats()`` and before
-        calling ``read_data()`` and ``calc_stats()``.
+        you would call this function after calling
+        :func:`~pixdrill.drillpoints.ItemDriller.reset_stats` and before
+        calling :func:`~pixdrill.drillpoints.ItemDriller.read_data` and
+        :func:`~pixdrill.drillpoints.ItemDriller.calc_stats`.
 
         You may experience strange side effects if you don't call
-        ``reset_stats()`` when the ItemDriller previously had assets assigned.
+        :func:`~pixdrill.drillpoints.ItemDriller.reset_stats`
+        when the ItemDriller previously had assets assigned.
         The underlying behaviour is that arrays for the new set of asset_ids
-        will be appended to the existing arrays for each point's ``PointStats``
-        object. Then, on the next ``calc_stats()`` call, the stats for all
-        previously read data will be recalculated in addition to the new stats
-        for the new assets.
+        will be appended to the existing arrays for each point's
+        :class:`~pixdrill.drillpoints.PointStats` object. Then, on the next
+        :func:`~pixdrill.drillpoints.ItemDriller.calc_stats()` call, the stats
+        for all previously read data will be recalculated in addition to
+        the new stats for the new assets.
 
         """
         if isinstance(self.item, drill.ImageItem):
@@ -421,7 +431,7 @@ class ItemDriller:
 
         Parameters
         ----------
-        pt : Point object
+        pt : :class:`~pixdrill.drillpoints.Point` object
 
         """
         self.points.append(pt)
@@ -430,11 +440,11 @@ class ItemDriller:
         """
         Read the pixels around every point for the given raster assets.
         On completion, each Point's stats object will have a
-        ``numpy.ma.masked_array`` for this Item.
+        :ref:`masked array <numpy:maskedarray>` for the ``Item``.
 
         Parameters
         ----------
-        ignore_val : number or None
+        ignore_val : number or ``None``, optional
             Use the given number to define the pixels to be masked when
             creating the numpy masked arrays. See the notes below.
 
@@ -446,19 +456,20 @@ class ItemDriller:
         Notes
         -----
 
-        When reading from the assets of a ``pystac.Item``, `ignore_val` can be
-        a list of values, a single values, or None.
+        When reading from the assets of a :class:`pystac:pystac.Item`,
+        ``ignore_val`` can be a list of values, a single values, or ``None``.
         A list of values is the null value per asset. It assumes all
         bands in an asset use the same null value.
         A single value is used for all bands of all assets.
         None means to use the no data value set on each the assets' bands.
         
-        When reading the image of a ``drill.ImageItem``, `ignore_val` can be a
-        single value or None.
+        When reading the image of a :class:`~pixdrill.drill.ImageItem`,
+        ``ignore_val`` can be a single value or ``None``.
         A single value is used for all bands in the image.
         None means to use the each band's no data value.
 
-        The reading is done by ``image_reader.ImageReader.read_data()``.
+        The reading is delegated to
+        :func:`pixdrill.image_reader.ImageReader.read_data`.
 
         """
         read_ok = True
@@ -515,11 +526,12 @@ class ItemDriller:
     
     def get_points(self):
         """
-        Get the list of ``Point`` objects in this collection.
+        Get the list of :class:`~pixdrill.drillpoints.Point` objects in
+        this collection.
 
         Returns
         -------
-        list of Point objects
+        list of :class:`~pixdrill.drillpoints.Point` objects
 
         """
         return self.points
@@ -527,7 +539,7 @@ class ItemDriller:
     def calc_stats(self, std_stats=None, user_stats=None):
         """
         Calculate the statistics for every Point. Call this after
-        calling ``read_data()``.
+        calling :func:`~pixdrill.drillpoints.ItemDriller.read_data`.
 
         On completion, each Point's stats object will be populated with
         the statistics.
@@ -537,15 +549,17 @@ class ItemDriller:
         std_stats : list of int, optional
             The list of standard statistics to calculate. Each element must be
             one of the ``STATS_*`` constants defined in
-            ``pixdrill.drillstats``.
+            :mod:`pixdrill.drillstats`.
         user_stats : list of (name, func) tuples
-            `name` is a string and is the name of the statistic.
-            `func` is the name of the function used to calculate the statistic.
+            ``name`` is a string and is the name of the statistic.
+            ``func`` is the name of the function used to calculate
+            the statistic.
 
         See also
         --------
-        drill.drill : for the signature of a user-supplied statistics function
-            and how to retrieve the statistics from a ``Point``.
+        :func:`pixdrill.drill.drill` : for the signature of a user-supplied
+            statistics function and how to retrieve the statistics from a
+            :class:`~pixdrill.drillpoints.Point`.
 
         """
         for pt in self.points:
@@ -554,11 +568,11 @@ class ItemDriller:
 
     def get_item(self):
         """
-        Return this object's ``pystac.Item`` or ``drill.ImageItem``.
+        Return this object's ``Item``.
 
         Returns
         -------
-        pystac.Item or drill.ImageItem
+        :class:`pystac:pystac.Item` or :class:`~pixdrill.drill.ImageItem`
 
         """
         return self.item

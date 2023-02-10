@@ -37,7 +37,7 @@ class ImageInfo:
 
     Parameters
     ----------
-    ds : gdal.Dataset or string
+    ds : ``gdal.Dataset`` or string
             If string, file will be opened
     omit_per_band : bool
         If True, won't calculate per band information. See the notes below.
@@ -70,7 +70,7 @@ class ImageInfo:
     lnames : list of strings
         Names of the layers as a list.
     layer_type : string
-        "thematic" or "athematic", if it is set.
+        ``thematic`` or ``athematic``, if it is set.
     data_type : int
         Data type for the first band (as a GDAL integer constant).
     data_type_name : string
@@ -87,8 +87,7 @@ class ImageInfo:
     required, then setting omit_per_band=True will omit that information, but
     will return as quickly as for a normal single file.
 
-    Sourced from
-    `rios.fileinfo <https://github.com/ubarsc/rios/blob/master/rios/fileinfo.py>`_.
+    Sourced from :class:`rios:rios.fileinfo.ImageInfo`.
 
     """
     def __init__(self, ds, omit_per_band=False):
@@ -132,7 +131,8 @@ class ImageInfo:
 
     def __str__(self):
         """
-        Print a readable version of the object
+        Print a readable version of the object.
+
         """
         lines = []
         for attribute in ['nrows', 'ncols', 'raster_count', 'x_min',
@@ -151,7 +151,7 @@ class ArrayInfo:
 
     Parameters
     ----------
-    data : numpy.ma.masked_array
+    data : :ref:`masked array <numpy:maskedarray>`
         The numpy masked array containing the pixel data.
     asset_id : string
         The ID of the STAC Item's asset from which the data was read.
@@ -231,24 +231,25 @@ class ImageReader:
 
     Parameters
     ----------
-    item : pystac.Item or ImageItem object
+    item : :class:`pystac.Item` or :class:`~pixdrill.drill.ImageItem` object
         Item to read from.
     asset_id : string
-        The raster asset ID. If None, then it's assumed that `item`
-        is an ImageItem.
+        The raster asset ID. If ``None``, then it's assumed that ``item``
+        is an :class:`~pixdrill.drill.ImageItem`.
 
     Attributes
     ----------
-    item : pystac.Item or ImageItem object
+    item : :class:`pystac.Item` or :class:`~pixdrill.drill.ImageItem`
         Item to read from.
     asset_id : string
-        Asset ID. If None, then item is an ImageItem.
+        Asset ID. If None, then item is an
+        :class:`~pixdrill.drill.ImageItem`.
     filepath : string
         The GDAL-readable filepath.
-    dataset : GDAL dataset
+    dataset : ``gdal.Dataset``
         The GDAL dataset for filepath.
-    info : ImageInfo
-        The ``ImageInfo`` object for the `dataset`.
+    info : :class:`~pixdrill.image_reader.ImageInfo`
+        The ``ImageInfo`` object for the ``dataset``.
 
     """
     def __init__(self, item, asset_id=None):
@@ -269,19 +270,22 @@ class ImageReader:
 
         Parameters
         ----------
-        points : list of drillpoints.Point objects
+        points : list of :class:`~pixdrill.drillpoints.Point` objects
             Points to read from.
         ignore_val : float
-            ignore value to use, if None then the image's no data value
+            ignore value to use, if ``None`` then the image's no data value
             is used.
 
         Notes
         -----
-        The data is read using ``read_roi()``, passing it the ignore_val.
+        The data is read using
+        :func:`~pixdrill.image_reader.ImageReader.read_roi`,
+        passing it the ``ignore_val``.
 
-        Once read, the ``drillstats.PointStats`` object
-        (corresponding to this asset's Item ID) of every ``Point`` will contain
-        an ``ArrayInfo`` object.
+        Once read, the :class:`~pixdrill.drillstats.PointStats` object
+        (corresponding to this asset's Item ID) of every
+        :class:`~pixdrill.drillpoints.Point` will contain an
+        :class:`~pixdrill.image_reader.ArrayInfo` object.
 
         """
         # Do a naive read, reading a small chunk of the image for every point.
@@ -304,24 +308,24 @@ class ImageReader:
         Parameters
         ----------
 
-        pt : drillpoints.Point
+        pt : :class:`~pixdrill.drillpoints.Point`
             Point to use
         ignore_val : float
-            ignore value to use, if None then the image's no data value
+            ignore value to use, if ``None`` then the image's no data value
             is used.
 
         Returns
         -------
-        ArrayInfo
+        :class:`~pixdrill.image_reader.ArrayInfo`
 
         Notes
         -----
         We use an 'all-touched' approach, whereby any pixel inside
         or touched by the ROI's boundary is returned. Any pixels outside or
-        not touched by the ROI's boundary are masked using `ignore_val`.
+        not touched by the ROI's boundary are masked using ``ignore_val``.
         
-        The ArrayInfo object contains a 3D `numpy.ma.masked_array`
-        with the pixel data.
+        The :class:`~pixdrill.image_reader.ArrayInfo` object contains a 3D
+        :ref:`masked array <numpy:maskedarray>` with the pixel data.
         
         If ``ignore_val`` is ``None``, the
         no-data value set on each band in the image is used. If
@@ -387,33 +391,34 @@ class ImageReader:
         Parameters
         ----------
 
-        pt : drillpoints.Point
+        pt : :class:`~pixdrill.drillpoints.Point`
             Point to use
 
         Returns
         -------
         tuple of floats
             The rectangular bounds in pixel coordinates as
-            (xoff, yoff, win_xsize, win_ysize).
+            ``(xoff, yoff, win_xsize, win_ysize)``.
 
         Notes
         -----
         If a pixel touches the image's bounds it is included.
     
-        In the returned tuple, `xoff`, `yoff` defines the grid location of the
-        top-left pixel of the pixel window to read. `win_xsize` and `win_ysize`
-        are the number of columns and rows to read from the image.
+        In the returned tuple, ``(xoff, yoff)`` defines the grid location of
+        the top-left pixel of the pixel window to read. ``win_xsize`` and
+        ``win_ysize`` are the number of columns and rows to read from the
+        image.
     
-        An `xoff`, `yoff` of 0, 0 corresponds to the top-left pixel of the
-        image. An `xoff`, `yoff` of
-        (ImageInfo.ncols-1, ImageInfo.nrows-1) corresponds to
+        An ``(xoff, yoff)`` of ``(0, 0)`` corresponds to the top-left pixel
+        of the image. An ``(xoff, yoff)`` of
+        ``(ImageInfo.ncols-1, ImageInfo.nrows-1)`` corresponds to
         the bottom-right pixel of the image.
         
         If the window straddles the image's extents bounds, the returned
         window is clipped to the image's extents.
 
-        If the returned win_xsize or win_ysize is 0, it means the window was
-        entirely outside of the image's extents.
+        If the returned ``win_xsize`` or ``win_ysize`` is ``0``, it means the
+        window was entirely outside of the image's extents.
 
         """
         a_sp_ref = osr.SpatialReference()
@@ -470,33 +475,34 @@ class ImageReader:
         Parameters
         ----------
 
-        pt : drillpoints.Point
+        pt : :class:`~pixdrill.drillpoints.Point`
             Point to use.
-        arr_info : ArrayInfo
+        arr_info : :class:`~pixdrill.image_reader.ArrayInfo`
             The ArrayInfo object with the data to be masked.
         ignore_val : float
-            ignore value to use, if None then the image's no data value
+            ignore value to use, if ``None`` then the image's no data value
             is used.
 
         Returns
         -------
         None
-            arr_info.data is updated in place.
+            ``arr_info.data`` is updated in place.
 
         Notes
         -----
-        The pixels outside the shape are set to `ignore_val`.
-        If `ignore_val` is None, the no-data value set on each band of the
-        image is used. If `ignore_val` is set, use the same value for every
-        image band.
+        The pixels outside the shape are set to ``ignore_val``.
+        If ``ignore_val`` is ``None``, the no-data value set on each band of
+        the image is used. If ``ignore_val`` is set, use the same value for
+        every image band.
 
         Currently only supports points with a ``shape`` attribute of
-        ``drillpoints.ROI_SHP_SQUARE`` or ``drillpoints.ROI_SHP_CIRCLE``.
+        :attr:`~pixdrill.drillpoints.ROI_SHP_SQUARE` or
+        :attr:`~pixdrill.drillpoints.ROI_SHP_CIRCLE`.
         No masking is done in the case of squares.
         
         Raises
         ------
-        ImageReaderError
+        :exc:`~pixdrill.image_reader.ImageReaderError`
             If ``pt.shape==drillpoints.ROI_SHP_CIRCLE`` and the size of
             ``arr_info.data`` is less than 5.
 
@@ -561,7 +567,7 @@ class ImageReader:
 
         Returns
         -------
-        tuple of (x, y)
+        tuple of ``(x, y)``
 
         """
         inv_transform = gdal.InvGeoTransform(self.info.transform)
@@ -579,7 +585,7 @@ class ImageReader:
 
         Returns
         -------
-        tuple of (geox, geoy)
+        tuple of ``(geox, geoy)``
 
         """
         geo_x, geo_y = gdal.ApplyGeoTransform(self.info.transform, x, y)
