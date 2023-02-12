@@ -1,0 +1,66 @@
+digraph Structure {
+    splines="TRUE";
+
+    /* Entities */
+    /* pixdrill classes */
+    node [shape="square" style="filled" fillcolor="grey"]
+    ImageItem [label="Image Item\n(drill.ImageItem)"]
+    ImageReader [label="Image Reader\n(image_reader.ImageReader)"]
+    ImageInfo [label="Metadata\n(image_reader.ImageInfo)"]
+    Point [label="Survey Point\n(drillpoints.Point)"]
+    PointStats [label="Survey Stats\n(drillstats.PointStats)"]
+    Driller [label="Driller\n(drillpoints.ItemDriller)"]
+    ArrayInfo [label="Drilled Data\n(image_reader.ArrayInfo)"]
+    /* Class from other packages */
+    Item [label="Item\n(conceptual only)" fillcolor="#eeeeee"]
+    node [shape="square", style=""]
+    StacItem [label="STAC Item\n(pystac.Item)"]
+    StacAsset [label="STAC Asset\n(pystac.Asset)"]
+    StacCatalogue [label="STAC Catalogue\n(pystac-client.Client)"]
+    Image [label="Image\n(gdal.Dataset)"]
+    Band [label="Band\n(gdal.Band)"]
+    PixelData [label="Pixels\n(numpy.ma.masked_array)"]
+
+    
+    /* Inheritance Relationships */
+    edge [arrowhead="o"]
+
+    /* Associations */
+    edge [arrowhead="vee"]
+    StacItem -> StacAsset[headlabel="*"]
+    StacAsset -> Image
+    ImageItem -> Image
+    PointStats -> Item[headlabel="*"]
+    Driller -> Item
+    StacCatalogue -> StacItem[headlabel="*"]
+    Point -> PointStats
+    PointStats -> ArrayInfo[headlabel="*"]
+    Driller -> Point[headlabel="*"]
+    ArrayInfo -> PixelData
+
+    /* Compositions */
+    edge [arrowhead="diamond"]
+    ImageReader -> ImageInfo
+    Image -> Band[headlabel="*"]
+
+    /* Dependencies */
+    edge [arrowhead="vee" style="dashed"]
+    Driller -> ImageReader[headlabel="*"]
+    ImageReader -> PointStats[label="populates data"]
+
+    /* Realisations */
+    edge [arrowhead="normal" style="dashed"]
+    StacItem -> Item
+    ImageItem -> Item
+
+
+
+    /* Notes */
+    /*(ItemNote [label="Add comment here", shape="note"]
+    edge [arrowhead="odiamond"]
+    ItemNote -> Item*/
+    
+    /* Ranks ?? */
+    /*{ rank=same; StacItem; ImageItem}*/
+    /*{ rank=same; Image};*/
+}

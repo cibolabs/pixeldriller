@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pixeldriller"
+version = "0.2.0"
+dependencies = [
+    "pystac-client>=0.4.0",
+    "numpy"
+]
+
+# sphinx restricted to <6 until pydata-sphinx-theme=0.13 is released.
+# See https://github.com/pydata/pydata-sphinx-theme/issues/1094.
+# docutils>=0.19 creates conflicts with sphinx-rtd-theme when building
+# on readthedocs.
+[project.optional-dependencies]
+docs = ["docutils<0.19", "sphinx<6", "numpydoc", "pydata-sphinx-theme"]
