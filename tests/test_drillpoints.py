@@ -110,13 +110,13 @@ def test_item_driller(real_item):
     with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
         drlr.read_data()
     assert "Cannot read data from pystac.Item objects without " in str(excinfo)
-    drlr.set_asset_ids(['B02', 'B11'])
+    drlr.set_asset_ids(['blue', 'swir16'])
     drlr.read_data()
     assert drlr.item.id == "S2B_53HPV_20220728_0_L2A"
-    assert drlr.asset_ids == ['B02', 'B11']
+    assert drlr.asset_ids == ['blue', 'swir16']
     with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
         drillpoints.ItemDriller(
-            drill.ImageItem("fake_path"), asset_ids=['B02'])
+            drill.ImageItem("fake_path"), asset_ids=['blue'])
     assert "do not set asset_ids when item is an ImageItem" in \
         str(excinfo.value)
 
@@ -126,7 +126,7 @@ def test_read_data(caplog, point_one_item, real_item):
     Test the ItemDriller.read_data() and PointStats.add_data() functions.
 
     """
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_one_item)
     read_ok = drlr.read_data()
     assert read_ok
@@ -142,7 +142,7 @@ def test_read_data(caplog, point_one_item, real_item):
     # the stats should return empty lists.
     point_one_item.stats.reset()  # scrub the stats.
     drlr = drillpoints.ItemDriller(
-        real_item, asset_ids=['B02', 'B11', 'metadata'])
+        real_item, asset_ids=['blue', 'swir16', 'granule_metadata'])
     drlr.add_point(point_one_item)
     read_ok = drlr.read_data()
     assert not read_ok

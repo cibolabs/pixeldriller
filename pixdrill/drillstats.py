@@ -172,7 +172,7 @@ class PointStats:
             check_std_arrays(item, stats[STATS_RAW])
             warnings.filterwarnings(
                 'ignore', category=UserWarning,
-                message='Warning: converting a masked element to nan.')
+                message='Warning: converting a masked element to nan')
             # Assume that STATS_RAW and STATS_ARRAYINFO are already populated
             # or are empty lists.
             stats_list = [
@@ -344,8 +344,13 @@ def std_stat_mean(asset_arrays):
     # Calculate the stat for each array because their x and y sizes will
     # differ if their pixel sizes are different.
     # If all values in an array are masked, then mean=numpy.nan.
-    mean_vals = [arr.mean() for arr in asset_arrays]
-    return numpy.array(mean_vals)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            'ignore', category=UserWarning,
+            message='Warning: converting a masked element to nan')
+        mean_vals = [arr.mean() for arr in asset_arrays]
+        return_val = numpy.array(mean_vals)
+    return return_val
 
 
 def std_stat_stdev(asset_arrays):
@@ -367,8 +372,13 @@ def std_stat_stdev(asset_arrays):
     # Calculate the stat for each array because their x and y sizes will
     # differ if their pixel sizes are different.
     # If all values in an array are masked, then stdev=numpy.nan.
-    stdev_vals = [arr.std() for arr in asset_arrays]
-    return numpy.array(stdev_vals)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            'ignore', category=UserWarning,
+            message='Warning: converting a masked element to nan')
+        stdev_vals = [arr.std() for arr in asset_arrays]
+        return_val = numpy.array(stdev_vals)
+    return return_val
 
 
 def std_stat_count(asset_arrays):

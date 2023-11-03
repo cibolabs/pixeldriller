@@ -15,7 +15,7 @@ RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # pypi packages
 # pystac-client, monitor updates and test regularly
-RUN pip install pystac-client==0.6.0
+RUN pip install pystac-client~=0.6
 
 ENV PYTHONUNBUFFERED=1
 
@@ -24,9 +24,10 @@ ENV GDAL_CACHEMAX=1024000000
 ENV GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
 ENV GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES
 ENV GDAL_HTTP_MULTIPLEX=YES
-ENV CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff,.vrt,.zip"
+ENV CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff,.vrt,.zip,.geojson"
 ENV VSI_CACHE=True
 ENV VSI_CACHE_SIZE=1024000000
+ENV CPL_VSIL_CURL_CACHE_SIZE=200000000
 ENV GDAL_HTTP_MAX_RETRY=10
 ENV GDAL_HTTP_MAX_RETRY=3
 ENV CPL_ZIP_ENCODING=UTF-8

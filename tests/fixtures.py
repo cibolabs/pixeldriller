@@ -12,8 +12,8 @@ from pixdrill.drillpoints import Point, ROI_SHP_SQUARE, ROI_SHP_CIRCLE
 # We use Element84's STAC endpoint and search the sentinel-s2-l2a-cogs
 # collection in many tests.
 
-STAC_ENDPOINT = "https://earth-search.aws.element84.com/v0"
-COLLECTIONS = ['sentinel-s2-l2a-cogs']
+STAC_ENDPOINT = "https://earth-search.aws.element84.com/v1"
+COLLECTIONS = ['sentinel-2-l2a']
 _STAC_CLIENT = None
 
 
@@ -357,5 +357,5 @@ def real_image_path(real_item):
 
     """
     # /vsicurl/https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/53/H/PV/2022/7/S2B_53HPV_20220728_0_L2A/SCL.tif
-    filepath = f"/vsicurl/{real_item.assets['SCL'].href}"
+    filepath = f"/vsicurl/{real_item.assets['scl'].href}"
     return filepath
