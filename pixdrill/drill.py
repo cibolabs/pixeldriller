@@ -384,7 +384,7 @@ def _time_diff(item, pt):
 
     """
     acq_time = item.properties['datetime'].upper()
-    acq_time = datetime.datetime.strptime(acq_time, "%Y-%m-%dT%H:%M:%SZ")
+    acq_time = datetime.datetime.strptime(acq_time, "%Y-%m-%dT%H:%M:%S.%fZ")
     acq_time = acq_time.replace(tzinfo=timezone.utc)
     diff = abs(acq_time - pt.t).total_seconds()
     return diff

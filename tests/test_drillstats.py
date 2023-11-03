@@ -73,7 +73,7 @@ def test_calc_stats(point_one_item, real_item):
         return stat_2
     user_stats = [
         ("TEST_STAT_1", test_stat_1), ("TEST_STAT_2", test_stat_2)]
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_one_item)
     drlr.read_data()
     drlr.calc_stats(std_stats=std_stats, user_stats=user_stats)
@@ -174,7 +174,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
     """
     # Partials. Assumes the asets' no data values are set.
     std_stats = [drillstats.STATS_MEAN]
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_partial_nulls)
     drlr.read_data()
     drlr.calc_stats(std_stats=std_stats)
@@ -182,7 +182,7 @@ def test_handle_nulls(point_partial_nulls, point_all_nulls, real_item):
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [1473.43, 1019.69]
     # All nulls. Assumes the assets' no data values are set.
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_all_nulls)
     drlr.read_data()
     drlr.calc_stats(std_stats=std_stats)
@@ -202,7 +202,7 @@ def test_user_nulls(point_all_nulls, real_item):
     # The test assumes that the asset's no-data value=0,
     # thus giving a mean of 0.
     std_stats = [drillstats.STATS_MEAN]
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_all_nulls)
     with pytest.raises(drillpoints.ItemDrillerError) as excinfo:
         drlr.read_data(ignore_val=[-9999])
@@ -224,7 +224,7 @@ def test_handle_outofrange(
     """
     std_stats = [drillstats.STATS_MEAN]
     # Case: the ROI straddles the image extents.
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_straddle_bounds_1)
     drlr.read_data()
     drlr.calc_stats(std_stats=std_stats)
@@ -236,7 +236,7 @@ def test_handle_outofrange(
         item_id=real_item.id, stat_name=drillstats.STATS_MEAN)
     assert list(mean_vals.round(2)) == [3520.44, 2146.22]
     # Case: the ROI is entirely outside the image extents.
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_outside_bounds_1)
     drlr.read_data()
     drlr.calc_stats(std_stats=std_stats)
@@ -253,7 +253,7 @@ def test_reset(point_one_item, real_item):
     Test resetting of stats and calculating a new set of stats.
 
     """
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02', 'B11'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue', 'swir16'])
     drlr.add_point(point_one_item)
     std_stats = [drillstats.STATS_MEAN]
     drlr.read_data()
@@ -267,7 +267,7 @@ def test_reset(point_one_item, real_item):
     # Now do another read/calc stats, appending B8A data to the ItemStats objects.
     # Note that stats for B02 and B11 are recalculated as well.
     std_stats.append(drillstats.STATS_COUNT)
-    drlr.set_asset_ids(['B8A'])
+    drlr.set_asset_ids(['nir08'])
     drlr.read_data()
     drlr.calc_stats(std_stats=std_stats)
     i_stats = point_one_item.stats.item_stats
@@ -280,7 +280,7 @@ def test_reset(point_one_item, real_item):
     # Then calculate stats on a different asset.
     drlr.reset_stats()
     std_stats = [drillstats.STATS_COUNT]
-    drlr.set_asset_ids(['SCL'])
+    drlr.set_asset_ids(['scl'])
     drlr.read_data()
     drlr.calc_stats(std_stats=std_stats)
     i_stats = point_one_item.stats.item_stats
@@ -309,7 +309,7 @@ def test_get_stats(point_one_item, real_item):
     stats = point_stats.get_stats(item_id=real_item.id, stat_name="USER_STAT")
     assert stats is None
     # Test state after calling read_data(). It will populate STATS_RAW and STATS_ARRAYINFO.
-    drlr = drillpoints.ItemDriller(real_item, asset_ids=['B02'])
+    drlr = drillpoints.ItemDriller(real_item, asset_ids=['blue'])
     drlr.add_point(point_one_item)
     drlr.read_data()
     stats = point_one_item.stats.get_stats()
