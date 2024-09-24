@@ -1,0 +1,45 @@
+# Publish a package in codeartifact after merge to main.
+# Adapted from: https://medium.com/jamf-engineering/publishing-python-packages-to-aws-codeartifact-using-github-actions-8356e6d4034c
+name: Publish Package
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-west-2 # change to appropriate region
+          role-to-assume: arn:aws:iam::565393045996:role/CodeArtifactPublisherRole
+          role-session-name: RepoPublishPackage
+          role-duration-seconds: 900
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install Twine
+        run: |
+          python3 -m pip install -U setuptools wheel build twine
+      - name: Build Package
+        run: |
+          python3 -m build
+      - name: Publish Package
+        run: |
+          aws codeartifact login --tool twine --domain cibolabs --repository cibolabs &&
+          twine upload --repository codeartifact dist/*
